@@ -1,0 +1,29 @@
+{
+  "users": [
+    {
+      "username": "anna_kowalska",
+      "email": "anna.kowalska@example.com",
+      "password": "haslo123!"
+    },
+    {
+      "username": "jan_nowak",
+      "email": "jan.nowak@example.com",
+      "password": "bezpieczne456!"
+    },
+    {
+      "username": "kasia_gotuje",
+      "email": "kasia.gotuje@example.com",
+      "password": "przepisy789!"
+    },
+    {
+      "username": "szef_kuchni",
+      "email": "szef.kuchni@example.com",
+      "password": "kuchnia2024!"
+    },
+    {
+      "username": "admin",
+      "email": "admin@example.com",
+      "password": "admin1234!"
+    }
+  ]
+} 
