@@ -34,6 +34,13 @@ export default appSchema({
         { name: 'video', type: 'string', isOptional: true }, // For URLField
         { name: 'source', type: 'string', isOptional: true }
       ]
+    }),
+    tableSchema({
+      name: 'recipe_tags',
+      columns: [
+        { name: 'recipe_id', type: 'string' }, // References the recipe.id
+        { name: 'tag_id', type: 'string' }, // References the tag.id
+      ]
     })
   ]
 }) 

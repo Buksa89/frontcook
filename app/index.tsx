@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, Text, Image, TouchableOpacity, ScrollView } from 'react-native';
 import { recipes } from '../data/recipes';
 import { withObservables } from '@nozbe/watermelondb/react';
-import database from './database';
+import database from '../database';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { Model } from '@nozbe/watermelondb';
-import Tag from './database/models/Tag';
+import Tag from '../database/models/Tag';
 import { Observable } from 'rxjs';
 
 interface TagListProps {
