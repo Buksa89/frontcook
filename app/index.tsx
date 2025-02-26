@@ -1,9 +1,61 @@
 import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, Text, Image, TouchableOpacity, ScrollView } from 'react-native';
 import { recipes } from '../data/recipes';
-import { tags } from '../data/tags';
-import { Recipe } from '../types/recipe';
+import { withObservables } from '@nozbe/watermelondb/react';
+import database from './database';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import { Model } from '@nozbe/watermelondb';
+import Tag from './database/models/Tag';
+import { Observable } from 'rxjs';
+
+interface TagListProps {
+  tags: Tag[];
+  selectedTag: string | null;
+  onSelectTag: (id: string | null) => void;
+}
+
+// Base component that receives tags as a prop
+const TagList = ({ tags, selectedTag, onSelectTag }: TagListProps) => (
+  <ScrollView 
+    horizontal 
+    showsHorizontalScrollIndicator={false}
+    style={styles.tagsScroll}
+    contentContainerStyle={styles.tagsContainer}
+  >
+    {tags.map(tag => (
+      <TouchableOpacity
+        key={tag.id}
+        style={[
+          styles.tagButton,
+          selectedTag === tag.id && styles.tagButtonSelected
+        ]}
+        onPress={() => onSelectTag(selectedTag === tag.id ? null : tag.id)}
+      >
+        <Text style={[
+          styles.tagText,
+          selectedTag === tag.id && styles.tagTextSelected
+        ]}>
+          {tag.displayName}
+        </Text>
+      </TouchableOpacity>
+    ))}
+  </ScrollView>
+);
+
+// Enhance the TagList component to observe tags from the database
+const enhance = withObservables<{ selectedTag: string | null; onSelectTag: (id: string | null) => void }, { tags: Observable<Tag[]> }>([], () => ({
+  tags: database.get('tags').query().observe() as Observable<Tag[]>
+}));
+
+const EnhancedTagList = enhance(TagList);
+
+interface Recipe {
+  id: string;
+  name: string;
+  image: string;
+  rating?: number;
+  tags?: string[];
+}
 
 const RecipeCard = ({ recipe }: { recipe: Recipe }) => (
   <TouchableOpacity 
@@ -51,35 +103,21 @@ const RecipeCard = ({ recipe }: { recipe: Recipe }) => (
 );
 
 export default function RecipeListScreen() {
-  const [selectedTag, setSelectedTag] = useState<number | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  // Convert recipe IDs to strings for TypeScript compatibility
+  const formattedRecipes: Recipe[] = recipes.map(recipe => ({
+    ...recipe,
+    id: String(recipe.id)
+  }));
 
   return (
     <View style={styles.container}>
       <View style={styles.filterBar}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.tagsScroll}
-          contentContainerStyle={styles.tagsContainer}
-        >
-          {tags.map(tag => (
-            <TouchableOpacity
-              key={tag.id}
-              style={[
-                styles.tagButton,
-                selectedTag === tag.id && styles.tagButtonSelected
-              ]}
-              onPress={() => setSelectedTag(selectedTag === tag.id ? null : tag.id)}
-            >
-              <Text style={[
-                styles.tagText,
-                selectedTag === tag.id && styles.tagTextSelected
-              ]}>
-                {tag.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <EnhancedTagList 
+          selectedTag={selectedTag} 
+          onSelectTag={setSelectedTag}
+        />
         <View style={styles.filterButtons}>
           <TouchableOpacity 
             style={styles.filterButton}
@@ -97,9 +135,9 @@ export default function RecipeListScreen() {
       </View>
 
       <FlatList
-        data={recipes}
+        data={formattedRecipes}
         renderItem={({ item }) => <RecipeCard recipe={item} />}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
       />
       
