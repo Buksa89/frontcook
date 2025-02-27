@@ -143,8 +143,8 @@ export default function RootLayout() {
       />
       <Stack.Screen 
         name="add-recipe" 
-        options={{ 
-          headerTitle: "Nowy przepis",
+        options={({ route }) => ({ 
+          headerTitle: route.params?.recipeId ? "Edytuj przepis" : "Nowy przepis",
           headerBackTitle: "Wróć",
           headerStyle: {
             backgroundColor: '#fff'
@@ -155,7 +155,7 @@ export default function RootLayout() {
             color: '#333'
           },
           headerShadowVisible: false
-        }} 
+        })} 
       />
       <Stack.Screen 
         name="recipe-details" 

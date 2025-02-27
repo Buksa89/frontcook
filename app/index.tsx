@@ -8,6 +8,7 @@ import Tag from '../database/models/Tag';
 import Recipe from '../database/models/Recipe';
 import { Observable } from 'rxjs';
 import { router } from 'expo-router';
+import { map } from 'rxjs/operators';
 
 interface TagListProps {
   tags: Tag[];
@@ -91,17 +92,54 @@ const RecipeCard = ({ recipe }: RecipeCardProps) => (
   </TouchableOpacity>
 );
 
-// Enhance RecipeCard to observe recipes
-const enhanceRecipeList = withObservables<{ selectedTag: string | null }, { recipes: Observable<Recipe[]> }>(
-  ['selectedTag'],
-  ({ selectedTag }) => ({
-    recipes: selectedTag
-      ? database.get('recipes')
-          .query()
-          .observe()
-      : database.get('recipes')
-          .query()
-          .observe()
+// Dodaj typy sortowania
+type MaterialIconName = 'sort-by-alpha' | 'grade' | 'schedule';
+
+type SortOption = {
+  key: 'name' | 'rating' | 'totalTime';
+  label: string;
+  icon: MaterialIconName;
+};
+
+const sortOptions: SortOption[] = [
+  { key: 'name', label: 'Nazwa (A-Z)', icon: 'sort-by-alpha' },
+  { key: 'rating', label: 'Ocena (najwyższa)', icon: 'grade' },
+  { key: 'totalTime', label: 'Czas przygotowania', icon: 'schedule' },
+];
+
+// Enhance RecipeCard to observe recipes with sorting
+const enhanceRecipeList = withObservables<
+  { selectedTag: string | null; sortBy: SortOption['key'] | null },
+  { recipes: Observable<Recipe[]> }
+>(
+  ['selectedTag', 'sortBy'],
+  ({ selectedTag, sortBy }) => ({
+    recipes: database.get<Recipe>('recipes')
+      .query()
+      .observe()
+      .pipe(
+        map((recipes) => {
+          let sortedRecipes = [...recipes] as Recipe[];
+          if (sortBy) {
+            sortedRecipes.sort((a, b) => {
+              switch (sortBy) {
+                case 'name':
+                  return a.name.localeCompare(b.name);
+                case 'rating':
+                  return (b.rating || 0) - (a.rating || 0);
+                case 'totalTime':
+                  return (a.totalTime || 0) - (b.totalTime || 0);
+                default:
+                  return 0;
+              }
+            });
+          } else {
+            // Domyślne sortowanie po nazwie
+            sortedRecipes.sort((a, b) => a.name.localeCompare(b.name));
+          }
+          return sortedRecipes;
+        })
+      )
   })
 );
 
@@ -128,6 +166,8 @@ const EnhancedRecipeList = enhanceRecipeList(
 export default function RecipeListScreen() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [currentSort, setCurrentSort] = useState<SortOption['key'] | null>(null);
 
   const AddRecipeMenu = () => (
     <Modal
@@ -207,6 +247,65 @@ export default function RecipeListScreen() {
     </Modal>
   );
 
+  const SortMenu = () => (
+    <Modal
+      visible={showSortMenu}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowSortMenu(false)}
+    >
+      <Pressable 
+        style={styles.modalOverlay}
+        onPress={() => setShowSortMenu(false)}
+      >
+        <View style={styles.menuContainer}>
+          <View style={styles.menuHeader}>
+            <Text style={styles.menuTitle}>Sortuj przepisy</Text>
+            <TouchableOpacity onPress={() => setShowSortMenu(false)}>
+              <MaterialIcons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          
+          {sortOptions.map((option) => (
+            <TouchableOpacity 
+              key={option.key}
+              style={[
+                styles.menuItem,
+                currentSort === option.key && styles.menuItemSelected
+              ]}
+              onPress={() => {
+                setCurrentSort(currentSort === option.key ? null : option.key);
+                setShowSortMenu(false);
+              }}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={[
+                  styles.iconContainer,
+                  currentSort === option.key && styles.iconContainerSelected
+                ]}>
+                  <MaterialIcons 
+                    name={option.icon} 
+                    size={24} 
+                    color={currentSort === option.key ? "#fff" : "#2196F3"} 
+                  />
+                </View>
+                <Text style={[
+                  styles.menuItemText,
+                  currentSort === option.key && styles.menuItemTextSelected
+                ]}>
+                  {option.label}
+                </Text>
+              </View>
+              {currentSort === option.key && (
+                <MaterialIcons name="check" size={24} color="#2196F3" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Pressable>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.filterBar}>
@@ -216,10 +315,17 @@ export default function RecipeListScreen() {
         />
         <View style={styles.filterButtons}>
           <TouchableOpacity 
-            style={styles.filterButton}
-            onPress={() => console.log('Sortowanie przepisów')}
+            style={[
+              styles.filterButton,
+              currentSort && styles.filterButtonActive
+            ]}
+            onPress={() => setShowSortMenu(true)}
           >
-            <MaterialIcons name="sort" size={20} color="#666" />
+            <MaterialIcons 
+              name="sort" 
+              size={20} 
+              color={currentSort ? "#2196F3" : "#666"} 
+            />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.filterButton}
@@ -230,7 +336,7 @@ export default function RecipeListScreen() {
         </View>
       </View>
 
-      <EnhancedRecipeList selectedTag={selectedTag} />
+      <EnhancedRecipeList selectedTag={selectedTag} sortBy={currentSort} />
       
       <View style={styles.fabContainer}>
         <TouchableOpacity 
@@ -249,6 +355,7 @@ export default function RecipeListScreen() {
       </View>
 
       <AddRecipeMenu />
+      <SortMenu />
     </View>
   );
 }
@@ -460,5 +567,18 @@ const styles = StyleSheet.create({
   menuItemTextDisabled: {
     fontSize: 16,
     color: '#999',
+  },
+  menuItemSelected: {
+    backgroundColor: '#f5f5f5',
+  },
+  menuItemTextSelected: {
+    color: '#2196F3',
+    fontWeight: '600',
+  },
+  iconContainerSelected: {
+    backgroundColor: '#2196F3',
+  },
+  filterButtonActive: {
+    backgroundColor: '#e3f2fd',
   },
 });

@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, router } from 'expo-router';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../database';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
@@ -16,17 +16,28 @@ const RecipeDetailsScreen = ({ recipe }) => {
 
   return (
     <ScrollView style={styles.container}>
-      {recipe.image ? (
-        <Image
-          source={{ uri: recipe.image }}
-          style={styles.image}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={styles.imagePlaceholder}>
-          <MaterialIcons name="restaurant" size={48} color="#ccc" />
-        </View>
-      )}
+      <View style={styles.header}>
+        {recipe.image ? (
+          <Image
+            source={{ uri: recipe.image }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <MaterialIcons name="restaurant" size={48} color="#ccc" />
+          </View>
+        )}
+        <TouchableOpacity 
+          style={styles.editButton}
+          onPress={() => router.push({
+            pathname: '/add-recipe',
+            params: { recipeId: recipe.id }
+          })}
+        >
+          <MaterialIcons name="edit" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.content}>
         <Text style={styles.title}>{recipe.name}</Text>
@@ -104,6 +115,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  header: {
+    position: 'relative',
+  },
   image: {
     width: '100%',
     height: 250,
@@ -115,8 +129,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  editButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: -28,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
   content: {
     padding: 16,
+    paddingTop: 40,
   },
   title: {
     fontSize: 24,

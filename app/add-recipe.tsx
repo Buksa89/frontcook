@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import database from '../database';
+import { withObservables } from '@nozbe/watermelondb/react';
+import Recipe from '../database/models/Recipe';
+import { Q } from '@nozbe/watermelondb';
+import { map } from 'rxjs/operators';
 
-export default function AddRecipeScreen() {
+interface EditRecipeScreenProps {
+  existingRecipe?: Recipe | null;
+}
+
+const EditRecipeScreen = ({ existingRecipe }: EditRecipeScreenProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [prepTime, setPrepTime] = useState('');
@@ -13,6 +21,19 @@ export default function AddRecipeScreen() {
   const [instructions, setInstructions] = useState('');
   const [notes, setNotes] = useState('');
 
+  useEffect(() => {
+    if (existingRecipe) {
+      setName(existingRecipe.name);
+      setDescription(existingRecipe.description || '');
+      setPrepTime(existingRecipe.prepTime?.toString() || '');
+      setTotalTime(existingRecipe.totalTime?.toString() || '');
+      setServings(existingRecipe.servings?.toString() || '');
+      setIngredients(existingRecipe.ingredients);
+      setInstructions(existingRecipe.instructions);
+      setNotes(existingRecipe.notes || '');
+    }
+  }, [existingRecipe]);
+
   const handleSubmit = async () => {
     if (!name || !ingredients || !instructions) {
       Alert.alert('Błąd', 'Wypełnij wymagane pola (nazwa, składniki, instrukcje)');
@@ -21,25 +42,41 @@ export default function AddRecipeScreen() {
 
     try {
       await database.write(async () => {
-        await database.get('recipes').create(recipe => {
-          recipe.name = name;
-          recipe.description = description;
-          recipe.prepTime = parseInt(prepTime) || 0;
-          recipe.totalTime = parseInt(totalTime) || 0;
-          recipe.servings = parseInt(servings) || 1;
-          recipe.ingredients = ingredients;
-          recipe.instructions = instructions;
-          recipe.notes = notes;
-          recipe.rating = 0;
-          recipe.isApproved = true;
-        });
+        if (existingRecipe) {
+          await existingRecipe.update(recipe => {
+            recipe.name = name;
+            recipe.description = description;
+            recipe.prepTime = parseInt(prepTime) || 0;
+            recipe.totalTime = parseInt(totalTime) || 0;
+            recipe.servings = parseInt(servings) || 1;
+            recipe.ingredients = ingredients;
+            recipe.instructions = instructions;
+            recipe.notes = notes;
+          });
+        } else {
+          const recipesCollection = database.get<Recipe>('recipes');
+          await recipesCollection.create(recipe => {
+            recipe.name = name;
+            recipe.description = description;
+            recipe.prepTime = parseInt(prepTime) || 0;
+            recipe.totalTime = parseInt(totalTime) || 0;
+            recipe.servings = parseInt(servings) || 1;
+            recipe.ingredients = ingredients;
+            recipe.instructions = instructions;
+            recipe.notes = notes;
+            recipe.rating = 0;
+            recipe.isApproved = true;
+          });
+        }
       });
 
-      Alert.alert('Sukces', 'Przepis został dodany', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      Alert.alert(
+        'Sukces', 
+        existingRecipe ? 'Przepis został zaktualizowany' : 'Przepis został dodany', 
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
     } catch (error) {
-      Alert.alert('Błąd', 'Nie udało się dodać przepisu');
+      Alert.alert('Błąd', existingRecipe ? 'Nie udało się zaktualizować przepisu' : 'Nie udało się dodać przepisu');
       console.error(error);
     }
   };
@@ -140,11 +177,29 @@ export default function AddRecipeScreen() {
           style={styles.submitButton}
           onPress={handleSubmit}
         >
-          <Text style={styles.submitButtonText}>Dodaj przepis</Text>
+          <Text style={styles.submitButtonText}>
+            {existingRecipe ? 'Zapisz zmiany' : 'Dodaj przepis'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
+};
+
+const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId?: string }) => ({
+  existingRecipe: database.get<Recipe>('recipes')
+    .query(Q.where('id', Q.eq(recipeId || '')))
+    .observeWithColumns(['id'])
+    .pipe(
+      map(recipes => recipes[0] || null)
+    )
+}));
+
+const EnhancedEditRecipeScreen = enhance(EditRecipeScreen);
+
+export default function AddRecipe() {
+  const { recipeId } = useLocalSearchParams<{ recipeId?: string }>();
+  return <EnhancedEditRecipeScreen recipeId={recipeId} />;
 }
 
 const styles = StyleSheet.create({
