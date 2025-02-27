@@ -57,7 +57,10 @@ interface RecipeCardProps {
 const RecipeCard = ({ recipe }: RecipeCardProps) => (
   <TouchableOpacity 
     style={styles.card}
-    onPress={() => console.log('Otwarto przepis:', recipe.name)}
+    onPress={() => router.push({
+      pathname: '/recipe-details',
+      params: { id: recipe.id }
+    })}
   >
     <View style={[styles.imageContainer, styles.imagePlaceholder]}>
       <Image
@@ -239,7 +242,7 @@ export default function RecipeListScreen() {
         
         <TouchableOpacity 
           style={styles.fab}
-          onPress={() => console.log('Otwórz koszyk')}
+          onPress={() => router.push('/shopping-list')}
         >
           <AntDesign name="shoppingcart" size={24} color="white" />
         </TouchableOpacity>
