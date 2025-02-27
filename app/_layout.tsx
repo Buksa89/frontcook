@@ -34,86 +34,18 @@ export default function RootLayout() {
   };
 
   return (
-    <Stack
-      screenOptions={{
-        header: () => (
-          <View style={{ 
-            height: 60,
-            backgroundColor: '#fff',
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingTop: 20,
-            justifyContent: 'space-between',
-            paddingHorizontal: 16,
-          }}>
-            {/* Lewa strona - ikona home */}
-            <Animated.View style={{ opacity: headerOpacity }}>
-              <TouchableOpacity>
-                <AntDesign name="home" size={24} color="#333" />
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Środek - pole wyszukiwania */}
-            <Animated.View style={{ 
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 20,
-              bottom: 0,
-              opacity: searchOpacity,
-              paddingHorizontal: 16,
-              transform: [
-                {
-                  translateX: searchWidth.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [SCREEN_WIDTH, 0]
-                  })
-                }
-              ]
-            }}>
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#f5f5f5',
-                borderRadius: 18,
-                height: 36,
-              }}>
-                <TouchableOpacity 
-                  style={{ padding: 8 }}
-                  onPress={toggleSearch}
-                >
-                  <AntDesign name="arrowleft" size={20} color="#666" />
-                </TouchableOpacity>
-                <TextInput
-                  style={{
-                    flex: 1,
-                    paddingRight: 16,
-                  }}
-                  placeholder="Szukaj..."
-                  placeholderTextColor="#999"
-                  autoFocus={true}
-                />
-              </View>
-            </Animated.View>
-
-            {/* Prawa strona - ikony search i menu */}
-            <Animated.View style={{ 
-              flexDirection: 'row',
-              opacity: headerOpacity 
-            }}>
-              <TouchableOpacity 
-                style={{ marginRight: 20 }}
-                onPress={toggleSearch}
-              >
-                <AntDesign name="search1" size={24} color="#333" />
-              </TouchableOpacity>
-              <TouchableOpacity>
-                <Entypo name="dots-three-vertical" size={24} color="#333" />
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-        )
-      }}
-    />
+    <Stack>
+      <Stack.Screen 
+        name="index" 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="add-recipe" 
+        options={{ 
+          headerTitle: "Nowy przepis",
+          headerBackTitle: "Wróć"
+        }} 
+      />
+    </Stack>
   );
 }
