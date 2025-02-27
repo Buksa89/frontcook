@@ -5,12 +5,18 @@ import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../database';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import Recipe from '../database/models/Recipe';
+import Tag from '../database/models/Tag';
+import RecipeTag from '../database/models/RecipeTag';
+import { Q } from '@nozbe/watermelondb';
+import { Observable } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 
 interface RecipeDetailsScreenProps {
   recipe: Recipe | null;
+  tags: Tag[];
 }
 
-const RecipeDetailsScreen = ({ recipe }: RecipeDetailsScreenProps) => {
+const RecipeDetailsScreen = ({ recipe, tags }: RecipeDetailsScreenProps) => {
   if (!recipe) {
     return (
       <View style={styles.container}>
@@ -59,6 +65,16 @@ const RecipeDetailsScreen = ({ recipe }: RecipeDetailsScreenProps) => {
       <View style={styles.content}>
         <Text style={styles.title}>{recipe.name}</Text>
         
+        {tags.length > 0 && (
+          <View style={styles.tags}>
+            {tags.map(tag => (
+              <View key={tag.id} style={styles.tag}>
+                <Text style={styles.tagText}>{tag.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {recipe.description && (
           <Text style={styles.description}>{recipe.description}</Text>
         )}
@@ -122,7 +138,28 @@ const RecipeDetailsScreen = ({ recipe }: RecipeDetailsScreenProps) => {
 };
 
 const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId: string }) => ({
-  recipe: database.get<Recipe>('recipes').findAndObserve(recipeId)
+  recipe: database.get<Recipe>('recipes').findAndObserve(recipeId),
+  tags: database.get<Recipe>('recipes')
+    .findAndObserve(recipeId)
+    .pipe(
+      switchMap(recipe => {
+        if (!recipe) return new Observable<Tag[]>(subscriber => subscriber.next([]));
+        return database
+          .get<RecipeTag>('recipe_tags')
+          .query(Q.where('recipe_id', recipe.id))
+          .observe()
+          .pipe(
+            switchMap(async recipeTags => {
+              const tags = await Promise.all(
+                recipeTags.map(rt => 
+                  database.get<Tag>('tags').find(rt.tagId)
+                )
+              );
+              return tags.filter((tag): tag is Tag => tag !== null);
+            })
+          );
+      })
+    )
 }));
 
 const EnhancedRecipeDetailsScreen = enhance(RecipeDetailsScreen);
@@ -228,5 +265,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#444',
     lineHeight: 24,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  tag: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  tagText: {
+    color: '#2196F3',
+    fontSize: 14,
   },
 }); 

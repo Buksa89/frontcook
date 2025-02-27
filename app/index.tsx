@@ -6,9 +6,11 @@ import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { Model } from '@nozbe/watermelondb';
 import Tag from '../database/models/Tag';
 import Recipe from '../database/models/Recipe';
+import RecipeTag from '../database/models/RecipeTag';
+import { Q } from '@nozbe/watermelondb';
 import { Observable } from 'rxjs';
 import { router } from 'expo-router';
-import { map } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 
 interface TagListProps {
   tags: Tag[];
@@ -53,9 +55,10 @@ const EnhancedTagList = enhance(TagList);
 
 interface RecipeCardProps {
   recipe: Recipe;
+  tags: Tag[];
 }
 
-const RecipeCard = ({ recipe }: RecipeCardProps) => (
+const RecipeCard = ({ recipe, tags }: RecipeCardProps) => (
   <TouchableOpacity 
     style={styles.card}
     onPress={() => router.push({
@@ -72,6 +75,15 @@ const RecipeCard = ({ recipe }: RecipeCardProps) => (
     </View>
     <View style={styles.cardContent}>
       <Text style={styles.title}>{recipe.name}</Text>
+      {tags.length > 0 && (
+        <View style={styles.recipeTags}>
+          {tags.map(tag => (
+            <View key={tag.id} style={styles.recipeTag}>
+              <Text style={styles.recipeTagText}>{tag.name}</Text>
+            </View>
+          ))}
+        </View>
+      )}
       <View style={styles.rating}>
         {[1, 2, 3, 4, 5].map(star => (
           <AntDesign 
@@ -91,6 +103,27 @@ const RecipeCard = ({ recipe }: RecipeCardProps) => (
     </TouchableOpacity>
   </TouchableOpacity>
 );
+
+// Enhance RecipeCard to observe recipe tags
+const enhanceRecipeCard = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => ({
+  recipe,
+  tags: database
+    .get<RecipeTag>('recipe_tags')
+    .query(Q.where('recipe_id', recipe.id))
+    .observe()
+    .pipe(
+      switchMap(async recipeTags => {
+        const tags = await Promise.all(
+          recipeTags.map(rt => 
+            database.get<Tag>('tags').find(rt.tagId)
+          )
+        );
+        return tags.filter((tag): tag is Tag => tag !== null);
+      })
+    )
+}));
+
+const EnhancedRecipeCard = enhanceRecipeCard(RecipeCard);
 
 // Dodaj typy sortowania
 type MaterialIconName = 'sort-by-alpha' | 'grade' | 'schedule';
@@ -148,7 +181,7 @@ const EnhancedRecipeList = enhanceRecipeList(
     <>
       <FlatList
         data={recipes}
-        renderItem={({ item }) => <RecipeCard recipe={item} />}
+        renderItem={({ item }) => <EnhancedRecipeCard recipe={item} />}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
         ListEmptyComponent={() => (
@@ -401,18 +434,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 4,
   },
-  tagsList: {
+  recipeTags: {
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 4,
     marginBottom: 4,
   },
   recipeTag: {
-    fontSize: 12,
-    color: '#666',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#e3f2fd',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
+  },
+  recipeTagText: {
+    color: '#2196F3',
+    fontSize: 12,
   },
   rating: {
     flexDirection: 'row',
