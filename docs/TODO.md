@@ -1,3 +1,5 @@
+https://chatgpt.com/c/67c0d0bf-f104-8010-8e17-071bf3c55ba8 - wspolne modele (na koncu)
+
 
 7 Dobre praktyki do wprowadzenia:
     Wprowadzenie React.memo() dla komponentów, które nie muszą się często przerenderowywać
