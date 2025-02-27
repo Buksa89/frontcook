@@ -4,8 +4,13 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../database';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import Recipe from '../database/models/Recipe';
 
-const RecipeDetailsScreen = ({ recipe }) => {
+interface RecipeDetailsScreenProps {
+  recipe: Recipe | null;
+}
+
+const RecipeDetailsScreen = ({ recipe }: RecipeDetailsScreenProps) => {
   if (!recipe) {
     return (
       <View style={styles.container}>
@@ -13,6 +18,18 @@ const RecipeDetailsScreen = ({ recipe }) => {
       </View>
     );
   }
+
+  const handleRatingChange = async (newRating: number) => {
+    try {
+      await database.write(async () => {
+        await recipe.update(recipe => {
+          recipe.rating = newRating;
+        });
+      });
+    } catch (error) {
+      console.error('Błąd podczas aktualizacji oceny:', error);
+    }
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -69,12 +86,17 @@ const RecipeDetailsScreen = ({ recipe }) => {
 
         <View style={styles.rating}>
           {[1, 2, 3, 4, 5].map(star => (
-            <AntDesign 
+            <TouchableOpacity 
               key={star}
-              name={star <= (recipe.rating || 0) ? "star" : "staro"}
-              size={24} 
-              color="#FFD700"
-            />
+              onPress={() => handleRatingChange(star)}
+            >
+              <AntDesign 
+                name={star <= (recipe.rating || 0) ? "star" : "staro"}
+                size={32} 
+                color="#FFD700"
+                style={styles.star}
+              />
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -99,15 +121,15 @@ const RecipeDetailsScreen = ({ recipe }) => {
   );
 };
 
-const enhance = withObservables(['recipeId'], ({ recipeId }) => ({
-  recipe: database.get('recipes').findAndObserve(recipeId)
+const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId: string }) => ({
+  recipe: database.get<Recipe>('recipes').findAndObserve(recipeId)
 }));
 
 const EnhancedRecipeDetailsScreen = enhance(RecipeDetailsScreen);
 
 export default function RecipeDetails() {
   const { id } = useLocalSearchParams();
-  return <EnhancedRecipeDetailsScreen recipeId={id} />;
+  return <EnhancedRecipeDetailsScreen recipeId={id as string} />;
 }
 
 const styles = StyleSheet.create({
@@ -185,8 +207,13 @@ const styles = StyleSheet.create({
   },
   rating: {
     flexDirection: 'row',
-    gap: 4,
-    marginBottom: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 16,
+    padding: 8,
+  },
+  star: {
+    marginHorizontal: 2,
   },
   section: {
     marginBottom: 24,

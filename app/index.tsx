@@ -116,7 +116,7 @@ const enhanceRecipeList = withObservables<
   ({ selectedTag, sortBy }) => ({
     recipes: database.get<Recipe>('recipes')
       .query()
-      .observe()
+      .observeWithColumns(['rating'])
       .pipe(
         map((recipes) => {
           let sortedRecipes = [...recipes] as Recipe[];
