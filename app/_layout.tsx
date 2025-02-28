@@ -10,7 +10,7 @@ type RootStackParamList = {
   '(screens)/RecipeListScreen/RecipeListScreen': undefined;
   '(screens)/RecipeManagementScreen/RecipeManagementScreen': { recipeId?: string };
   '(screens)/RecipeDetailScreen/RecipeDetailScreen': { recipeId?: string };
-  'shopping-list': undefined;
+  '(screens)/ShoppingListScreen/ShoppingListScreen': undefined;
 };
 
 type NavigationProps = {
@@ -267,7 +267,7 @@ export default function RootLayout() {
           }} 
         />
         <Stack.Screen 
-          name="shopping-list" 
+          name="(screens)/ShoppingListScreen/ShoppingListScreen" 
           options={{ 
             headerTitle: "Lista zakupów",
             headerBackTitle: "Wróć",

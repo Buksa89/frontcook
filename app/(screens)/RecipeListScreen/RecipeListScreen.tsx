@@ -112,7 +112,7 @@ const RecipeCard = ({ recipe, tags }: RecipeCardProps) => (
     <TouchableOpacity 
       style={styles.cardShopCart}
       onPress={() => router.push({
-        pathname: '/shopping-list'
+        pathname: '/(screens)/ShoppingListScreen/ShoppingListScreen'
       })}
     >
       <AntDesign name="shoppingcart" size={24} color="#2196F3" />
@@ -713,7 +713,7 @@ export default function RecipeListScreen() {
         <TouchableOpacity 
           style={styles.fab}
           onPress={() => router.push({
-            pathname: '/shopping-list'
+            pathname: '/(screens)/ShoppingListScreen/ShoppingListScreen'
           })}
         >
           <AntDesign name="shoppingcart" size={24} color="white" />
