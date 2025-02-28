@@ -1,33 +1,42 @@
 import { Model } from '@nozbe/watermelondb'
 import { field, text, children, lazy, writer } from '@nozbe/watermelondb/decorators'
 import { Q } from '@nozbe/watermelondb'
+import { Associations } from '@nozbe/watermelondb'
+import { Observable } from 'rxjs'
+import RecipeTag from './RecipeTag'
+import Ingredient from './Ingredient'
+
+interface UpdateTimesParams {
+  prepTime?: number
+  totalTime?: number
+}
 
 export default class Recipe extends Model {
   static table = 'recipes'
-  static associations = {
+  static associations: Associations = {
     recipe_tags: { type: 'has_many', foreignKey: 'recipe_id' },
     ingredients: { type: 'has_many', foreignKey: 'recipe_id' }
   }
 
-  @field('remote_id') remoteId
-  @text('user_email') userEmail
-  @text('name') name
-  @text('description') description
-  @text('image') image
-  @field('rating') rating
-  @field('is_approved') isApproved
-  @field('prep_time') prepTime
-  @field('total_time') totalTime
-  @field('servings') servings
-  @text('instructions') instructions
-  @text('notes') notes
-  @text('nutrition') nutrition
-  @text('video') video
-  @text('source') source
+  @field('remote_id') remoteId!: string | null
+  @text('user_email') userEmail!: string | null
+  @text('name') name!: string
+  @text('description') description!: string | null
+  @text('image') image!: string | null
+  @field('rating') rating!: number | null
+  @field('is_approved') isApproved!: boolean
+  @field('prep_time') prepTime!: number | null
+  @field('total_time') totalTime!: number | null
+  @field('servings') servings!: number | null
+  @text('instructions') instructions!: string
+  @text('notes') notes!: string | null
+  @text('nutrition') nutrition!: string | null
+  @text('video') video!: string | null
+  @text('source') source!: string | null
 
   // Children relations
-  @children('recipe_tags') recipeTags
-  @children('ingredients') ingredients
+  @children('recipe_tags') recipeTags!: Observable<RecipeTag[]>
+  @children('ingredients') ingredients!: Observable<Ingredient[]>
 
   // Custom queries
   @lazy approvedRecipeTags = this.recipeTags.extend(
@@ -43,34 +52,34 @@ export default class Recipe extends Model {
   )
 
   // Writer methods
-  @writer async updateRating(newRating) {
+  @writer async updateRating(newRating: number): Promise<void> {
     await this.update(recipe => {
       recipe.rating = newRating
     })
   }
 
-  @writer async toggleApproval() {
+  @writer async toggleApproval(): Promise<void> {
     await this.update(recipe => {
       recipe.isApproved = !recipe.isApproved
     })
   }
 
-  @writer async updateTimes({ prepTime, totalTime }) {
+  @writer async updateTimes({ prepTime, totalTime }: UpdateTimesParams): Promise<void> {
     await this.update(recipe => {
       if (prepTime !== undefined) recipe.prepTime = prepTime
       if (totalTime !== undefined) recipe.totalTime = totalTime
     })
   }
 
-  @writer async updateServings(servings) {
+  @writer async updateServings(servings: number): Promise<void> {
     await this.update(recipe => {
       recipe.servings = servings
     })
   }
 
-  @writer async updateIngredients(ingredientsText) {
+  @writer async updateIngredients(ingredientsText: string): Promise<void> {
     const database = this.database
-    const ingredientsCollection = database.get('ingredients')
+    const ingredientsCollection = database.get<Ingredient>('ingredients')
     
     // Split text into lines and remove empty lines
     const ingredientLines = ingredientsText
@@ -92,7 +101,7 @@ export default class Recipe extends Model {
         ingredientsCollection.prepareCreate(ingredient => {
           ingredient.recipeId = this.id
           ingredient.order = index + 1
-          ingredient.original_str = line
+          ingredient.originalStr = line
         })
       )
     ]
@@ -102,32 +111,32 @@ export default class Recipe extends Model {
   }
 
   // Derived fields
-  get hasImage() {
+  get hasImage(): boolean {
     return Boolean(this.image)
   }
 
-  get hasVideo() {
+  get hasVideo(): boolean {
     return Boolean(this.video)
   }
 
-  get isComplete() {
+  get isComplete(): boolean {
     return Boolean(
       this.name &&
       this.instructions
     )
   }
 
-  get cookingTime() {
+  get cookingTime(): number | null {
     if (!this.totalTime) return null
     return this.totalTime - (this.prepTime || 0)
   }
 
   // Helper method to get ingredients as text
-  async getIngredientsAsText() {
+  async getIngredientsAsText(): Promise<string> {
     const ingredients = await this.ingredients.fetch()
     return ingredients
       .sort((a, b) => a.order - b.order)
-      .map(ingredient => ingredient.original_str)
+      .map(ingredient => ingredient.originalStr)
       .join('\n')
   }
 } 

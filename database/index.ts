@@ -9,16 +9,21 @@ import Recipe from './models/Recipe'
 import RecipeTag from './models/RecipeTag'
 import Ingredient from './models/Ingredient'
 
+interface DefaultTag {
+  name: string
+  order: number
+}
+
 const adapter = new LokiJSAdapter({
   schema,
   migrations,
   useWebWorker: false, // We can enable this if we want better performance
   useIncrementalIndexedDB: true, // This makes it faster
-  onQuotaExceededError: error => {
+  onQuotaExceededError: (error: Error) => {
     // Handle storage quota exceeded
     console.error('Storage quota exceeded', error)
   },
-  onSetUpError: error => {
+  onSetUpError: (error: Error) => {
     // Handle setup error
     console.error('Database failed to load', error)
   },
@@ -34,9 +39,9 @@ const database = new Database({
     Ingredient
   ],
 })
-//TODO: change condition - not whemn db empty, but if guest and empty
+
 // Default tags to populate
-const defaultTags = [
+const defaultTags: DefaultTag[] = [
   { name: 'Śniadanie', order: 1 },
   { name: 'Obiad', order: 2 },
   { name: 'Kolacja', order: 3 },
@@ -51,14 +56,14 @@ const defaultTags = [
 ]
 
 // Function to populate default tags
-async function populateDefaultTags() {
-  const tagsCollection = database.get('tags')
+async function populateDefaultTags(): Promise<void> {
+  const tagsCollection = database.get<Tag>('tags')
   const existingTags = await tagsCollection.query().fetch()
   
   if (existingTags.length === 0) {
     await database.write(async () => {
       const promises = defaultTags.map(tag => 
-        tagsCollection.create(record => {
+        tagsCollection.create((record: Tag) => {
           record.name = tag.name
           record.order = tag.order
         })

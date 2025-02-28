@@ -1,4 +1,15 @@
 import { schemaMigrations, createTable, addColumns } from '@nozbe/watermelondb/Schema/migrations'
+import { TableSchema, ColumnSchema } from '@nozbe/watermelondb'
+
+interface Migration {
+  toVersion: number
+  steps: Array<{
+    type: string
+    name?: string
+    columns?: ColumnSchema[]
+    sql?: string
+  }>
+}
 
 export default schemaMigrations({
   migrations: [
