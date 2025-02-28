@@ -8,7 +8,7 @@ declare module "expo-router" {
     | "/(screens)/RecipeDetailScreen/RecipeDetailScreen"
     | "/(screens)/RecipeListScreen/RecipeListScreen"
     | "/(screens)/RecipeManagementScreen/RecipeManagementScreen"
-    | "/shopping-list"
+    | "/(screens)/ShoppingListScreen/ShoppingListScreen"
     | "/"
     | "/_sitemap";
 
@@ -20,6 +20,7 @@ declare module "expo-router" {
 
   export interface Router {
     push: (route: { pathname: AppRoutes; params?: RouteParams }) => void;
+    back: () => void;
   }
 
   interface StackScreenProps {

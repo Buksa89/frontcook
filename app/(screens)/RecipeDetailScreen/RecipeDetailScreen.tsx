@@ -10,6 +10,8 @@ import RecipeTag from '../../../database/models/RecipeTag';
 import { Q } from '@nozbe/watermelondb';
 import { Observable } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
+import { RecipeHeader } from './RecipeHeader';
+import { RecipeRating } from './RecipeRating';
 
 interface RecipeDetailsScreenProps {
   recipe: Recipe | null;
@@ -39,28 +41,7 @@ const RecipeDetailsScreen = ({ recipe, tags }: RecipeDetailsScreenProps) => {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        {recipe.image ? (
-          <Image
-            source={{ uri: recipe.image }}
-            style={styles.image}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <MaterialIcons name="restaurant" size={48} color="#ccc" />
-          </View>
-        )}
-        <TouchableOpacity 
-          style={styles.editButton}
-          onPress={() => router.push({
-            pathname: '/(screens)/RecipeManagementScreen/RecipeManagementScreen',
-            params: { recipeId: recipe.id }
-          })}
-        >
-          <MaterialIcons name="edit" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      <RecipeHeader recipe={recipe} />
 
       <View style={styles.content}>
         <Text style={styles.title}>{recipe.name}</Text>
@@ -100,21 +81,7 @@ const RecipeDetailsScreen = ({ recipe, tags }: RecipeDetailsScreenProps) => {
           )}
         </View>
 
-        <View style={styles.rating}>
-          {[1, 2, 3, 4, 5].map(star => (
-            <TouchableOpacity 
-              key={star}
-              onPress={() => handleRatingChange(star)}
-            >
-              <AntDesign 
-                name={star <= (recipe.rating || 0) ? "star" : "staro"}
-                size={32} 
-                color="#FFD700"
-                style={styles.star}
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
+        <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Składniki</Text>
@@ -166,8 +133,7 @@ const EnhancedRecipeDetailsScreen = enhance(RecipeDetailsScreen);
 
 export default function RecipeDetails() {
   const params = useLocalSearchParams();
-  const recipeId = typeof params.recipeId === 'string' ? params.recipeId : 
-                   typeof params.id === 'string' ? params.id : undefined;
+  const recipeId = typeof params.recipeId === 'string' ? params.recipeId : undefined;
                    
   if (!recipeId) {
     return (
@@ -184,39 +150,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-  },
-  header: {
-    position: 'relative',
-  },
-  image: {
-    width: '100%',
-    height: 250,
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: 250,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  editButton: {
-    position: 'absolute',
-    right: 16,
-    bottom: -28,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#2196F3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   content: {
     padding: 16,
@@ -252,16 +185,6 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 14,
     color: '#666',
-  },
-  rating: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 16,
-    padding: 8,
-  },
-  star: {
-    marginHorizontal: 2,
   },
   section: {
     marginBottom: 24,

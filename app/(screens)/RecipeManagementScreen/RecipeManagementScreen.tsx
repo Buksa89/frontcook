@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import database from '../../../database';
 import { withObservables } from '@nozbe/watermelondb/react';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
-import { MaterialIcons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import { Observable, of } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { switchMap } from 'rxjs/operators';
 import RecipeTag from '../../../database/models/RecipeTag';
+import { RecipeForm } from './RecipeForm';
 
 interface EditRecipeScreenProps {
   existingRecipe: Recipe | null;
@@ -18,32 +18,43 @@ interface EditRecipeScreenProps {
 }
 
 const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initialSelectedTags }: EditRecipeScreenProps) => {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [prepTime, setPrepTime] = useState('');
-  const [totalTime, setTotalTime] = useState('');
-  const [servings, setServings] = useState('');
-  const [ingredients, setIngredients] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [notes, setNotes] = useState('');
-  const [showTagsModal, setShowTagsModal] = useState(false);
-  const [selectedTags, setSelectedTags] = useState<Tag[]>(initialSelectedTags);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    prepTime: '',
+    totalTime: '',
+    servings: '',
+    ingredients: '',
+    instructions: '',
+    notes: '',
+    selectedTags: initialSelectedTags
+  });
 
   useEffect(() => {
     if (existingRecipe) {
-      setName(existingRecipe.name);
-      setDescription(existingRecipe.description || '');
-      setPrepTime(existingRecipe.prepTime?.toString() || '');
-      setTotalTime(existingRecipe.totalTime?.toString() || '');
-      setServings(existingRecipe.servings?.toString() || '');
-      setIngredients(existingRecipe.ingredients);
-      setInstructions(existingRecipe.instructions);
-      setNotes(existingRecipe.notes || '');
+      setFormData({
+        name: existingRecipe.name,
+        description: existingRecipe.description || '',
+        prepTime: existingRecipe.prepTime?.toString() || '',
+        totalTime: existingRecipe.totalTime?.toString() || '',
+        servings: existingRecipe.servings?.toString() || '',
+        ingredients: existingRecipe.ingredients,
+        instructions: existingRecipe.instructions,
+        notes: existingRecipe.notes || '',
+        selectedTags: initialSelectedTags
+      });
     }
-  }, [existingRecipe]);
+  }, [existingRecipe, initialSelectedTags]);
+
+  const handleFieldChange = (field: keyof typeof formData, value: string | Tag[]) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleSubmit = async () => {
-    if (!name || !ingredients || !instructions) {
+    if (!formData.name || !formData.ingredients || !formData.instructions) {
       Alert.alert('Błąd', 'Wypełnij wymagane pola (nazwa, składniki, instrukcje)');
       return;
     }
@@ -52,14 +63,14 @@ const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initial
       await database.write(async () => {
         if (existingRecipe) {
           await existingRecipe.update(recipe => {
-            recipe.name = name;
-            recipe.description = description;
-            recipe.prepTime = parseInt(prepTime) || 0;
-            recipe.totalTime = parseInt(totalTime) || 0;
-            recipe.servings = parseInt(servings) || 1;
-            recipe.ingredients = ingredients;
-            recipe.instructions = instructions;
-            recipe.notes = notes;
+            recipe.name = formData.name;
+            recipe.description = formData.description;
+            recipe.prepTime = parseInt(formData.prepTime) || 0;
+            recipe.totalTime = parseInt(formData.totalTime) || 0;
+            recipe.servings = parseInt(formData.servings) || 1;
+            recipe.ingredients = formData.ingredients;
+            recipe.instructions = formData.instructions;
+            recipe.notes = formData.notes;
           });
 
           // Update recipe tags
@@ -71,7 +82,7 @@ const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initial
           // Prepare all operations for the batch
           const operations = [
             ...existingTags.map(tag => tag.prepareDestroyPermanently()),
-            ...selectedTags.map(tag => 
+            ...formData.selectedTags.map(tag => 
               recipeTagsCollection.prepareCreate(rt => {
                 rt.recipeId = existingRecipe.id;
                 rt.tagId = tag.id;
@@ -84,21 +95,21 @@ const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initial
         } else {
           const recipesCollection = database.get<Recipe>('recipes');
           const newRecipe = await recipesCollection.create(recipe => {
-            recipe.name = name;
-            recipe.description = description;
-            recipe.prepTime = parseInt(prepTime) || 0;
-            recipe.totalTime = parseInt(totalTime) || 0;
-            recipe.servings = parseInt(servings) || 1;
-            recipe.ingredients = ingredients;
-            recipe.instructions = instructions;
-            recipe.notes = notes;
+            recipe.name = formData.name;
+            recipe.description = formData.description;
+            recipe.prepTime = parseInt(formData.prepTime) || 0;
+            recipe.totalTime = parseInt(formData.totalTime) || 0;
+            recipe.servings = parseInt(formData.servings) || 1;
+            recipe.ingredients = formData.ingredients;
+            recipe.instructions = formData.instructions;
+            recipe.notes = formData.notes;
             recipe.rating = 0;
             recipe.isApproved = true;
           });
 
           // Add tags to new recipe
           const recipeTagsCollection = database.get<RecipeTag>('recipe_tags');
-          const operations = selectedTags.map(tag =>
+          const operations = formData.selectedTags.map(tag =>
             recipeTagsCollection.prepareCreate(rt => {
               rt.recipeId = newRecipe.id;
               rt.tagId = tag.id;
@@ -123,186 +134,14 @@ const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initial
     }
   };
 
-  const TagsModal = () => (
-    <Modal
-      visible={showTagsModal}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={() => setShowTagsModal(false)}
-    >
-      <Pressable 
-        style={styles.modalOverlay}
-        onPress={() => setShowTagsModal(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Wybierz tagi</Text>
-            <TouchableOpacity onPress={() => setShowTagsModal(false)}>
-              <MaterialIcons name="close" size={24} color="#666" />
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.tagsList}>
-            {availableTags.map(tag => {
-              const isSelected = selectedTags.some(t => t.id === tag.id);
-              return (
-                <TouchableOpacity
-                  key={tag.id}
-                  style={[
-                    styles.tagItem,
-                    isSelected && styles.tagItemSelected
-                  ]}
-                  onPress={() => {
-                    if (isSelected) {
-                      setSelectedTags(selectedTags.filter(t => t.id !== tag.id));
-                    } else {
-                      setSelectedTags([...selectedTags, tag]);
-                    }
-                  }}
-                >
-                  <Text style={[
-                    styles.tagItemText,
-                    isSelected && styles.tagItemTextSelected
-                  ]}>
-                    {tag.name}
-                  </Text>
-                  {isSelected && (
-                    <MaterialIcons name="check" size={20} color="#2196F3" />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </Pressable>
-    </Modal>
-  );
-
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.form}>
-        <View style={styles.field}>
-          <Text style={styles.label}>Nazwa*</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Nazwa przepisu"
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Tagi</Text>
-          <TouchableOpacity
-            style={styles.tagsButton}
-            onPress={() => setShowTagsModal(true)}
-          >
-            <View style={styles.selectedTags}>
-              {selectedTags.length > 0 ? (
-                selectedTags.map(tag => (
-                  <View key={tag.id} style={styles.tagChip}>
-                    <Text style={styles.tagChipText}>{tag.name}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.tagsPlaceholder}>Wybierz tagi</Text>
-              )}
-            </View>
-            <MaterialIcons name="chevron-right" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Opis</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Krótki opis przepisu"
-            multiline
-          />
-        </View>
-
-        <View style={styles.row}>
-          <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
-            <Text style={styles.label}>Czas przygotowania (min)</Text>
-            <TextInput
-              style={styles.input}
-              value={prepTime}
-              onChangeText={setPrepTime}
-              placeholder="np. 15"
-              keyboardType="numeric"
-            />
-          </View>
-
-          <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
-            <Text style={styles.label}>Całkowity czas (min)</Text>
-            <TextInput
-              style={styles.input}
-              value={totalTime}
-              onChangeText={setTotalTime}
-              placeholder="np. 45"
-              keyboardType="numeric"
-            />
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Liczba porcji</Text>
-          <TextInput
-            style={styles.input}
-            value={servings}
-            onChangeText={setServings}
-            placeholder="np. 4"
-            keyboardType="numeric"
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Składniki*</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={ingredients}
-            onChangeText={setIngredients}
-            placeholder="Lista składników"
-            multiline
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Instrukcje*</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={instructions}
-            onChangeText={setInstructions}
-            placeholder="Sposób przygotowania"
-            multiline
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Notatki</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Dodatkowe uwagi"
-            multiline
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={styles.submitButton}
-          onPress={handleSubmit}
-        >
-          <Text style={styles.submitButtonText}>
-            {existingRecipe ? 'Zapisz zmiany' : 'Dodaj przepis'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <TagsModal />
-    </ScrollView>
+    <RecipeForm
+      data={formData}
+      onDataChange={handleFieldChange}
+      availableTags={availableTags}
+      onSubmit={handleSubmit}
+      isEditing={!!existingRecipe}
+    />
   );
 };
 
@@ -341,129 +180,7 @@ const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId?: string
 const EnhancedEditRecipeScreen = enhance(EditRecipeScreen);
 
 export default function AddRecipe() {
-  const { recipeId } = useLocalSearchParams<{ recipeId?: string }>();
+  const params = useLocalSearchParams();
+  const recipeId = params.recipeId as string | undefined;
   return <EnhancedEditRecipeScreen recipeId={recipeId} />;
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  form: {
-    padding: 16,
-  },
-  field: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  row: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  submitButton: {
-    backgroundColor: '#2196F3',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  modalContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-  },
-  tagsList: {
-    padding: 16,
-  },
-  tagItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  tagItemSelected: {
-    backgroundColor: '#f5f5f5',
-  },
-  tagItemText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  tagItemTextSelected: {
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-  tagsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#fff',
-  },
-  selectedTags: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tagChip: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  tagChipText: {
-    color: '#2196F3',
-    fontSize: 14,
-  },
-  tagsPlaceholder: {
-    color: '#999',
-    fontSize: 16,
-  },
-}); 
+} 
