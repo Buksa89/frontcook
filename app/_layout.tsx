@@ -2,6 +2,22 @@ import { Stack } from "expo-router";
 import { TouchableOpacity, Animated, TextInput, View, Dimensions, Text } from 'react-native';
 import { AntDesign, Entypo } from '@expo/vector-icons';
 import React, { useRef, useState, createContext } from 'react';
+import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
+import type { ParamListBase, RouteProp } from '@react-navigation/native';
+
+type RootStackParamList = {
+  index: undefined;
+  '(screens)/RecipeListScreen/RecipeListScreen': undefined;
+  '(screens)/RecipeManagementScreen/RecipeManagementScreen': { recipeId?: string };
+  '(screens)/RecipeDetailScreen/RecipeDetailScreen': { recipeId?: string };
+  'shopping-list': undefined;
+};
+
+type NavigationProps = {
+  navigation: any;
+  route: RouteProp<RootStackParamList, keyof RootStackParamList>;
+  options: NativeStackNavigationOptions;
+};
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -104,7 +120,8 @@ export default function RootLayout() {
           headerShadowVisible: false,
           headerBackTitleVisible: true,
           headerBackTitle: "Wróć",
-          header: (route.name === 'index' || route.name === '(screens)/RecipeListScreen/RecipeListScreen') ? ({ navigation, route, options }) => (
+          header: (route.name === 'index' || route.name === '(screens)/RecipeListScreen/RecipeListScreen') ? 
+            (props: NavigationProps) => (
             <View style={{ 
               height: 60,
               backgroundColor: '#fff',
@@ -234,7 +251,7 @@ export default function RootLayout() {
           })} 
         />
         <Stack.Screen 
-          name="recipe-details" 
+          name="(screens)/RecipeDetailScreen/RecipeDetailScreen" 
           options={{ 
             headerTitle: "Przepis",
             headerBackTitle: "Wróć",

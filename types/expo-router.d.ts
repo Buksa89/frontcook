@@ -5,12 +5,12 @@ declare module "expo-router" {
   export type ExternalPathString = `http${string}`;
 
   export type AppRoutes =
-    | "/recipe-details"
+    | "/(screens)/RecipeDetailScreen/RecipeDetailScreen"
+    | "/(screens)/RecipeListScreen/RecipeListScreen"
+    | "/(screens)/RecipeManagementScreen/RecipeManagementScreen"
     | "/shopping-list"
     | "/"
-    | "/_sitemap"
-    | "/(screens)/RecipeListScreen/RecipeListScreen"
-    | "/(screens)/RecipeManagementScreen/RecipeManagementScreen";
+    | "/_sitemap";
 
   export type SearchParams = Record<string, string | string[]>;
 

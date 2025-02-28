@@ -64,8 +64,8 @@ const RecipeCard = ({ recipe, tags }: RecipeCardProps) => (
   <TouchableOpacity 
     style={styles.card}
     onPress={() => router.push({
-      pathname: '/recipe-details',
-      params: { id: recipe.id }
+      pathname: '/(screens)/RecipeDetailScreen/RecipeDetailScreen',
+      params: { recipeId: recipe.id }
     })}
   >
     <View style={[styles.imageContainer, styles.imagePlaceholder]}>
@@ -111,7 +111,9 @@ const RecipeCard = ({ recipe, tags }: RecipeCardProps) => (
     </View>
     <TouchableOpacity 
       style={styles.cardShopCart}
-      onPress={() => console.log('Dodano do koszyka:', recipe.name)}
+      onPress={() => router.push({
+        pathname: '/shopping-list'
+      })}
     >
       <AntDesign name="shoppingcart" size={24} color="#2196F3" />
     </TouchableOpacity>
@@ -366,7 +368,7 @@ export default function RecipeListScreen() {
             onPress={() => {
               setShowAddMenu(false);
               router.push({
-                pathname: '(screens)/RecipeManagementScreen/RecipeManagementScreen'
+                pathname: '/(screens)/RecipeManagementScreen/RecipeManagementScreen'
               });
             }}
           >
@@ -710,7 +712,9 @@ export default function RecipeListScreen() {
         
         <TouchableOpacity 
           style={styles.fab}
-          onPress={() => router.push('/shopping-list')}
+          onPress={() => router.push({
+            pathname: '/shopping-list'
+          })}
         >
           <AntDesign name="shoppingcart" size={24} color="white" />
         </TouchableOpacity>
