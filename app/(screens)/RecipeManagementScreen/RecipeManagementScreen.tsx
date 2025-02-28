@@ -12,6 +12,7 @@ import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
 import { Model } from '@nozbe/watermelondb';
 import { RecipeForm } from './RecipeForm';
+import { parseIngredient } from '../../utils/ingredientParser';
 
 interface EditRecipeScreenProps {
   existingRecipe: Recipe | null;
@@ -127,13 +128,28 @@ const EditRecipeScreen = ({
 
         // Create new ingredients and tags
         const newOperations = [
-          ...ingredientLines.map((line, index) => 
-            ingredientsCollection.prepareCreate((ingredient: Ingredient) => {
+          ...ingredientLines.map((line, index) => {
+            const parsed = parseIngredient(line);
+            // Jeśli nie ma podanej ilości, ustawiamy 1 (niezależnie od jednostki)
+            const amount = parsed.amount === null ? 1 : parsed.amount;
+            console.log('Parsed ingredient with default:', { line, parsed, finalAmount: amount });
+            return ingredientsCollection.prepareCreate((ingredient: Ingredient) => {
               ingredient.recipeId = recipe.id;
               ingredient.order = index + 1;
-              ingredient.originalStr = line;
-            })
-          ),
+              ingredient.originalStr = parsed.originalStr;
+              ingredient.amount = amount;
+              ingredient.unit = parsed.unit;
+              ingredient.name = parsed.name;
+              console.log('Saving ingredient with defaults:', {
+                recipeId: recipe.id,
+                order: index + 1,
+                originalStr: parsed.originalStr,
+                amount,
+                unit: parsed.unit,
+                name: parsed.name
+              });
+            });
+          }),
           ...formData.selectedTags.map(tag => 
             recipeTagsCollection.prepareCreate((rt: RecipeTag) => {
               rt.recipeId = recipe.id;
