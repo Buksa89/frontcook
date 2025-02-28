@@ -104,7 +104,7 @@ export default function RootLayout() {
           headerShadowVisible: false,
           headerBackTitleVisible: true,
           headerBackTitle: "Wróć",
-          header: route.name === 'index' ? ({ navigation, route, options }) => (
+          header: (route.name === 'index' || route.name === 'screens/RecipeListScreen/RecipeListScreen') ? ({ navigation, route, options }) => (
             <View style={{ 
               height: 60,
               backgroundColor: '#fff',
@@ -189,6 +189,21 @@ export default function RootLayout() {
       >
         <Stack.Screen 
           name="index" 
+          options={{ 
+            headerTitle: "Przepisy",
+            headerShadowVisible: false,
+            headerStyle: {
+              backgroundColor: '#fff'
+            },
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333'
+            }
+          }} 
+        />
+        <Stack.Screen 
+          name="screens/RecipeListScreen/RecipeListScreen" 
           options={{ 
             headerTitle: "Przepisy",
             headerShadowVisible: false,
