@@ -54,7 +54,7 @@ const RecipeDetailsScreen = ({ recipe, tags }: RecipeDetailsScreenProps) => {
         <TouchableOpacity 
           style={styles.editButton}
           onPress={() => router.push({
-            pathname: '/add-recipe',
+            pathname: '(screens)/RecipeManagementScreen/RecipeManagementScreen',
             params: { recipeId: recipe.id }
           })}
         >

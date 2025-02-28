@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import database from '../database';
+import database from '../../../database';
 import { withObservables } from '@nozbe/watermelondb/react';
-import Recipe from '../database/models/Recipe';
-import Tag from '../database/models/Tag';
+import Recipe from '../../../database/models/Recipe';
+import Tag from '../../../database/models/Tag';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import { Observable, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
-import RecipeTag from '../database/models/RecipeTag';
+import RecipeTag from '../../../database/models/RecipeTag';
 
 interface EditRecipeScreenProps {
   existingRecipe: Recipe | null;

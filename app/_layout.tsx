@@ -104,7 +104,7 @@ export default function RootLayout() {
           headerShadowVisible: false,
           headerBackTitleVisible: true,
           headerBackTitle: "Wróć",
-          header: (route.name === 'index' || route.name === 'screens/RecipeListScreen/RecipeListScreen') ? ({ navigation, route, options }) => (
+          header: (route.name === 'index' || route.name === '(screens)/RecipeListScreen/RecipeListScreen') ? ({ navigation, route, options }) => (
             <View style={{ 
               height: 60,
               backgroundColor: '#fff',
@@ -203,7 +203,7 @@ export default function RootLayout() {
           }} 
         />
         <Stack.Screen 
-          name="screens/RecipeListScreen/RecipeListScreen" 
+          name="(screens)/RecipeListScreen/RecipeListScreen" 
           options={{ 
             headerTitle: "Przepisy",
             headerShadowVisible: false,
@@ -218,7 +218,7 @@ export default function RootLayout() {
           }} 
         />
         <Stack.Screen 
-          name="add-recipe" 
+          name="(screens)/RecipeManagementScreen/RecipeManagementScreen" 
           options={({ route }) => ({ 
             headerTitle: route.params?.recipeId ? "Edytuj przepis" : "Nowy przepis",
             headerBackTitle: "Wróć",

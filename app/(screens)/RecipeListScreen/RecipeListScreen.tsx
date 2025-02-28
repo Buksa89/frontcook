@@ -365,7 +365,9 @@ export default function RecipeListScreen() {
             style={styles.menuItem}
             onPress={() => {
               setShowAddMenu(false);
-              router.push('/add-recipe');
+              router.push({
+                pathname: '(screens)/RecipeManagementScreen/RecipeManagementScreen'
+              });
             }}
           >
             <View style={styles.menuItemContent}>
