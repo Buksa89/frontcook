@@ -7,6 +7,7 @@ import migrations from './migrations'
 import Tag from './models/Tag'
 import Recipe from './models/Recipe'
 import RecipeTag from './models/RecipeTag'
+import Ingredient from './models/Ingredient'
 
 const adapter = new LokiJSAdapter({
   schema,
@@ -29,7 +30,8 @@ const database = new Database({
   modelClasses: [
     Tag,
     Recipe,
-    RecipeTag
+    RecipeTag,
+    Ingredient
   ],
 })
 //TODO: change condition - not whemn db empty, but if guest and empty

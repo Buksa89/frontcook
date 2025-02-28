@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb'
 
 export default appSchema({
-  version: 1,
+  version: 2,
   tables: [
     tableSchema({
       name: 'tags',
@@ -27,7 +27,6 @@ export default appSchema({
         { name: 'prep_time', type: 'number', isOptional: true },
         { name: 'total_time', type: 'number', isOptional: true },
         { name: 'servings', type: 'number', isOptional: true },
-        { name: 'ingredients', type: 'string', isOptional: true },
         { name: 'instructions', type: 'string', isOptional: true },
         { name: 'notes', type: 'string', isOptional: true },
         { name: 'nutrition', type: 'string', isOptional: true },
@@ -40,6 +39,22 @@ export default appSchema({
       columns: [
         { name: 'recipe_id', type: 'string' }, // References the recipe.id
         { name: 'tag_id', type: 'string' }, // References the tag.id
+      ]
+    }),
+    tableSchema({
+      name: 'ingredients',
+      columns: [
+        { name: 'remote_id', type: 'string', isOptional: true },
+        { name: 'amount', type: 'number', isOptional: true },
+        { name: 'unit', type: 'string', isOptional: true },
+        { name: 'name', type: 'string', isOptional: true },
+        { name: 'type', type: 'string', isOptional: true },
+        { name: 'recipe_id', type: 'string' },
+        { name: 'order', type: 'number' },
+        { name: 'original_str', type: 'string' }
+      ],
+      columnIndexes: [
+        { columns: ['recipe_id', 'order'], unique: true }
       ]
     })
   ]

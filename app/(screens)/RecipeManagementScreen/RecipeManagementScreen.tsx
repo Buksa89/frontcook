@@ -7,17 +7,29 @@ import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
 import { Q } from '@nozbe/watermelondb';
 import { Observable, of } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, map } from 'rxjs/operators';
 import RecipeTag from '../../../database/models/RecipeTag';
+import Ingredient from '../../../database/models/Ingredient';
+import { Model } from '@nozbe/watermelondb';
 import { RecipeForm } from './RecipeForm';
 
 interface EditRecipeScreenProps {
   existingRecipe: Recipe | null;
   availableTags: Tag[];
   selectedTags: Tag[];
+  ingredients: string;
 }
 
-const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initialSelectedTags }: EditRecipeScreenProps) => {
+interface EnhanceProps {
+  recipeId?: string;
+}
+
+const EditRecipeScreen = ({ 
+  existingRecipe, 
+  availableTags, 
+  selectedTags: initialSelectedTags,
+  ingredients: initialIngredients 
+}: EditRecipeScreenProps) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -38,13 +50,13 @@ const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initial
         prepTime: existingRecipe.prepTime?.toString() || '',
         totalTime: existingRecipe.totalTime?.toString() || '',
         servings: existingRecipe.servings?.toString() || '',
-        ingredients: existingRecipe.ingredients,
+        ingredients: initialIngredients,
         instructions: existingRecipe.instructions,
         notes: existingRecipe.notes || '',
         selectedTags: initialSelectedTags
       });
     }
-  }, [existingRecipe, initialSelectedTags]);
+  }, [existingRecipe, initialSelectedTags, initialIngredients]);
 
   const handleFieldChange = (field: keyof typeof formData, value: string | Tag[]) => {
     setFormData(prev => ({
@@ -61,66 +73,77 @@ const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initial
 
     try {
       await database.write(async () => {
+        const recipesCollection = database.get<Recipe>('recipes');
+        const recipeTagsCollection = database.get<RecipeTag>('recipe_tags');
+        const ingredientsCollection = database.get<Ingredient>('ingredients');
+
+        let recipe: Recipe;
+        let operations: Model[] = [];
+
         if (existingRecipe) {
+          // Update existing recipe
           await existingRecipe.update(recipe => {
             recipe.name = formData.name;
             recipe.description = formData.description;
             recipe.prepTime = parseInt(formData.prepTime) || 0;
             recipe.totalTime = parseInt(formData.totalTime) || 0;
             recipe.servings = parseInt(formData.servings) || 1;
-            recipe.ingredients = formData.ingredients;
             recipe.instructions = formData.instructions;
             recipe.notes = formData.notes;
           });
+          recipe = existingRecipe;
 
-          // Update recipe tags
-          const recipeTagsCollection = database.get<RecipeTag>('recipe_tags');
-          const existingTags = await recipeTagsCollection
-            .query(Q.where('recipe_id', existingRecipe.id))
-            .fetch();
+          // Get existing tags and ingredients to delete
+          const [existingTags, existingIngredients] = await Promise.all([
+            recipeTagsCollection.query(Q.where('recipe_id', recipe.id)).fetch(),
+            recipe.ingredients.fetch()
+          ]);
 
-          // Prepare all operations for the batch
-          const operations = [
-            ...existingTags.map(tag => tag.prepareDestroyPermanently()),
-            ...formData.selectedTags.map(tag => 
-              recipeTagsCollection.prepareCreate(rt => {
-                rt.recipeId = existingRecipe.id;
-                rt.tagId = tag.id;
-              })
-            )
+          // Add delete operations
+          operations = [
+            ...existingTags.map((tag: RecipeTag) => tag.prepareDestroyPermanently()),
+            ...existingIngredients.map((ingredient: Ingredient) => ingredient.prepareDestroyPermanently())
           ];
-
-          // Execute all operations in a single batch
-          await database.batch(...operations);
         } else {
-          const recipesCollection = database.get<Recipe>('recipes');
-          const newRecipe = await recipesCollection.create(recipe => {
+          // Create new recipe
+          recipe = await recipesCollection.create(recipe => {
             recipe.name = formData.name;
             recipe.description = formData.description;
             recipe.prepTime = parseInt(formData.prepTime) || 0;
             recipe.totalTime = parseInt(formData.totalTime) || 0;
             recipe.servings = parseInt(formData.servings) || 1;
-            recipe.ingredients = formData.ingredients;
             recipe.instructions = formData.instructions;
             recipe.notes = formData.notes;
             recipe.rating = 0;
             recipe.isApproved = true;
           });
+        }
 
-          // Add tags to new recipe
-          const recipeTagsCollection = database.get<RecipeTag>('recipe_tags');
-          const operations = formData.selectedTags.map(tag =>
-            recipeTagsCollection.prepareCreate(rt => {
-              rt.recipeId = newRecipe.id;
+        // Prepare ingredients creation
+        const ingredientLines = formData.ingredients
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+
+        // Create new ingredients and tags
+        const newOperations = [
+          ...ingredientLines.map((line, index) => 
+            ingredientsCollection.prepareCreate((ingredient: Ingredient) => {
+              ingredient.recipeId = recipe.id;
+              ingredient.order = index + 1;
+              ingredient.originalStr = line;
+            })
+          ),
+          ...formData.selectedTags.map(tag => 
+            recipeTagsCollection.prepareCreate((rt: RecipeTag) => {
+              rt.recipeId = recipe.id;
               rt.tagId = tag.id;
             })
-          );
+          )
+        ];
 
-          // Execute all operations in a single batch
-          if (operations.length > 0) {
-            await database.batch(...operations);
-          }
-        }
+        // Execute all operations in a single batch
+        await database.batch(...operations, ...newOperations);
       });
 
       Alert.alert(
@@ -129,8 +152,8 @@ const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initial
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
+      console.error('Error saving recipe:', error);
       Alert.alert('Błąd', existingRecipe ? 'Nie udało się zaktualizować przepisu' : 'Nie udało się dodać przepisu');
-      console.error(error);
     }
   };
 
@@ -145,13 +168,13 @@ const EditRecipeScreen = ({ existingRecipe, availableTags, selectedTags: initial
   );
 };
 
-const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId?: string }) => ({
+const enhance = withObservables(['recipeId'], ({ recipeId }: EnhanceProps) => ({
   existingRecipe: recipeId 
     ? database.get<Recipe>('recipes').findAndObserve(recipeId)
     : of(null),
   availableTags: database.get<Tag>('tags')
     .query()
-    .observe(),
+    .observe() as Observable<Tag[]>,
   selectedTags: recipeId
     ? database.get<Recipe>('recipes')
         .findAndObserve(recipeId)
@@ -175,6 +198,25 @@ const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId?: string
           })
         )
     : of([]),
+  ingredients: (recipeId
+    ? database.get<Recipe>('recipes')
+        .findAndObserve(recipeId)
+        .pipe(
+          switchMap(recipe => {
+            if (!recipe) return of('');
+            return recipe.ingredients
+              .observe()
+              .pipe(
+                map((ingredients: Ingredient[]) => 
+                  ingredients
+                    .sort((a: Ingredient, b: Ingredient) => a.order - b.order)
+                    .map((i: Ingredient) => i.originalStr)
+                    .join('\n')
+                )
+              );
+          })
+        )
+    : of('')) as Observable<string>,
 }));
 
 const EnhancedEditRecipeScreen = enhance(EditRecipeScreen);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { withObservables } from '@nozbe/watermelondb/react';
@@ -7,6 +7,7 @@ import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
 import RecipeTag from '../../../database/models/RecipeTag';
+import Ingredient from '../../../database/models/Ingredient';
 import { Q } from '@nozbe/watermelondb';
 import { Observable } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
@@ -16,9 +17,10 @@ import { RecipeRating } from './RecipeRating';
 interface RecipeDetailsScreenProps {
   recipe: Recipe | null;
   tags: Tag[];
+  ingredients: Ingredient[];
 }
 
-const RecipeDetailsScreen = ({ recipe, tags }: RecipeDetailsScreenProps) => {
+const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenProps) => {
   if (!recipe) {
     return (
       <View style={styles.container}>
@@ -85,7 +87,13 @@ const RecipeDetailsScreen = ({ recipe, tags }: RecipeDetailsScreenProps) => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Składniki</Text>
-          <Text style={styles.sectionContent}>{recipe.ingredients}</Text>
+          <View style={styles.ingredientsList}>
+            {ingredients.map((ingredient, index) => (
+              <Text key={ingredient.id} style={styles.ingredientItem}>
+                {ingredient.originalStr}
+              </Text>
+            ))}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -106,6 +114,17 @@ const RecipeDetailsScreen = ({ recipe, tags }: RecipeDetailsScreenProps) => {
 
 const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId: string }) => ({
   recipe: database.get<Recipe>('recipes').findAndObserve(recipeId),
+  ingredients: database.get<Recipe>('recipes')
+    .findAndObserve(recipeId)
+    .pipe(
+      switchMap(recipe => {
+        if (!recipe) return new Observable<Ingredient[]>(subscriber => subscriber.next([]));
+        return database
+          .get<Ingredient>('ingredients')
+          .query(Q.where('recipe_id', recipe.id))
+          .observe();
+      })
+    ),
   tags: database.get<Recipe>('recipes')
     .findAndObserve(recipeId)
     .pipe(
@@ -199,6 +218,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#444',
     lineHeight: 24,
+  },
+  ingredientsList: {
+    marginTop: 8,
+  },
+  ingredientItem: {
+    fontSize: 16,
+    color: '#444',
+    lineHeight: 24,
+    marginBottom: 8,
+    paddingLeft: 4,
   },
   tags: {
     flexDirection: 'row',

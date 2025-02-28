@@ -5,7 +5,8 @@ import { Q } from '@nozbe/watermelondb'
 export default class Recipe extends Model {
   static table = 'recipes'
   static associations = {
-    recipe_tags: { type: 'has_many', foreignKey: 'recipe_id' }
+    recipe_tags: { type: 'has_many', foreignKey: 'recipe_id' },
+    ingredients: { type: 'has_many', foreignKey: 'recipe_id' }
   }
 
   @field('remote_id') remoteId
@@ -18,15 +19,15 @@ export default class Recipe extends Model {
   @field('prep_time') prepTime
   @field('total_time') totalTime
   @field('servings') servings
-  @text('ingredients') ingredients
   @text('instructions') instructions
   @text('notes') notes
   @text('nutrition') nutrition
   @text('video') video
   @text('source') source
 
-  // Children relation to access recipe_tags
+  // Children relations
   @children('recipe_tags') recipeTags
+  @children('ingredients') ingredients
 
   // Custom queries
   @lazy approvedRecipeTags = this.recipeTags.extend(
@@ -67,6 +68,39 @@ export default class Recipe extends Model {
     })
   }
 
+  @writer async updateIngredients(ingredientsText) {
+    const database = this.database
+    const ingredientsCollection = database.get('ingredients')
+    
+    // Split text into lines and remove empty lines
+    const ingredientLines = ingredientsText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+
+    // Get existing ingredients to delete
+    const existingIngredients = await this.ingredients.fetch()
+
+    // Prepare operations
+    const operations = [
+      // Delete all existing ingredients
+      ...existingIngredients.map(ingredient => 
+        ingredient.prepareDestroyPermanently()
+      ),
+      // Create new ingredients
+      ...ingredientLines.map((line, index) => 
+        ingredientsCollection.prepareCreate(ingredient => {
+          ingredient.recipeId = this.id
+          ingredient.order = index + 1
+          ingredient.original_str = line
+        })
+      )
+    ]
+
+    // Execute all operations in a batch
+    await database.batch(...operations)
+  }
+
   // Derived fields
   get hasImage() {
     return Boolean(this.image)
@@ -79,7 +113,6 @@ export default class Recipe extends Model {
   get isComplete() {
     return Boolean(
       this.name &&
-      this.ingredients &&
       this.instructions
     )
   }
@@ -87,5 +120,14 @@ export default class Recipe extends Model {
   get cookingTime() {
     if (!this.totalTime) return null
     return this.totalTime - (this.prepTime || 0)
+  }
+
+  // Helper method to get ingredients as text
+  async getIngredientsAsText() {
+    const ingredients = await this.ingredients.fetch()
+    return ingredients
+      .sort((a, b) => a.order - b.order)
+      .map(ingredient => ingredient.original_str)
+      .join('\n')
   }
 } 
