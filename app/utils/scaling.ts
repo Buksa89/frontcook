@@ -64,4 +64,11 @@ export const formatScaledValue = (value: number | null): string => {
   
   // W przeciwnym razie formatujemy z maksymalnie 2 miejscami po przecinku
   return value.toFixed(2).replace(/\.?0+$/, '');
+};
+
+export default {
+  calculateScaleFactor,
+  scaleValue,
+  isIngredientScalable,
+  formatScaledValue,
 }; 

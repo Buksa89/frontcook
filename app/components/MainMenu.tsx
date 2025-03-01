@@ -246,4 +246,6 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
   },
-}); 
+});
+
+export default MainMenu; 

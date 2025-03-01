@@ -158,6 +158,8 @@ const enhance = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => 
 
 export const EnhancedRecipeCard = enhance(RecipeCard);
 
+export default EnhancedRecipeCard;
+
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',

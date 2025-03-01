@@ -336,6 +336,8 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
   );
 };
 
+export default AddShopingItemMenu;
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
