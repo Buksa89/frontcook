@@ -22,22 +22,33 @@ export const FormField = ({
   required = false,
   style
 }: FormFieldProps) => {
+  const isEmpty = value.trim() === '';
+  const showRequiredIndicator = required && isEmpty;
+  
   return (
     <View style={[styles.field, style]}>
       <Text style={styles.label}>
-        {label}{required && '*'}
+        {label}{required && <Text style={styles.requiredStar}>*</Text>}
       </Text>
-      <TextInput
-        style={[
-          styles.input,
-          multiline && styles.textArea
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        multiline={multiline}
-        keyboardType={keyboardType}
-      />
+      <View>
+        <TextInput
+          style={[
+            styles.input,
+            multiline && styles.textArea,
+            showRequiredIndicator && styles.requiredInput
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          multiline={multiline}
+          keyboardType={keyboardType}
+        />
+        {showRequiredIndicator && (
+          <View style={styles.requiredIndicator}>
+            <Text style={styles.requiredIndicatorText}>Pole wymagane</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -52,6 +63,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '500',
   },
+  requiredStar: {
+    color: '#2196F3',
+    marginLeft: 2,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -64,4 +79,17 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
+  requiredInput: {
+    borderColor: '#2196F3',
+    backgroundColor: '#f8f9ff',
+  },
+  requiredIndicator: {
+    marginTop: 4,
+    paddingHorizontal: 8,
+  },
+  requiredIndicatorText: {
+    fontSize: 12,
+    color: '#2196F3',
+    fontStyle: 'italic',
+  }
 }); 

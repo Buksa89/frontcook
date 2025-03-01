@@ -40,7 +40,10 @@ const EditRecipeScreen = ({
     ingredients: '',
     instructions: '',
     notes: '',
-    selectedTags: initialSelectedTags
+    selectedTags: initialSelectedTags,
+    nutrition: '',
+    video: '',
+    source: ''
   });
 
   useEffect(() => {
@@ -54,7 +57,10 @@ const EditRecipeScreen = ({
         ingredients: initialIngredients,
         instructions: existingRecipe.instructions,
         notes: existingRecipe.notes || '',
-        selectedTags: initialSelectedTags
+        selectedTags: initialSelectedTags,
+        nutrition: existingRecipe.nutrition || '',
+        video: existingRecipe.video || '',
+        source: existingRecipe.source || ''
       });
     }
   }, [existingRecipe, initialSelectedTags, initialIngredients]);
@@ -91,13 +97,16 @@ const EditRecipeScreen = ({
             recipe.servings = parseInt(formData.servings) || 1;
             recipe.instructions = formData.instructions;
             recipe.notes = formData.notes;
+            recipe.nutrition = formData.nutrition;
+            recipe.video = formData.video;
+            recipe.source = formData.source;
           });
           recipe = existingRecipe;
 
           // Get existing tags and ingredients to delete
           const [existingTags, existingIngredients] = await Promise.all([
             recipeTagsCollection.query(Q.where('recipe_id', recipe.id)).fetch(),
-            recipe.ingredients.fetch()
+            database.get<Ingredient>('ingredients').query(Q.where('recipe_id', recipe.id)).fetch()
           ]);
 
           // Add delete operations
@@ -115,6 +124,9 @@ const EditRecipeScreen = ({
             recipe.servings = parseInt(formData.servings) || 1;
             recipe.instructions = formData.instructions;
             recipe.notes = formData.notes;
+            recipe.nutrition = formData.nutrition;
+            recipe.video = formData.video;
+            recipe.source = formData.source;
             recipe.rating = 0;
             recipe.isApproved = true;
           });
@@ -162,14 +174,29 @@ const EditRecipeScreen = ({
         await database.batch(...operations, ...newOperations);
       });
 
-      Alert.alert(
-        'Sukces', 
-        existingRecipe ? 'Przepis został zaktualizowany' : 'Przepis został dodany', 
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      // Bezpośrednie przekierowanie bez alertu
+      router.back();
     } catch (error) {
       console.error('Error saving recipe:', error);
       Alert.alert('Błąd', existingRecipe ? 'Nie udało się zaktualizować przepisu' : 'Nie udało się dodać przepisu');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!existingRecipe) return;
+
+    try {
+      await database.write(async () => {
+        await existingRecipe.markAsDeleted(); // WatermelonDB handles cascading deletes
+      });
+
+      // Bezpośrednie przekierowanie bez alertu
+      router.push({
+        pathname: '/(screens)/RecipeListScreen/RecipeListScreen'
+      });
+    } catch (error) {
+      console.error('Error deleting recipe:', error);
+      Alert.alert('Błąd', 'Nie udało się usunąć przepisu');
     }
   };
 
@@ -179,6 +206,7 @@ const EditRecipeScreen = ({
       onDataChange={handleFieldChange}
       availableTags={availableTags}
       onSubmit={handleSubmit}
+      onDelete={existingRecipe ? handleDelete : undefined}
       isEditing={!!existingRecipe}
     />
   );
@@ -214,25 +242,27 @@ const enhance = withObservables(['recipeId'], ({ recipeId }: EnhanceProps) => ({
           })
         )
     : of([]),
-  ingredients: (recipeId
+  ingredients: recipeId
     ? database.get<Recipe>('recipes')
         .findAndObserve(recipeId)
         .pipe(
           switchMap(recipe => {
             if (!recipe) return of('');
-            return recipe.ingredients
+            return database
+              .get<Ingredient>('ingredients')
+              .query(Q.where('recipe_id', recipe.id))
               .observe()
               .pipe(
-                map((ingredients: Ingredient[]) => 
+                map(ingredients => 
                   ingredients
-                    .sort((a: Ingredient, b: Ingredient) => a.order - b.order)
-                    .map((i: Ingredient) => i.originalStr)
+                    .sort((a, b) => a.order - b.order)
+                    .map(i => i.originalStr)
                     .join('\n')
                 )
               );
           })
         )
-    : of('')) as Observable<string>,
+    : of('')
 }));
 
 const EnhancedEditRecipeScreen = enhance(EditRecipeScreen);
