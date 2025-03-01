@@ -34,6 +34,7 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
     password: '',
     confirmPassword: ''
   });
+  const [errorMessage, setErrorMessage] = useState('');
 
   const { register } = useAuth();
 
@@ -94,6 +95,15 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setErrorMessage('');
+    
+    // Resetuj błędy formularza
+    setErrors({
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: ''
+    });
 
     try {
       const result = await register(username, email, password);
@@ -101,33 +111,79 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
       if (result.success) {
         Alert.alert(
           "Rejestracja pomyślna",
-          result.message || "Konto zostało utworzone pomyślnie. Możesz się teraz zalogować.",
-          [
-            { 
-              text: "OK", 
-              onPress: () => {
-                // Resetujemy formularz i zamykamy modal
-                setUsername('');
-                setEmail('');
-                setPassword('');
-                setConfirmPassword('');
-                onClose();
-              }
-            }
-          ]
+          "Twoje konto zostało utworzone. Możesz się teraz zalogować.",
+          [{ text: "OK", onPress: () => onClose() }]
         );
       } else {
-        Alert.alert(
-          "Błąd rejestracji",
-          result.message || "Nie udało się utworzyć konta. Spróbuj ponownie."
-        );
+        // Obsługa błędów pól formularza
+        if (result.fieldErrors) {
+          const newErrors = { ...errors };
+          const alertMessages: string[] = [];
+          
+          // Mapowanie błędów z API na pola formularza
+          if (result.fieldErrors.username) {
+            newErrors.username = result.fieldErrors.username.join(', ');
+            alertMessages.push(`Nazwa użytkownika: ${result.fieldErrors.username.join(', ')}`);
+          }
+          
+          if (result.fieldErrors.email) {
+            newErrors.email = result.fieldErrors.email.join(', ');
+            alertMessages.push(`Email: ${result.fieldErrors.email.join(', ')}`);
+          }
+          
+          if (result.fieldErrors.password) {
+            newErrors.password = result.fieldErrors.password.join(', ');
+            alertMessages.push(`Hasło: ${result.fieldErrors.password.join(', ')}`);
+          }
+          
+          if (result.fieldErrors.password2) {
+            newErrors.confirmPassword = result.fieldErrors.password2.join(', ');
+            alertMessages.push(`Potwierdzenie hasła: ${result.fieldErrors.password2.join(', ')}`);
+          }
+          
+          // Błędy niezwiązane z konkretnym polem
+          if (result.fieldErrors.non_field_errors) {
+            setErrorMessage(result.fieldErrors.non_field_errors.join(', '));
+            alertMessages.push(result.fieldErrors.non_field_errors.join(', '));
+          } else if (result.message) {
+            setErrorMessage(result.message);
+            alertMessages.push(result.message);
+          }
+          
+          setErrors(newErrors);
+          
+          // Wyświetl alert z błędami
+          if (alertMessages.length > 0) {
+            Alert.alert(
+              "Błąd rejestracji",
+              alertMessages.join('\n\n'),
+              [{ text: "OK" }]
+            );
+          }
+        } else if (result.message) {
+          setErrorMessage(result.message);
+          Alert.alert(
+            "Błąd rejestracji",
+            result.message,
+            [{ text: "OK" }]
+          );
+        } else {
+          setErrorMessage('Wystąpił błąd podczas rejestracji');
+          Alert.alert(
+            "Błąd rejestracji",
+            'Wystąpił błąd podczas rejestracji',
+            [{ text: "OK" }]
+          );
+        }
       }
     } catch (error) {
+      console.error('Błąd rejestracji:', error);
+      setErrorMessage('Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.');
       Alert.alert(
         "Błąd",
-        "Wystąpił nieoczekiwany błąd podczas rejestracji. Spróbuj ponownie później."
+        'Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.',
+        [{ text: "OK" }]
       );
-      console.error("Registration error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -216,6 +272,9 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
                 />
               </View>
               {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
+              
+              {/* Wyświetlanie ogólnego błędu */}
+              {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
               
               {/* Przycisk rejestracji */}
               <TouchableOpacity 

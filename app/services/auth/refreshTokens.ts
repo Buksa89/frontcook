@@ -1,4 +1,6 @@
 import { storeTokens, getTokens } from './authStorage';
+import { authApi } from '../../api';
+import { ApiError } from '../../api/api';
 
 /**
  * Odświeża token dostępu przy użyciu refresh tokena
@@ -14,34 +16,29 @@ export const refreshAccessToken = async (): Promise<string | null> => {
       return null;
     }
     
-    // Tutaj będzie faktyczne zapytanie do API w celu uzyskania nowego tokenu dostępu
-    // Na razie zwracamy przykładowy token
+    // Wywołaj API, aby odświeżyć token
+    const response = await authApi.refreshToken(refreshToken);
     
-    // Przykładowa implementacja zapytania do API:
-    // const response = await fetch('https://api.example.com/refresh', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({ refreshToken }),
-    // });
-    // 
-    // if (!response.ok) {
-    //   throw new Error('Nie udało się odświeżyć tokenu');
-    // }
-    // 
-    // const data = await response.json();
-    // const newAccessToken = data.accessToken;
+    if (response && response.access) {
+      // Zapisz nowy token dostępu (zachowując istniejący refresh token)
+      await storeTokens(response.access, refreshToken);
+      
+      return response.access;
+    }
     
-    // Tymczasowo zwracamy przykładowy token
-    const newAccessToken = `new-access-token-${Date.now()}`;
-    
-    // Zapisz nowy token dostępu (zachowując istniejący refresh token)
-    await storeTokens(newAccessToken, refreshToken);
-    
-    return newAccessToken;
+    return null;
   } catch (error) {
-    console.error('Błąd podczas odświeżania tokenu:', error);
+    if (error instanceof ApiError) {
+      // Obsługa konkretnych kodów błędów
+      if (error.status === 401) {
+        console.error('Refresh token wygasł lub jest nieprawidłowy. Wymagane ponowne logowanie.');
+      } else {
+        console.error(`Błąd podczas odświeżania tokenu: ${error.message}`);
+      }
+    } else {
+      console.error('Błąd podczas odświeżania tokenu:', error);
+    }
+    
     return null;
   }
 };

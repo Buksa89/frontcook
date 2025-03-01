@@ -6,8 +6,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<{ success: boolean; message?: string }>;
-  register: (username: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  resetPassword: (email: string) => Promise<{ success: boolean; message?: string }>;
+  register: (username: string, email: string, password: string) => Promise<{ success: boolean; message?: string; fieldErrors?: Record<string, string[]> }>;
+  resetPassword: (email: string) => Promise<{ success: boolean; message?: string; fieldErrors?: Record<string, string[]> }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

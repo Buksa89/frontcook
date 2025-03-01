@@ -9,7 +9,8 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { useAuth } from '../../context';
@@ -43,6 +44,7 @@ export default function ResetPasswordModal({ visible, onClose }: ResetPasswordMo
     if (!validateEmail()) return;
 
     setIsLoading(true);
+    setEmailError('');
 
     try {
       const result = await resetPassword(email);
@@ -50,11 +52,47 @@ export default function ResetPasswordModal({ visible, onClose }: ResetPasswordMo
       if (result.success) {
         setIsSent(true);
       } else {
-        setEmailError(result.message || 'Nie udało się wysłać linku resetującego. Spróbuj ponownie.');
+        // Obsługa błędów pól formularza
+        if (result.fieldErrors && result.fieldErrors.email) {
+          const errorMessage = result.fieldErrors.email.join(', ');
+          setEmailError(errorMessage);
+          
+          // Wyświetl alert z błędem
+          Alert.alert(
+            "Błąd resetowania hasła",
+            errorMessage,
+            [{ text: "OK" }]
+          );
+        } else if (result.message) {
+          setEmailError(result.message);
+          
+          // Wyświetl alert z błędem
+          Alert.alert(
+            "Błąd resetowania hasła",
+            result.message,
+            [{ text: "OK" }]
+          );
+        } else {
+          setEmailError('Nie udało się wysłać linku resetującego. Spróbuj ponownie.');
+          
+          // Wyświetl alert z błędem
+          Alert.alert(
+            "Błąd resetowania hasła",
+            'Nie udało się wysłać linku resetującego. Spróbuj ponownie.',
+            [{ text: "OK" }]
+          );
+        }
       }
     } catch (error) {
-      setEmailError('Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.');
       console.error("Reset password error:", error);
+      setEmailError('Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.');
+      
+      // Wyświetl alert z błędem
+      Alert.alert(
+        "Błąd",
+        'Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.',
+        [{ text: "OK" }]
+      );
     } finally {
       setIsLoading(false);
     }

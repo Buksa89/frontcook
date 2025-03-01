@@ -1,5 +1,7 @@
 import { storeTokens, getTokens, removeTokens, isAuthenticated } from './authStorage';
 import { refreshAccessToken } from './refreshTokens';
+import { authApi } from '../../api';
+import { ApiError } from '../../api/api';
 
 /**
  * Loguje użytkownika i zapisuje tokeny
@@ -12,36 +14,36 @@ export const login = async (
   password: string
 ): Promise<{ success: boolean; message?: string; }> => {
   try {
-    // Tutaj będzie faktyczne zapytanie do API w celu uzyskania tokenów
-    // Na razie zwracamy przykładowe tokeny
+    const response = await authApi.login({ username, password });
     
-    // Przykładowa implementacja zapytania do API:
-    // const response = await fetch('https://api.example.com/login', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({ username, password }),
-    // });
-    // 
-    // if (!response.ok) {
-    //   const errorData = await response.json();
-    //   return { success: false, message: errorData.message || 'Błąd logowania' };
-    // }
-    // 
-    // const data = await response.json();
-    // const { accessToken, refreshToken } = data;
+    if (response && response.access && response.refresh) {
+      // Zapisz tokeny
+      await storeTokens(response.access, response.refresh);
+      return { success: true };
+    }
     
-    // Tymczasowo generujemy przykładowe tokeny
-    const accessToken = `access-token-${Date.now()}`;
-    const refreshToken = `refresh-token-${Date.now()}`;
-    
-    // Zapisz tokeny
-    await storeTokens(accessToken, refreshToken);
-    
-    return { success: true };
+    return { 
+      success: false, 
+      message: 'Nieprawidłowa odpowiedź z serwera' 
+    };
   } catch (error) {
     console.error('Błąd podczas logowania:', error);
+    
+    if (error instanceof ApiError) {
+      // Obsługa konkretnych kodów błędów
+      if (error.status === 401) {
+        return { 
+          success: false, 
+          message: 'Nieprawidłowa nazwa użytkownika lub hasło' 
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: error.message 
+      };
+    }
+    
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas logowania' 
@@ -77,29 +79,57 @@ export const register = async (
   username: string,
   email: string,
   password: string
-): Promise<{ success: boolean; message?: string; }> => {
+): Promise<{ success: boolean; message?: string; fieldErrors?: Record<string, string[]>; }> => {
   try {
-    // Tutaj będzie faktyczne zapytanie do API w celu rejestracji użytkownika
-    // Na razie zwracamy przykładowy sukces
+    const response = await authApi.register({
+      username,
+      email,
+      password,
+      password2: password // Potwierdzenie hasła
+    });
     
-    // Przykładowa implementacja zapytania do API:
-    // const response = await fetch('https://api.example.com/register', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({ username, email, password }),
-    // });
-    // 
-    // if (!response.ok) {
-    //   const errorData = await response.json();
-    //   return { success: false, message: errorData.message || 'Błąd rejestracji' };
-    // }
+    if (response && response.username && response.email) {
+      return { 
+        success: true, 
+        message: 'Rejestracja zakończona sukcesem. Możesz się teraz zalogować.' 
+      };
+    }
     
-    // Tymczasowo zwracamy sukces
-    return { success: true, message: 'Rejestracja zakończona sukcesem' };
+    return { 
+      success: false, 
+      message: 'Nieprawidłowa odpowiedź z serwera' 
+    };
   } catch (error) {
     console.error('Błąd podczas rejestracji:', error);
+    
+    if (error instanceof ApiError) {
+      // Obsługa konkretnych kodów błędów
+      if (error.status === 400) {
+        // Próba wyodrębnienia błędów pól formularza
+        const fieldErrors: Record<string, string[]> = {};
+        
+        if (error.data) {
+          // Sprawdź typowe pola błędów rejestracji
+          ['username', 'email', 'password', 'password2', 'non_field_errors'].forEach(field => {
+            if (error.data[field] && Array.isArray(error.data[field])) {
+              fieldErrors[field] = error.data[field];
+            }
+          });
+        }
+        
+        return { 
+          success: false, 
+          message: error.message,
+          fieldErrors: Object.keys(fieldErrors).length > 0 ? fieldErrors : undefined
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: error.message 
+      };
+    }
+    
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas rejestracji' 
@@ -114,29 +144,68 @@ export const register = async (
  */
 export const resetPassword = async (
   email: string
-): Promise<{ success: boolean; message?: string; }> => {
+): Promise<{ success: boolean; message?: string; fieldErrors?: Record<string, string[]>; }> => {
   try {
-    // Tutaj będzie faktyczne zapytanie do API w celu wysłania linku resetującego hasło
-    // Na razie zwracamy przykładowy sukces
+    const response = await authApi.resetPassword({ email });
     
-    // Przykładowa implementacja zapytania do API:
-    // const response = await fetch('https://api.example.com/reset-password', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({ email }),
-    // });
-    // 
-    // if (!response.ok) {
-    //   const errorData = await response.json();
-    //   return { success: false, message: errorData.message || 'Błąd wysyłania linku resetującego' };
-    // }
+    if (response && response.detail) {
+      return { 
+        success: true, 
+        message: response.detail 
+      };
+    }
     
-    // Tymczasowo zwracamy sukces
-    return { success: true, message: 'Link do resetowania hasła został wysłany' };
+    return { 
+      success: true, 
+      message: 'Link do resetowania hasła został wysłany' 
+    };
   } catch (error) {
     console.error('Błąd podczas wysyłania linku resetującego hasło:', error);
+    
+    if (error instanceof ApiError) {
+      // Obsługa konkretnych kodów błędów
+      if (error.status === 404) {
+        const fieldErrors: Record<string, string[]> = {};
+        
+        // Sprawdź, czy błąd dotyczy nieznalezionego użytkownika
+        if (error.data && error.data.email && Array.isArray(error.data.email)) {
+          fieldErrors.email = error.data.email;
+          return { 
+            success: false, 
+            message: 'Nie znaleziono użytkownika z podanym adresem email',
+            fieldErrors
+          };
+        }
+        
+        return { 
+          success: false, 
+          message: 'Nie znaleziono użytkownika z podanym adresem email' 
+        };
+      }
+      
+      // Sprawdź, czy są błędy pól formularza
+      if (error.status === 400 && error.data) {
+        const fieldErrors: Record<string, string[]> = {};
+        
+        if (error.data.email && Array.isArray(error.data.email)) {
+          fieldErrors.email = error.data.email;
+        }
+        
+        if (Object.keys(fieldErrors).length > 0) {
+          return {
+            success: false,
+            message: error.message,
+            fieldErrors
+          };
+        }
+      }
+      
+      return { 
+        success: false, 
+        message: error.message 
+      };
+    }
+    
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas wysyłania linku resetującego hasło' 

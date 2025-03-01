@@ -26,6 +26,7 @@ export default function AuthScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
   const [resetPasswordModalVisible, setResetPasswordModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const { login } = useAuth();
 
@@ -58,33 +59,24 @@ export default function AuthScreen() {
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setErrorMessage('');
 
     try {
       const result = await login(identifier, password);
       
       if (result.success) {
-        Alert.alert(
-          "Logowanie pomyślne",
-          "Zostałeś pomyślnie zalogowany",
-          [
-            { 
-              text: "OK", 
-              onPress: () => router.back() 
-            }
-          ]
-        );
+        Alert.alert('Success', 'Login successful!');
+        router.push({
+          pathname: "/(screens)/RecipeListScreen/RecipeListScreen"
+        });
       } else {
-        Alert.alert(
-          "Błąd logowania",
-          result.message || "Nie udało się zalogować. Sprawdź dane logowania i spróbuj ponownie."
-        );
+        setErrorMessage(result.message || 'Wystąpił błąd podczas logowania');
+        Alert.alert('Error', result.message || 'An error occurred during login');
       }
     } catch (error) {
-      Alert.alert(
-        "Błąd",
-        "Wystąpił nieoczekiwany błąd podczas logowania. Spróbuj ponownie później."
-      );
-      console.error("Login error:", error);
+      console.error('Login error:', error);
+      setErrorMessage('Wystąpił nieoczekiwany błąd');
+      Alert.alert('Error', 'An unexpected error occurred. Please try again later.');
     } finally {
       setIsLoading(false);
     }
