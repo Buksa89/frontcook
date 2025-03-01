@@ -1,9 +1,10 @@
-import { Stack } from "expo-router";
+import { Stack } from "expo-router/stack";
 import { TouchableOpacity, Animated, TextInput, View, Dimensions, Text } from 'react-native';
 import { AntDesign, Entypo } from '@expo/vector-icons';
 import React, { useRef, useState, createContext } from 'react';
-import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
-import type { ParamListBase, RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationOptions, NativeStackHeaderProps } from '@react-navigation/native-stack';
+import type { ParamListBase } from '@react-navigation/native';
+import { MainMenu } from './components/MainMenu';
 
 type RootStackParamList = {
   index: undefined;
@@ -13,11 +14,7 @@ type RootStackParamList = {
   '(screens)/ShoppingListScreen/ShoppingListScreen': undefined;
 };
 
-type NavigationProps = {
-  navigation: any;
-  route: RouteProp<RootStackParamList, keyof RootStackParamList>;
-  options: NativeStackNavigationOptions;
-};
+type NavigationProps = NativeStackHeaderProps;
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -39,6 +36,7 @@ export const ResetFiltersContext = createContext<FiltersContextType>({
 
 export default function RootLayout() {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
   const searchWidth = useRef(new Animated.Value(0)).current;
   const headerOpacity = useRef(new Animated.Value(1)).current;
   const searchOpacity = useRef(new Animated.Value(0)).current;
@@ -196,7 +194,7 @@ export default function RootLayout() {
                 >
                   <AntDesign name="search1" size={24} color="#333" />
                 </TouchableOpacity>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
                   <Entypo name="dots-three-vertical" size={24} color="#333" />
                 </TouchableOpacity>
               </Animated.View>
@@ -237,7 +235,7 @@ export default function RootLayout() {
         <Stack.Screen 
           name="(screens)/RecipeManagementScreen/RecipeManagementScreen" 
           options={({ route }) => ({ 
-            headerTitle: route.params?.recipeId ? "Edytuj przepis" : "Nowy przepis",
+            headerTitle: (route.params as { recipeId?: string })?.recipeId ? "Edytuj przepis" : "Nowy przepis",
             headerBackTitle: "Wróć",
             headerStyle: {
               backgroundColor: '#fff'
@@ -283,6 +281,11 @@ export default function RootLayout() {
           }} 
         />
       </Stack>
+
+      <MainMenu 
+        visible={isMenuVisible}
+        onClose={() => setIsMenuVisible(false)}
+      />
     </ResetFiltersContext.Provider>
   );
 }
