@@ -11,7 +11,7 @@ import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
 import { Q } from '@nozbe/watermelondb';
 import { Observable } from 'rxjs';
-import { IngredientsMenu } from '../../../app/components/IngredientsMenu';
+import { AddShopingItemMenu } from '../../../app/components/AddShopingItemMenu';
 import { ServingsProvider, useServings } from '../../(screens)/RecipeDetailScreen/ServingsContext';
 
 // Komponent opakowujący ServingsProvider, który ustawia początkowe wartości
@@ -48,11 +48,11 @@ interface RecipeCardProps {
 const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
   const [menuVisible, setMenuVisible] = useState(false);
   
-  const openIngredientsMenu = () => {
+  const openAddShopingItemMenu = () => {
     setMenuVisible(true);
   };
   
-  const closeIngredientsMenu = () => {
+  const closeAddShopingItemMenu = () => {
     setMenuVisible(false);
   };
 
@@ -108,16 +108,16 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
         </View>
         <TouchableOpacity 
           style={styles.cardShopCart}
-          onPress={openIngredientsMenu}
+          onPress={openAddShopingItemMenu}
         >
           <AntDesign name="shoppingcart" size={24} color="#2196F3" />
         </TouchableOpacity>
       </TouchableOpacity>
       
       <ServingsProviderWithInitialValue servings={recipe.servings}>
-        <IngredientsMenu 
+        <AddShopingItemMenu 
           visible={menuVisible}
-          onClose={closeIngredientsMenu}
+          onClose={closeAddShopingItemMenu}
           ingredients={ingredients}
           recipeName={recipe.name}
         />

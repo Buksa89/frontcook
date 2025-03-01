@@ -14,14 +14,14 @@ import Ingredient from '../../database/models/Ingredient';
 import { useServings } from '../(screens)/RecipeDetailScreen/ServingsContext';
 import { isIngredientScalable, scaleValue, formatScaledValue, calculateScaleFactor } from '../utils/scaling';
 
-interface IngredientsMenuProps {
+interface AddShopingItemMenuProps {
   visible: boolean;
   onClose: () => void;
   ingredients: Ingredient[];
   recipeName: string;
 }
 
-export const IngredientsMenu: React.FC<IngredientsMenuProps> = ({
+export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
   visible,
   onClose,
   ingredients,

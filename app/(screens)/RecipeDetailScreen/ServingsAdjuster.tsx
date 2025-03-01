@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { useServings } from './ServingsContext';
 import { calculateScaleFactor } from '../../../app/utils/scaling';
-import { IngredientsMenu } from '../../../app/components/IngredientsMenu';
+import { AddShopingItemMenu } from '../../../app/components/AddShopingItemMenu';
 import Ingredient from '../../../database/models/Ingredient';
 
 interface ServingsAdjusterProps {
@@ -51,11 +51,11 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
     setScaleFactor(newScaleFactor);
   };
   
-  const openIngredientsMenu = () => {
+  const openAddShopingItemMenu = () => {
     setMenuVisible(true);
   };
   
-  const closeIngredientsMenu = () => {
+  const closeAddShopingItemMenu = () => {
     setMenuVisible(false);
   };
 
@@ -95,16 +95,16 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
           
           <TouchableOpacity 
             style={styles.cartIconContainer}
-            onPress={openIngredientsMenu}
+            onPress={openAddShopingItemMenu}
           >
             <AntDesign name="shoppingcart" size={30} color="#2196F3" />
           </TouchableOpacity>
         </View>
       </View>
       
-      <IngredientsMenu 
+      <AddShopingItemMenu 
         visible={menuVisible}
-        onClose={closeIngredientsMenu}
+        onClose={closeAddShopingItemMenu}
         ingredients={ingredients}
         recipeName={recipeName}
       />
