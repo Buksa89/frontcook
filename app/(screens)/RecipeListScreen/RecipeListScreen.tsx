@@ -48,7 +48,6 @@ const enhanceRecipeList = withObservables<
               if (!(
                 recipe.name.toLowerCase().includes(searchLower) ||
                 recipe.description?.toLowerCase().includes(searchLower) ||
-                recipe.ingredients.toLowerCase().includes(searchLower) ||
                 recipe.instructions.toLowerCase().includes(searchLower) ||
                 recipe.notes?.toLowerCase().includes(searchLower)
               )) {

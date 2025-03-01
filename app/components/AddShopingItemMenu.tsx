@@ -7,10 +7,14 @@ import {
   StyleSheet, 
   ScrollView, 
   Pressable,
-  FlatList
+  FlatList,
+  Alert
 } from 'react-native';
 import { AntDesign, MaterialIcons, Feather } from '@expo/vector-icons';
+import { Q } from '@nozbe/watermelondb';
 import Ingredient from '../../database/models/Ingredient';
+import ShoppingItem from '../../database/models/ShoppingItem';
+import database from '../../database';
 import { useServings } from '../(screens)/RecipeDetailScreen/ServingsContext';
 import { isIngredientScalable, scaleValue, formatScaledValue, calculateScaleFactor } from '../utils/scaling';
 
@@ -36,6 +40,15 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
   } = useServings();
   
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set());
+  const [isAddingToList, setIsAddingToList] = useState(false);
+  const [isClearingList, setIsClearingList] = useState(false);
+
+  // Zaznacz wszystkie składniki domyślnie
+  useEffect(() => {
+    if (ingredients.length > 0) {
+      selectAll();
+    }
+  }, [ingredients]);
   
   const toggleIngredient = (ingredientId: string) => {
     const newSelected = new Set(selectedIngredients);
@@ -58,6 +71,48 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
   
   const isAllSelected = ingredients.length > 0 && selectedIngredients.size === ingredients.length;
   
+  // Funkcja czyszcząca całą listę zakupów
+  const clearShoppingList = async () => {
+    Alert.alert(
+      "Wyczyść listę zakupów",
+      "Czy na pewno chcesz usunąć wszystkie produkty z listy zakupów?",
+      [
+        {
+          text: "Anuluj",
+          style: "cancel"
+        },
+        {
+          text: "Wyczyść",
+          style: "destructive",
+          onPress: async () => {
+            setIsClearingList(true);
+            try {
+              const allItems = await database
+                .get('shopping_items')
+                .query()
+                .fetch();
+              
+              await database.write(async () => {
+                await Promise.all(allItems.map(item => item.destroyPermanently()));
+              });
+              
+              Alert.alert(
+                "Lista wyczyszczona",
+                "Wszystkie produkty zostały usunięte z listy zakupów.",
+                [{ text: "OK" }]
+              );
+            } catch (error) {
+              console.error('Błąd podczas czyszczenia listy zakupów:', error);
+              Alert.alert("Błąd", "Nie udało się wyczyścić listy zakupów.");
+            } finally {
+              setIsClearingList(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Funkcje do skalowania porcji
   const handleDecrease = () => {
     if (currentServings > 1) {
@@ -75,6 +130,70 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
     
     const newScaleFactor = calculateScaleFactor(originalServings, newServings);
     setScaleFactor(newScaleFactor);
+  };
+
+  // Funkcja dodająca wybrane składniki do listy zakupów
+  const addToShoppingList = async () => {
+    if (selectedIngredients.size === 0) {
+      Alert.alert('Wybierz składniki', 'Wybierz co najmniej jeden składnik, aby dodać do listy zakupów.');
+      return;
+    }
+
+    setIsAddingToList(true);
+
+    try {
+      // Pobieramy aktualną listę niezaznaczonych elementów, aby ustalić nowy order
+      const uncheckedItems = await database
+        .get('shopping_items')
+        .query(
+          Q.where('is_checked', false)
+        )
+        .fetch();
+
+      // Ustalamy maksymalny order
+      let maxOrder = -1;
+      uncheckedItems.forEach(item => {
+        const itemOrder = (item as ShoppingItem).order;
+        if (itemOrder > maxOrder) {
+          maxOrder = itemOrder;
+        }
+      });
+
+      // Filtrujemy wybrane składniki
+      const selectedItems = ingredients.filter(item => selectedIngredients.has(item.id));
+
+      // Dodajemy każdy wybrany składnik do listy zakupów
+      for (let [index, ingredient] of selectedItems.entries()) {
+        // Sprawdzamy, czy składnik powinien być skalowany
+        const scalable = isIngredientScalable(ingredient.amount);
+        
+        // Obliczamy przeskalowaną ilość
+        const scaledAmount = scalable 
+          ? scaleValue(ingredient.amount, scaleFactor)
+          : ingredient.amount;
+
+        await ShoppingItem.createOrUpdate(database, {
+          name: ingredient.name || ingredient.originalStr,
+          amount: scaledAmount,
+          unit: ingredient.unit,
+          type: ingredient.type,
+          order: maxOrder + index + 1,
+          isChecked: false
+        });
+      }
+
+      // Informujemy użytkownika o sukcesie
+      Alert.alert(
+        'Dodano do listy',
+        `Dodano ${selectedItems.length} ${selectedItems.length === 1 ? 'produkt' : 'produkty'} do listy zakupów.`,
+        [{ text: 'OK', onPress: onClose }]
+      );
+    } catch (error) {
+      console.error('Błąd podczas dodawania do listy zakupów:', error);
+      Alert.alert('Błąd', 'Nie udało się dodać produktów do listy zakupów.');
+    } finally {
+      setIsAddingToList(false);
+    }
   };
   
   const renderIngredientItem = ({ item }: { item: Ingredient }) => {
@@ -177,11 +296,12 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.selectionButton, styles.clearButton]}
-              disabled={true}
+              style={styles.selectionButton}
+              onPress={clearShoppingList}
+              disabled={isClearingList}
             >
-              <Text style={[styles.selectionButtonText, styles.disabledText]}>
-                Wyczyść listę
+              <Text style={[styles.selectionButtonText, styles.clearButtonText]}>
+                {isClearingList ? "Czyszczenie..." : "Wyczyść listę zakupów"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -196,12 +316,17 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
           
           <View style={styles.footer}>
             <TouchableOpacity 
-              style={[styles.addButton, styles.disabledButton]}
-              disabled={true}
+              style={[
+                styles.addButton, 
+                selectedIngredients.size === 0 && styles.disabledButton, 
+                isAddingToList && styles.loadingButton
+              ]}
+              disabled={selectedIngredients.size === 0 || isAddingToList}
+              onPress={addToShoppingList}
             >
               <AntDesign name="shoppingcart" size={20} color="#fff" />
               <Text style={styles.addButtonText}>
-                Dodaj do listy zakupów
+                {isAddingToList ? 'Dodawanie...' : 'Dodaj do listy zakupów'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -298,12 +423,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  clearButton: {
-    opacity: 0.5,
-  },
-  disabledText: {
-    color: '#999',
-  },
   ingredientsList: {
     flex: 1,
   },
@@ -358,5 +477,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingButton: {
+    backgroundColor: '#65a3db',
+  },
+  clearButtonText: {
+    color: '#ff4444',
   },
 }); 

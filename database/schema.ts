@@ -66,10 +66,10 @@ const shoppingItemsSchema: TableSchema = tableSchema({
     { name: 'remote_id', type: 'string', isOptional: true },
     { name: 'amount', type: 'number', isOptional: true },
     { name: 'unit', type: 'string', isOptional: true },
-    { name: 'name', type: 'string' },
+    { name: 'name', type: 'string', isIndexed: true },
     { name: 'type', type: 'string', isOptional: true },
-    { name: 'order', type: 'number' },
-    { name: 'is_checked', type: 'boolean', isOptional: false }
+    { name: 'order', type: 'number', isIndexed: true },
+    { name: 'is_checked', type: 'boolean', isOptional: false, isIndexed: true }
   ]
 })
 
