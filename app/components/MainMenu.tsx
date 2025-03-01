@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { MaterialIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 interface MainMenuProps {
   visible: boolean;
@@ -16,6 +17,18 @@ interface MenuItem {
 }
 
 export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
+  const handleMenuItemPress = (id: string) => {
+    switch (id) {
+      case 'tags':
+        router.push({
+          pathname: '/(screens)/TagManagementScreen/TagManagementScreen'
+        });
+        break;
+      // Add other cases here when implementing other menu items
+    }
+    onClose();
+  };
+
   const menuItems: MenuItem[] = [
     // Main section
     {
@@ -86,8 +99,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
             ]}
             onPress={() => {
               if (!item.disabled) {
-                // Handle menu item press
-                onClose();
+                handleMenuItemPress(item.id);
               }
             }}
             disabled={item.disabled}

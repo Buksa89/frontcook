@@ -9,6 +9,7 @@ declare module "expo-router" {
     | "/(screens)/RecipeListScreen/RecipeListScreen"
     | "/(screens)/RecipeManagementScreen/RecipeManagementScreen"
     | "/(screens)/ShoppingListScreen/ShoppingListScreen"
+    | "/(screens)/TagManagementScreen/TagManagementScreen"
     | "/"
     | "/_sitemap";
 
