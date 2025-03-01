@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { MaterialIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useAuth } from '../context';
 
 interface MainMenuProps {
   visible: boolean;
@@ -14,10 +15,14 @@ interface MenuItem {
   icon: JSX.Element;
   section: 'main' | 'social' | 'account';
   disabled?: boolean;
+  requiresAuth?: boolean;
+  hideWhenAuth?: boolean;
 }
 
 export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
-  const handleMenuItemPress = (id: string) => {
+  const { isAuthenticated, logout } = useAuth();
+
+  const handleMenuItemPress = async (id: string) => {
     switch (id) {
       case 'tags':
         router.push({
@@ -44,6 +49,19 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           pathname: '/(screens)/AuthScreen/AuthScreen'
         });
         break;
+      case 'logout':
+        try {
+          const result = await logout();
+          if (result.success) {
+            Alert.alert("Wylogowano", "Zostałeś pomyślnie wylogowany");
+          } else {
+            Alert.alert("Błąd", result.message || "Wystąpił błąd podczas wylogowywania");
+          }
+        } catch (error) {
+          Alert.alert("Błąd", "Wystąpił nieoczekiwany błąd podczas wylogowywania");
+          console.error("Logout error:", error);
+        }
+        break;
       // Add other cases here when implementing other menu items
     }
     onClose();
@@ -61,14 +79,16 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'notifications',
       label: 'Powiadomienia',
       icon: <Ionicons name="notifications-outline" size={24} color="#666" />,
-      section: 'main'
+      section: 'main',
+      requiresAuth: true
     },
     {
       id: 'pending-recipes',
       label: 'Przepisy do akceptacji',
       icon: <MaterialIcons name="pending-actions" size={24} color="#666" />,
       section: 'main',
-      disabled: true
+      disabled: true,
+      requiresAuth: true
     },
     
     // Social section
@@ -76,14 +96,16 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'friends',
       label: 'Znajomi',
       icon: <FontAwesome5 name="user-friends" size={22} color="#666" />,
-      section: 'social'
+      section: 'social',
+      requiresAuth: true
     },
     {
       id: 'stalking',
       label: 'Stalking',
       icon: <FontAwesome5 name="user-secret" size={22} color="#666" />,
       section: 'social',
-      disabled: true
+      disabled: true,
+      requiresAuth: true
     },
     
     // Account section
@@ -91,56 +113,80 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'account-settings',
       label: 'Ustawienia konta',
       icon: <Ionicons name="settings-outline" size={24} color="#666" />,
-      section: 'account'
+      section: 'account',
+      requiresAuth: true
     },
     {
       id: 'login',
       label: 'Zaloguj',
       icon: <AntDesign name="login" size={24} color="#666" />,
-      section: 'account'
+      section: 'account',
+      hideWhenAuth: true
+    },
+    {
+      id: 'logout',
+      label: 'Wyloguj',
+      icon: <AntDesign name="logout" size={24} color="#666" />,
+      section: 'account',
+      requiresAuth: true
     },
   ];
 
   const renderSection = (section: 'main' | 'social' | 'account') => {
     const sectionItems = menuItems.filter(item => item.section === section);
+    
     if (sectionItems.length === 0) return null;
 
     return (
       <View style={styles.section}>
-        {sectionItems.map((item, index) => (
-          <TouchableOpacity
-            key={item.id}
-            style={[
-              styles.menuItem,
-              item.disabled && styles.menuItemDisabled,
-              index === sectionItems.length - 1 && styles.menuItemLast
-            ]}
-            onPress={() => {
-              if (!item.disabled) {
-                handleMenuItemPress(item.id);
-              }
-            }}
-            disabled={item.disabled}
-          >
-            <View style={styles.menuItemContent}>
-              <View style={[
-                styles.iconContainer,
-                item.disabled && styles.iconContainerDisabled
-              ]}>
-                {item.icon}
+        {sectionItems.map((item, index) => {
+          // Określ, czy element powinien być wyłączony
+          const isDisabled = item.disabled || (item.requiresAuth && !isAuthenticated);
+          // Określ, czy element powinien być ukryty
+          const shouldHide = item.hideWhenAuth && isAuthenticated;
+          
+          if (shouldHide) return null;
+          
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.menuItem,
+                isDisabled && styles.menuItemDisabled,
+                index === sectionItems.length - 1 && styles.menuItemLast
+              ]}
+              onPress={() => {
+                if (!isDisabled) {
+                  handleMenuItemPress(item.id);
+                } else if (item.requiresAuth && !isAuthenticated) {
+                  Alert.alert("Wymagane logowanie", "Zaloguj się, aby uzyskać dostęp do tej funkcji");
+                }
+              }}
+              disabled={isDisabled}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={[
+                  styles.iconContainer,
+                  isDisabled && styles.iconContainerDisabled
+                ]}>
+                  {item.icon}
+                </View>
+                <Text style={[
+                  styles.menuItemText,
+                  isDisabled && styles.menuItemTextDisabled
+                ]}>
+                  {item.label}
+                </Text>
               </View>
-              <Text style={[
-                styles.menuItemText,
-                item.disabled && styles.menuItemTextDisabled
-              ]}>
-                {item.label}
-              </Text>
-            </View>
-            {item.disabled && (
-              <Text style={styles.comingSoonText}>Wkrótce</Text>
-            )}
-          </TouchableOpacity>
-        ))}
+              {item.disabled && (
+                <Text style={styles.comingSoonText}>Wkrótce</Text>
+              )}
+              {item.requiresAuth && !isAuthenticated && !item.disabled && (
+                <Text style={styles.comingSoonText}>Wymaga logowania</Text>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     );
   };

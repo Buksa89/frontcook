@@ -9,9 +9,12 @@ import {
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { useAuth } from '../../context';
 
 interface RegisterModalProps {
   visible: boolean;
@@ -24,9 +27,110 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+
+  const { register } = useAuth();
 
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
+  };
+
+  const validateForm = () => {
+    const newErrors = {
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: ''
+    };
+    let isValid = true;
+
+    // Walidacja nazwy użytkownika
+    if (!username.trim()) {
+      newErrors.username = 'Wprowadź nazwę użytkownika';
+      isValid = false;
+    } else if (username.length < 3) {
+      newErrors.username = 'Nazwa użytkownika musi mieć co najmniej 3 znaki';
+      isValid = false;
+    }
+
+    // Walidacja email
+    if (!email.trim()) {
+      newErrors.email = 'Wprowadź adres email';
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Wprowadź poprawny adres email';
+      isValid = false;
+    }
+
+    // Walidacja hasła
+    if (!password) {
+      newErrors.password = 'Wprowadź hasło';
+      isValid = false;
+    } else if (password.length < 6) {
+      newErrors.password = 'Hasło musi mieć co najmniej 6 znaków';
+      isValid = false;
+    }
+
+    // Walidacja potwierdzenia hasła
+    if (!confirmPassword) {
+      newErrors.confirmPassword = 'Potwierdź hasło';
+      isValid = false;
+    } else if (confirmPassword !== password) {
+      newErrors.confirmPassword = 'Hasła nie są identyczne';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleRegister = async () => {
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+
+    try {
+      const result = await register(username, email, password);
+      
+      if (result.success) {
+        Alert.alert(
+          "Rejestracja pomyślna",
+          result.message || "Konto zostało utworzone pomyślnie. Możesz się teraz zalogować.",
+          [
+            { 
+              text: "OK", 
+              onPress: () => {
+                // Resetujemy formularz i zamykamy modal
+                setUsername('');
+                setEmail('');
+                setPassword('');
+                setConfirmPassword('');
+                onClose();
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Błąd rejestracji",
+          result.message || "Nie udało się utworzyć konta. Spróbuj ponownie."
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        "Błąd",
+        "Wystąpił nieoczekiwany błąd podczas rejestracji. Spróbuj ponownie później."
+      );
+      console.error("Registration error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -64,6 +168,7 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
                   autoCapitalize="none"
                 />
               </View>
+              {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
               
               {/* Pole email */}
               <View style={styles.inputContainer}>
@@ -77,6 +182,7 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
                   keyboardType="email-address"
                 />
               </View>
+              {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
               
               {/* Pole hasła */}
               <View style={styles.inputContainer}>
@@ -96,6 +202,7 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
                   />
                 </TouchableOpacity>
               </View>
+              {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
               
               {/* Pole potwierdzenia hasła */}
               <View style={styles.inputContainer}>
@@ -108,13 +215,25 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
                   secureTextEntry={!showPassword}
                 />
               </View>
+              {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
               
               {/* Przycisk rejestracji */}
               <TouchableOpacity 
-                style={styles.registerButton}
+                style={[
+                  styles.registerButton, 
+                  (isLoading || !username || !email || !password || !confirmPassword) && styles.registerButtonDisabled
+                ]}
+                onPress={handleRegister}
+                disabled={isLoading || !username || !email || !password || !confirmPassword}
               >
-                <AntDesign name="adduser" size={20} color="#fff" />
-                <Text style={styles.registerButtonText}>Zarejestruj się</Text>
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <AntDesign name="adduser" size={20} color="#fff" />
+                    <Text style={styles.registerButtonText}>Zarejestruj się</Text>
+                  </>
+                )}
               </TouchableOpacity>
               
               <Text style={styles.termsText}>
@@ -203,5 +322,14 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginBottom: 24,
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 14,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  registerButtonDisabled: {
+    backgroundColor: '#a8d1f7',
   },
 }); 

@@ -15,6 +15,7 @@ import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import RegisterModal from './RegisterModal';
 import ResetPasswordModal from './ResetPasswordModal';
+import { useAuth } from '../../context';
 
 export default function AuthScreen() {
   const [identifier, setIdentifier] = useState('');
@@ -25,6 +26,8 @@ export default function AuthScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
   const [resetPasswordModalVisible, setResetPasswordModalVisible] = useState(false);
+
+  const { login } = useAuth();
 
   const validateForm = () => {
     let isValid = true;
@@ -51,27 +54,40 @@ export default function AuthScreen() {
     return isValid;
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!validateForm()) return;
 
     setIsLoading(true);
 
-    // Symulacja logowania (później zostanie zastąpione rzeczywistym API)
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const result = await login(identifier, password);
       
-      // Tymczasowo wyświetlamy informację o pomyślnym logowaniu
+      if (result.success) {
+        Alert.alert(
+          "Logowanie pomyślne",
+          "Zostałeś pomyślnie zalogowany",
+          [
+            { 
+              text: "OK", 
+              onPress: () => router.back() 
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Błąd logowania",
+          result.message || "Nie udało się zalogować. Sprawdź dane logowania i spróbuj ponownie."
+        );
+      }
+    } catch (error) {
       Alert.alert(
-        "Logowanie pomyślne",
-        `Zalogowano jako: ${identifier}`,
-        [
-          { 
-            text: "OK", 
-            onPress: () => router.back() 
-          }
-        ]
+        "Błąd",
+        "Wystąpił nieoczekiwany błąd podczas logowania. Spróbuj ponownie później."
       );
-    }, 1500);
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const toggleShowPassword = () => {

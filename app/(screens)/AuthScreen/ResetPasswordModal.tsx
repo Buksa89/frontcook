@@ -8,9 +8,11 @@ import {
   TextInput,
   Pressable,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
+import { useAuth } from '../../context';
 
 interface ResetPasswordModalProps {
   visible: boolean;
@@ -20,16 +22,49 @@ interface ResetPasswordModalProps {
 export default function ResetPasswordModal({ visible, onClose }: ResetPasswordModalProps) {
   const [email, setEmail] = useState('');
   const [isSent, setIsSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
 
-  const handleSendResetLink = () => {
-    // Tutaj będzie logika wysyłania linku resetującego
-    setIsSent(true);
+  const { resetPassword } = useAuth();
+
+  const validateEmail = () => {
+    if (!email.trim()) {
+      setEmailError('Wprowadź adres email');
+      return false;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      setEmailError('Wprowadź poprawny adres email');
+      return false;
+    }
+    setEmailError('');
+    return true;
+  };
+
+  const handleSendResetLink = async () => {
+    if (!validateEmail()) return;
+
+    setIsLoading(true);
+
+    try {
+      const result = await resetPassword(email);
+      
+      if (result.success) {
+        setIsSent(true);
+      } else {
+        setEmailError(result.message || 'Nie udało się wysłać linku resetującego. Spróbuj ponownie.');
+      }
+    } catch (error) {
+      setEmailError('Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.');
+      console.error("Reset password error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClose = () => {
     // Resetujemy stan przy zamknięciu
     setIsSent(false);
     setEmail('');
+    setEmailError('');
     onClose();
   };
 
@@ -70,20 +105,30 @@ export default function ResetPasswordModal({ visible, onClose }: ResetPasswordMo
                       style={styles.input}
                       placeholder="Email"
                       value={email}
-                      onChangeText={setEmail}
+                      onChangeText={(text) => {
+                        setEmail(text);
+                        if (emailError) validateEmail();
+                      }}
                       autoCapitalize="none"
                       keyboardType="email-address"
                     />
                   </View>
+                  {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
                   
                   {/* Przycisk wysyłania */}
                   <TouchableOpacity 
-                    style={[styles.sendButton, !email.trim() && styles.sendButtonDisabled]}
+                    style={[styles.sendButton, (isLoading || !email.trim()) && styles.sendButtonDisabled]}
                     onPress={handleSendResetLink}
-                    disabled={!email.trim()}
+                    disabled={isLoading || !email.trim()}
                   >
-                    <Feather name="send" size={20} color="#fff" />
-                    <Text style={styles.sendButtonText}>Wyślij link resetujący</Text>
+                    {isLoading ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <>
+                        <Feather name="send" size={20} color="#fff" />
+                        <Text style={styles.sendButtonText}>Wyślij link resetujący</Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 </>
               ) : (
@@ -209,5 +254,11 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 16,
     fontWeight: '500',
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 14,
+    marginBottom: 16,
+    marginLeft: 4,
   },
 }); 
