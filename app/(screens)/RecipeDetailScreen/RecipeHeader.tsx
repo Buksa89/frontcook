@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, TouchableOpacity, StyleSheet, Share } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Recipe from '../../../database/models/Recipe';
@@ -22,6 +22,9 @@ export const RecipeHeader = ({ recipe }: RecipeHeaderProps) => {
           <MaterialIcons name="restaurant" size={48} color="#ccc" />
         </View>
       )}
+      <View style={styles.shareButton}>
+        <MaterialIcons name="share" size={24} color="#ccc" />
+      </View>
       <TouchableOpacity 
         style={styles.editButton}
         onPress={() => router.push({
@@ -49,6 +52,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  shareButton: {
+    position: 'absolute',
+    right: 84,
+    bottom: -28,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    opacity: 0.6,
   },
   editButton: {
     position: 'absolute',

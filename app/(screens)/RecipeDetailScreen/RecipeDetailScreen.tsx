@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
-import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import { AntDesign, MaterialIcons, Feather } from '@expo/vector-icons';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
 import RecipeTag from '../../../database/models/RecipeTag';
@@ -13,6 +13,9 @@ import { Observable } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { RecipeHeader } from './RecipeHeader';
 import { RecipeRating } from './RecipeRating';
+import { ServingsProvider } from './ServingsContext';
+import { ServingsAdjuster } from './ServingsAdjuster';
+import { ScaledIngredient } from './ScaledIngredient';
 
 interface RecipeDetailsScreenProps {
   recipe: Recipe | null;
@@ -41,78 +44,123 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
     }
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      <RecipeHeader recipe={recipe} />
+  const handleOpenVideo = () => {
+    if (recipe.video && recipe.video.trim() !== '') {
+      Linking.openURL(recipe.video);
+    }
+  };
 
-      <View style={styles.content}>
-        <Text style={styles.title}>{recipe.name}</Text>
-        
-        {tags.length > 0 && (
-          <View style={styles.tags}>
-            {tags.map(tag => (
-              <View key={tag.id} style={styles.tag}>
-                <Text style={styles.tagText}>{tag.name}</Text>
+  const handleOpenSource = () => {
+    if (recipe.source && recipe.source.trim() !== '' && recipe.source.startsWith('http')) {
+      Linking.openURL(recipe.source);
+    }
+  };
+
+  return (
+    <ServingsProvider>
+      <ScrollView style={styles.container}>
+        <RecipeHeader recipe={recipe} />
+
+        <View style={styles.content}>
+          <Text style={styles.title}>{recipe.name}</Text>
+          
+          {tags.length > 0 && (
+            <View style={styles.tags}>
+              {tags.map(tag => (
+                <View key={tag.id} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag.name}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {recipe.description && (
+            <Text style={styles.description}>{recipe.description}</Text>
+          )}
+
+          <View style={styles.infoRow}>
+            {recipe.prepTime !== null && recipe.prepTime > 0 && (
+              <View style={styles.infoItem}>
+                <MaterialIcons name="timer" size={24} color="#666" />
+                <Text style={styles.infoText}>Przygotowanie: {recipe.prepTime} min</Text>
               </View>
+            )}
+            {recipe.totalTime !== null && recipe.totalTime > 0 && (
+              <View style={styles.infoItem}>
+                <MaterialIcons name="schedule" size={24} color="#666" />
+                <Text style={styles.infoText}>Całkowity czas: {recipe.totalTime} min</Text>
+              </View>
+            )}
+          </View>
+
+          <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
+
+          {recipe.servings !== null && recipe.servings > 0 && (
+            <ServingsAdjuster 
+              originalServings={recipe.servings} 
+              ingredients={ingredients}
+              recipeName={recipe.name}
+            />
+          )}
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Składniki</Text>
+            {ingredients.map((ingredient, index) => (
+              <ScaledIngredient key={index} ingredient={ingredient} />
             ))}
           </View>
-        )}
 
-        {recipe.description && (
-          <Text style={styles.description}>{recipe.description}</Text>
-        )}
-
-        <View style={styles.infoRow}>
-          {recipe.prepTime > 0 && (
-            <View style={styles.infoItem}>
-              <MaterialIcons name="timer" size={24} color="#666" />
-              <Text style={styles.infoText}>Przygotowanie: {recipe.prepTime} min</Text>
-            </View>
-          )}
-          {recipe.totalTime > 0 && (
-            <View style={styles.infoItem}>
-              <MaterialIcons name="schedule" size={24} color="#666" />
-              <Text style={styles.infoText}>Całkowity czas: {recipe.totalTime} min</Text>
-            </View>
-          )}
-          {recipe.servings > 0 && (
-            <View style={styles.infoItem}>
-              <MaterialIcons name="people" size={24} color="#666" />
-              <Text style={styles.infoText}>Porcje: {recipe.servings}</Text>
-            </View>
-          )}
-        </View>
-
-        <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Składniki</Text>
-          {ingredients.map((ingredient, index) => (
-            <Text key={index} style={styles.ingredientLine}>
-              {ingredient.amount !== null && (
-                <Text style={styles.amount}>{ingredient.amount} </Text>
-              )}
-              {ingredient.unit && (
-                <Text style={styles.unit}>{ingredient.unit} </Text>
-              )}
-              <Text style={styles.ingredientName}>{ingredient.name || ingredient.originalStr}</Text>
-            </Text>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Instrukcje</Text>
-          <Text style={styles.sectionContent}>{recipe.instructions}</Text>
-        </View>
-
-        {recipe.notes && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notatki</Text>
-            <Text style={styles.sectionContent}>{recipe.notes}</Text>
+            <Text style={styles.sectionTitle}>Instrukcje</Text>
+            <Text style={styles.sectionContent}>{recipe.instructions}</Text>
           </View>
-        )}
-      </View>
-    </ScrollView>
+
+          {recipe.notes && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Notatki</Text>
+              <Text style={styles.sectionContent}>{recipe.notes}</Text>
+            </View>
+          )}
+
+          {recipe.nutrition && recipe.nutrition.trim() !== '' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Wartości odżywcze</Text>
+              <Text style={styles.sectionContent}>{recipe.nutrition}</Text>
+            </View>
+          )}
+
+          {recipe.video && recipe.video.trim() !== '' && (
+            <TouchableOpacity 
+              style={[styles.section, styles.linkSection]} 
+              onPress={handleOpenVideo}
+            >
+              <View style={styles.linkContent}>
+                <Feather name="video" size={20} color="#2196F3" />
+                <Text style={styles.linkText}>Obejrzyj wideo</Text>
+              </View>
+              <Feather name="external-link" size={18} color="#2196F3" />
+            </TouchableOpacity>
+          )}
+
+          {recipe.source && recipe.source.trim() !== '' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Źródło</Text>
+              {recipe.source.startsWith('http') ? (
+                <TouchableOpacity 
+                  style={styles.linkContent} 
+                  onPress={handleOpenSource}
+                >
+                  <Text style={styles.linkText}>{recipe.source}</Text>
+                  <Feather name="external-link" size={16} color="#2196F3" />
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.sectionContent}>{recipe.source}</Text>
+              )}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </ServingsProvider>
   );
 };
 
@@ -176,12 +224,10 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingTop: 40,
   },
   title: {
     fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
     marginBottom: 8,
   },
   description: {
@@ -190,68 +236,68 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 24,
   },
-  infoRow: {
+  tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
     marginBottom: 16,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
+  },
+  tag: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  tagText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    flexWrap: 'wrap',
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginRight: 16,
+    marginBottom: 8,
   },
   infoText: {
-    fontSize: 14,
+    marginLeft: 8,
     color: '#666',
+    fontSize: 14,
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
     marginBottom: 8,
+    color: '#333',
   },
   sectionContent: {
     fontSize: 16,
-    color: '#444',
     lineHeight: 24,
+    color: '#444',
   },
-  tags: {
+  linkSection: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  tag: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  linkContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  tagText: {
+  linkText: {
     color: '#2196F3',
-    fontSize: 14,
-  },
-  ingredientLine: {
     fontSize: 16,
-    color: '#444',
-    lineHeight: 24,
-    marginBottom: 4,
-  },
-  amount: {
-    fontWeight: '500',
-  },
-  unit: {
-    color: '#666',
-  },
-  ingredientName: {
-    color: '#444',
+    marginLeft: 8,
   },
 }); 

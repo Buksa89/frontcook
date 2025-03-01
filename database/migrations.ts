@@ -36,6 +36,24 @@ export default schemaMigrations({
           ]
         })
       ]
+    },
+    {
+      toVersion: 3,
+      steps: [
+        // Create shopping_items table
+        createTable({
+          name: 'shopping_items',
+          columns: [
+            { name: 'remote_id', type: 'string', isOptional: true },
+            { name: 'amount', type: 'number', isOptional: true },
+            { name: 'unit', type: 'string', isOptional: true },
+            { name: 'name', type: 'string' },
+            { name: 'type', type: 'string', isOptional: true },
+            { name: 'order', type: 'number' },
+            { name: 'is_checked', type: 'boolean' }
+          ]
+        })
+      ]
     }
   ]
 }) 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { withObservables } from '@nozbe/watermelondb/react';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
@@ -8,74 +8,125 @@ import database from '../../../database';
 import Tag from '../../../database/models/Tag';
 import Recipe from '../../../database/models/Recipe';
 import RecipeTag from '../../../database/models/RecipeTag';
+import Ingredient from '../../../database/models/Ingredient';
 import { Q } from '@nozbe/watermelondb';
+import { Observable } from 'rxjs';
+import { IngredientsMenu } from '../../../app/components/IngredientsMenu';
+import { ServingsProvider, useServings } from '../../(screens)/RecipeDetailScreen/ServingsContext';
+
+// Komponent opakowujący ServingsProvider, który ustawia początkowe wartości
+const ServingsProviderWithInitialValue = ({ children, servings }: { children: React.ReactNode, servings: number | null }) => {
+  return (
+    <ServingsProvider>
+      <ServingsInitializer servings={servings}>
+        {children}
+      </ServingsInitializer>
+    </ServingsProvider>
+  );
+};
+
+// Komponent inicjalizujący wartości w kontekście
+const ServingsInitializer = ({ children, servings }: { children: React.ReactNode, servings: number | null }) => {
+  const { setOriginalServings, setCurrentServings } = useServings();
+  
+  useEffect(() => {
+    if (servings !== null && servings > 0) {
+      setOriginalServings(servings);
+      setCurrentServings(servings);
+    }
+  }, [servings, setOriginalServings, setCurrentServings]);
+  
+  return <>{children}</>;
+};
 
 interface RecipeCardProps {
   recipe: Recipe;
   tags: Tag[];
+  ingredients: Ingredient[];
 }
 
-const RecipeCard = ({ recipe, tags }: RecipeCardProps) => (
-  <TouchableOpacity 
-    style={styles.card}
-    onPress={() => router.push({
-      pathname: '/(screens)/RecipeDetailScreen/RecipeDetailScreen',
-      params: { recipeId: recipe.id }
-    })}
-  >
-    <View style={[styles.imageContainer, styles.imagePlaceholder]}>
-      <Image
-        source={{ uri: recipe.image }}
-        style={styles.image}
-        onError={(e) => console.log('Błąd ładowania zdjęcia:', recipe.name)}
-      />
-    </View>
-    <View style={styles.cardContent}>
-      <Text style={styles.title}>{recipe.name}</Text>
-      {tags.length > 0 && (
-        <View style={styles.recipeTags}>
-          {tags.map(tag => (
-            <View key={tag.id} style={styles.recipeTag}>
-              <Text style={styles.recipeTagText}>{tag.name}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-      <View style={styles.recipeInfo}>
-        <View style={styles.rating}>
-          {[1, 2, 3, 4, 5].map(star => (
-            <AntDesign 
-              key={star}
-              name={star <= (recipe.rating || 0) ? "star" : "staro"}
-              size={16} 
-              color="#FFD700"
-            />
-          ))}
-        </View>
-        {recipe.prepTime > 0 && (
-          <Text style={styles.timeInfo}>
-            <MaterialIcons name="timer" size={14} color="#666" /> {recipe.prepTime} min
-          </Text>
-        )}
-        {recipe.totalTime > 0 && (
-          <Text style={styles.timeInfo}>
-            <MaterialIcons name="schedule" size={14} color="#666" /> {recipe.totalTime} min
-          </Text>
-        )}
-      </View>
-    </View>
-    <TouchableOpacity 
-      style={styles.cardShopCart}
-      onPress={() => router.push({
-        pathname: '/(screens)/ShoppingListScreen/ShoppingListScreen'
-      })}
-    >
-      <AntDesign name="shoppingcart" size={24} color="#2196F3" />
-    </TouchableOpacity>
-  </TouchableOpacity>
-);
+const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
+  const [menuVisible, setMenuVisible] = useState(false);
+  
+  const openIngredientsMenu = () => {
+    setMenuVisible(true);
+  };
+  
+  const closeIngredientsMenu = () => {
+    setMenuVisible(false);
+  };
 
-// Enhance RecipeCard to observe recipe tags
+  return (
+    <>
+      <TouchableOpacity 
+        style={styles.card}
+        onPress={() => router.push({
+          pathname: '/(screens)/RecipeDetailScreen/RecipeDetailScreen',
+          params: { recipeId: recipe.id }
+        })}
+      >
+        <View style={[styles.imageContainer, styles.imagePlaceholder]}>
+          <Image
+            source={{ uri: recipe.image }}
+            style={styles.image}
+            onError={(e) => console.log('Błąd ładowania zdjęcia:', recipe.name)}
+          />
+        </View>
+        <View style={styles.cardContent}>
+          <Text style={styles.title}>{recipe.name}</Text>
+          {tags.length > 0 && (
+            <View style={styles.recipeTags}>
+              {tags.map(tag => (
+                <View key={tag.id} style={styles.recipeTag}>
+                  <Text style={styles.recipeTagText}>{tag.name}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          <View style={styles.recipeInfo}>
+            <View style={styles.rating}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <AntDesign 
+                  key={star}
+                  name={star <= (recipe.rating || 0) ? "star" : "staro"}
+                  size={16} 
+                  color="#FFD700"
+                />
+              ))}
+            </View>
+            {recipe.prepTime > 0 && (
+              <Text style={styles.timeInfo}>
+                <MaterialIcons name="timer" size={14} color="#666" /> {recipe.prepTime} min
+              </Text>
+            )}
+            {recipe.totalTime > 0 && (
+              <Text style={styles.timeInfo}>
+                <MaterialIcons name="schedule" size={14} color="#666" /> {recipe.totalTime} min
+              </Text>
+            )}
+          </View>
+        </View>
+        <TouchableOpacity 
+          style={styles.cardShopCart}
+          onPress={openIngredientsMenu}
+        >
+          <AntDesign name="shoppingcart" size={24} color="#2196F3" />
+        </TouchableOpacity>
+      </TouchableOpacity>
+      
+      <ServingsProviderWithInitialValue servings={recipe.servings}>
+        <IngredientsMenu 
+          visible={menuVisible}
+          onClose={closeIngredientsMenu}
+          ingredients={ingredients}
+          recipeName={recipe.name}
+        />
+      </ServingsProviderWithInitialValue>
+    </>
+  );
+};
+
+// Enhance RecipeCard to observe recipe tags and ingredients
 const enhance = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => ({
   recipe,
   tags: database
@@ -90,6 +141,17 @@ const enhance = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => 
           )
         );
         return tags.filter((tag): tag is Tag => tag !== null);
+      })
+    ),
+  ingredients: database.get<Recipe>('recipes')
+    .findAndObserve(recipe.id)
+    .pipe(
+      switchMap(recipe => {
+        if (!recipe) return new Observable<Ingredient[]>(subscriber => subscriber.next([]));
+        return database
+          .get<Ingredient>('ingredients')
+          .query(Q.where('recipe_id', recipe.id))
+          .observe();
       })
     )
 }));

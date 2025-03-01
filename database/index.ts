@@ -8,6 +8,7 @@ import Tag from './models/Tag'
 import Recipe from './models/Recipe'
 import RecipeTag from './models/RecipeTag'
 import Ingredient from './models/Ingredient'
+import ShoppingItem from './models/ShoppingItem'
 
 interface DefaultTag {
   name: string
@@ -36,7 +37,8 @@ const database = new Database({
     Tag,
     Recipe,
     RecipeTag,
-    Ingredient
+    Ingredient,
+    ShoppingItem
   ],
 })
 

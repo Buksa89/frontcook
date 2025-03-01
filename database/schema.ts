@@ -59,13 +59,28 @@ const ingredientsSchema: TableSchema = tableSchema({
   ]
 })
 
+// Nowy schemat dla przedmiotów do kupienia
+const shoppingItemsSchema: TableSchema = tableSchema({
+  name: 'shopping_items',
+  columns: [
+    { name: 'remote_id', type: 'string', isOptional: true },
+    { name: 'amount', type: 'number', isOptional: true },
+    { name: 'unit', type: 'string', isOptional: true },
+    { name: 'name', type: 'string' },
+    { name: 'type', type: 'string', isOptional: true },
+    { name: 'order', type: 'number' },
+    { name: 'is_checked', type: 'boolean', isOptional: false }
+  ]
+})
+
 const schema: AppSchema = appSchema({
-  version: 2,
+  version: 3, // Zwiększamy wersję schematu
   tables: [
     tagsSchema,
     recipesSchema,
     recipeTagsSchema,
-    ingredientsSchema
+    ingredientsSchema,
+    shoppingItemsSchema
   ]
 })
 
