@@ -24,6 +24,26 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           pathname: '/(screens)/TagManagementScreen/TagManagementScreen'
         });
         break;
+      case 'notifications':
+        router.push({
+          pathname: '/(screens)/NotificationScreen/NotificationScreen'
+        });
+        break;
+      case 'friends':
+        router.push({
+          pathname: '/(screens)/FriendsScreen/FriendsScreen'
+        });
+        break;
+      case 'account-settings':
+        router.push({
+          pathname: '/(screens)/SettingsScreen/SettingsScreen'
+        });
+        break;
+      case 'login':
+        router.push({
+          pathname: '/(screens)/AuthScreen/AuthScreen'
+        });
+        break;
       // Add other cases here when implementing other menu items
     }
     onClose();
@@ -47,7 +67,8 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'pending-recipes',
       label: 'Przepisy do akceptacji',
       icon: <MaterialIcons name="pending-actions" size={24} color="#666" />,
-      section: 'main'
+      section: 'main',
+      disabled: true
     },
     
     // Social section
@@ -55,8 +76,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'friends',
       label: 'Znajomi',
       icon: <FontAwesome5 name="user-friends" size={22} color="#666" />,
-      section: 'social',
-      disabled: true
+      section: 'social'
     },
     {
       id: 'stalking',
@@ -71,15 +91,13 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'account-settings',
       label: 'Ustawienia konta',
       icon: <Ionicons name="settings-outline" size={24} color="#666" />,
-      section: 'account',
-      disabled: true
+      section: 'account'
     },
     {
       id: 'login',
       label: 'Zaloguj',
       icon: <AntDesign name="login" size={24} color="#666" />,
-      section: 'account',
-      disabled: true
+      section: 'account'
     },
   ];
 

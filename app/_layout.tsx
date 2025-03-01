@@ -13,6 +13,10 @@ type RootStackParamList = {
   '(screens)/RecipeDetailScreen/RecipeDetailScreen': { recipeId?: string };
   '(screens)/ShoppingListScreen/ShoppingListScreen': undefined;
   '(screens)/TagManagementScreen/TagManagementScreen': undefined;
+  '(screens)/NotificationScreen/NotificationScreen': undefined;
+  '(screens)/FriendsScreen/FriendsScreen': undefined;
+  '(screens)/SettingsScreen/SettingsScreen': undefined;
+  '(screens)/AuthScreen/AuthScreen': undefined;
 };
 
 type NavigationProps = NativeStackHeaderProps;
@@ -285,6 +289,70 @@ export default function RootLayout() {
           name="(screens)/TagManagementScreen/TagManagementScreen" 
           options={{ 
             headerTitle: "Zarządzanie tagami",
+            headerBackTitle: "Wróć",
+            headerStyle: {
+              backgroundColor: '#fff'
+            },
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333'
+            },
+            headerShadowVisible: false
+          }} 
+        />
+        <Stack.Screen 
+          name="(screens)/NotificationScreen/NotificationScreen" 
+          options={{ 
+            headerTitle: "Powiadomienia",
+            headerBackTitle: "Wróć",
+            headerStyle: {
+              backgroundColor: '#fff'
+            },
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333'
+            },
+            headerShadowVisible: false
+          }} 
+        />
+        <Stack.Screen 
+          name="(screens)/FriendsScreen/FriendsScreen" 
+          options={{ 
+            headerTitle: "Znajomi",
+            headerBackTitle: "Wróć",
+            headerStyle: {
+              backgroundColor: '#fff'
+            },
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333'
+            },
+            headerShadowVisible: false
+          }} 
+        />
+        <Stack.Screen 
+          name="(screens)/SettingsScreen/SettingsScreen" 
+          options={{ 
+            headerTitle: "Ustawienia konta",
+            headerBackTitle: "Wróć",
+            headerStyle: {
+              backgroundColor: '#fff'
+            },
+            headerTitleStyle: {
+              fontSize: 20,
+              fontWeight: '600',
+              color: '#333'
+            },
+            headerShadowVisible: false
+          }} 
+        />
+        <Stack.Screen 
+          name="(screens)/AuthScreen/AuthScreen" 
+          options={{ 
+            headerTitle: "Logowanie",
             headerBackTitle: "Wróć",
             headerStyle: {
               backgroundColor: '#fff'
