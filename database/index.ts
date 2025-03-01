@@ -11,6 +11,7 @@ import Recipe from './models/Recipe'
 import RecipeTag from './models/RecipeTag'
 import Ingredient from './models/Ingredient'
 import ShoppingItem from './models/ShoppingItem'
+import UserSettings from './models/UserSettings'
 
 interface DefaultTag {
   name: string
@@ -51,7 +52,8 @@ const database = new Database({
     Recipe,
     RecipeTag,
     Ingredient,
-    ShoppingItem
+    ShoppingItem,
+    UserSettings
   ],
 })
 
@@ -93,5 +95,9 @@ async function populateDefaultTags(): Promise<void> {
 populateDefaultTags().catch(error => {
   console.error('Error populating default tags:', error)
 })
+
+export {
+  UserSettings,
+}
 
 export default database 

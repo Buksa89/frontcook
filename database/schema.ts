@@ -73,14 +73,25 @@ const shoppingItemsSchema: TableSchema = tableSchema({
   ]
 })
 
+// Schema for user settings
+const userSettingsSchema: TableSchema = tableSchema({
+  name: 'user_settings',
+  columns: [
+    { name: 'language', type: 'string' },
+    { name: 'auto_translate_recipes', type: 'boolean' },
+    { name: 'allow_friends_views_recipes', type: 'boolean' }
+  ]
+})
+
 const schema: AppSchema = appSchema({
-  version: 3, // Zwiększamy wersję schematu
+  version: 4, // Increasing version number for the new table
   tables: [
     tagsSchema,
     recipesSchema,
     recipeTagsSchema,
     ingredientsSchema,
-    shoppingItemsSchema
+    shoppingItemsSchema,
+    userSettingsSchema
   ]
 })
 
