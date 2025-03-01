@@ -44,3 +44,5 @@ android/
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
+
+.env

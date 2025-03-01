@@ -1,6 +1,8 @@
 import { Platform } from 'react-native'
 import { Database } from '@nozbe/watermelondb'
 import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs'
+import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
+import { DEBUG } from '../app/constants/env'
 
 import schema from './schema'
 import migrations from './migrations'
@@ -15,7 +17,7 @@ interface DefaultTag {
   order: number
 }
 
-const adapter = new LokiJSAdapter({
+const getLokiAdapter = () => new LokiJSAdapter({
   schema,
   migrations,
   useWebWorker: false, // We can enable this if we want better performance
@@ -29,6 +31,17 @@ const adapter = new LokiJSAdapter({
     console.error('Database failed to load', error)
   },
 })
+
+const getSQLiteAdapter = () => new SQLiteAdapter({
+  schema,
+  migrations,
+  onSetUpError: (error: Error) => {
+    console.error('Database failed to load', error)
+  },
+})
+
+// Choose adapter based on DEBUG flag
+const adapter = DEBUG ? getLokiAdapter() : getSQLiteAdapter()
 
 // Create the database
 const database = new Database({
