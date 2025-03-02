@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import database from '../../../database';
 import ShoppingItem from '../../../database/models/ShoppingItem';
 import { parseShoppingItem } from '../../../app/utils/shoppingItemParser';
+import { of as observableOf, Observable } from 'rxjs';
 
 // Base component that receives shopping items as props
 const ShoppingListScreenComponent = ({ shoppingItems }: { shoppingItems: ShoppingItem[] }) => {
@@ -548,10 +549,29 @@ const styles = StyleSheet.create({
   },
 });
 
+// Create an observable factory that handles the async operation
+const createShoppingItemsObservable = (): Observable<ShoppingItem[]> => {
+  return new Observable(subscriber => {
+    let subscription: any;
+    
+    ShoppingItem.observeAll(database)
+      .then(observable => {
+        subscription = observable.subscribe(items => subscriber.next(items))
+      })
+      .catch(error => {
+        console.error('Error observing shopping items:', error)
+        subscriber.next([])
+      })
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  })
+}
+
 // Enhance the component with WatermelonDB observables
 export default withObservables([], () => ({
-  shoppingItems: database
-    .get<ShoppingItem>('shopping_items')
-    .query(Q.sortBy('order', Q.asc))
-    .observe()
+  shoppingItems: createShoppingItemsObservable()
 }))(ShoppingListScreenComponent); 

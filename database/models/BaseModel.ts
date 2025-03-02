@@ -1,8 +1,9 @@
 import { Model } from '@nozbe/watermelondb'
 import { field, text } from '@nozbe/watermelondb/decorators'
+import { SyncStatus } from '@nozbe/watermelondb/Model'
 
 export default class BaseModel extends Model {
-  @field('sync_status') syncStatus!: string
+  @field('sync_status') syncStatus!: SyncStatus
   @field('last_sync') lastSync!: string
   @field('is_local') isLocal!: boolean
   @text('owner') owner!: string | null
