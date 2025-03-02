@@ -14,71 +14,66 @@ export default function SettingsScreen() {
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
   const { activeUser } = useAuth();
 
-  // Load settings when component mounts or activeUser changes
+  // Load settings when component mounts
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const userSettings = await UserSettings.getOrCreate(database, activeUser);
+        const userSettings = await UserSettings.getOrCreate(database);
         setSettings(userSettings);
         setLanguage(userSettings.language as 'pl' | 'en');
         setAutoTranslate(userSettings.autoTranslateRecipes);
         setAllowFriendsViews(userSettings.allowFriendsViewsRecipes);
       } catch (error) {
-        console.error('Error loading settings:', error);
-        Alert.alert('Błąd', 'Nie udało się załadować ustawień.');
+        console.error('Błąd podczas ładowania ustawień:', error);
+        Alert.alert('Błąd', 'Nie udało się załadować ustawień');
       } finally {
         setLoading(false);
       }
     };
 
     loadSettings();
-  }, [activeUser]);
+  }, []);
 
-  // Update settings when values change
+  const handleError = (error: any, action: string) => {
+    const message = error instanceof Error ? error.message : 'Nieznany błąd';
+    console.error(`Błąd podczas ${action}:`, error);
+    Alert.alert('Błąd', message);
+  };
+
   const updateLanguage = async (newLanguage: 'pl' | 'en') => {
     if (!settings) return;
     
     try {
-      setLanguage(newLanguage);
       await settings.updateLanguage(newLanguage);
-      setLanguageDropdownOpen(false); // Close dropdown after selection
+      setLanguage(newLanguage);
+      setLanguageDropdownOpen(false);
     } catch (error) {
-      console.error('Error updating language:', error);
-      Alert.alert('Błąd', 'Nie udało się zaktualizować języka.');
-      // Revert UI state on error
-      setLanguage(settings.language as 'pl' | 'en');
+      handleError(error, 'zmiany języka');
     }
   };
 
   const updateAutoTranslate = async (value: boolean) => {
     if (!settings) return;
-    
+
     try {
-      setAutoTranslate(value);
       await settings.updateAutoTranslate(value);
+      setAutoTranslate(value);
     } catch (error) {
-      console.error('Error updating auto translate setting:', error);
-      Alert.alert('Błąd', 'Nie udało się zaktualizować ustawień tłumaczenia.');
-      // Revert UI state on error
-      setAutoTranslate(settings.autoTranslateRecipes);
+      handleError(error, 'zmiany auto-tłumaczenia');
     }
   };
 
   const updateAllowFriendsViews = async (value: boolean) => {
     if (!settings) return;
-    
+
     try {
-      setAllowFriendsViews(value);
       await settings.updateAllowFriendsViews(value);
+      setAllowFriendsViews(value);
     } catch (error) {
-      console.error('Error updating friends view setting:', error);
-      Alert.alert('Błąd', 'Nie udało się zaktualizować ustawień widoczności przepisów.');
-      // Revert UI state on error
-      setAllowFriendsViews(settings.allowFriendsViewsRecipes);
+      handleError(error, 'zmiany widoczności dla znajomych');
     }
   };
 
-  // Get language display name
   const getLanguageDisplayName = (lang: 'pl' | 'en') => {
     return lang === 'pl' ? 'Polski' : 'English';
   };
@@ -86,8 +81,7 @@ export default function SettingsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Ładowanie ustawień...</Text>
+        <ActivityIndicator size="large" color="#0000ff" />
       </View>
     );
   }
