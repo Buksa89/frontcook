@@ -39,6 +39,14 @@ export interface RefreshTokenResponse {
   access: string;
 }
 
+export interface LogoutRequest {
+  refresh_token: string;
+}
+
+export interface LogoutResponse {
+  detail?: string;
+}
+
 /**
  * Loguje użytkownika
  * @param credentials Dane logowania (username/email i hasło)
@@ -67,6 +75,20 @@ export const resetPassword = async (data: ResetPasswordRequest): Promise<ResetPa
 };
 
 /**
+ * Wylogowuje użytkownika
+ * @param refreshToken Token odświeżania do unieważnienia
+ * @param accessToken Token dostępu do autoryzacji żądania
+ * @returns Informacja o wylogowaniu
+ */
+export const logout = async (refreshToken: string, accessToken: string): Promise<LogoutResponse> => {
+  const data: LogoutRequest = { refresh_token: refreshToken };
+  const headers = {
+    'Authorization': `Bearer ${accessToken}`
+  };
+  return api.post<LogoutResponse>('/api/auth/logout/', data, true, headers);
+};
+
+/**
  * Odświeża token dostępu
  * @param refreshToken Token odświeżania
  * @returns Nowy token dostępu
@@ -80,5 +102,6 @@ export default {
   login,
   register,
   resetPassword,
+  logout,
   refreshToken
 }; 

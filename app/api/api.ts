@@ -56,7 +56,11 @@ class ApiClient {
     const sanitized = { ...data };
     
     // Lista kluczy, które mogą zawierać wrażliwe dane
-    const sensitiveKeys = ['password', 'password1', 'password2', 'new_password', 'old_password', 'confirm_password', 'token', 'refresh', 'access'];
+    const sensitiveKeys = [
+      'password', 'password1', 'password2', 'new_password', 'old_password', 'confirm_password', 
+      'token', 'refresh', 'access', 'refresh_token', 'access_token', 'id_token', 'auth_token',
+      'jwt', 'api_key', 'secret', 'secret_key', 'authorization'
+    ];
     
     // Usuń wrażliwe dane
     sensitiveKeys.forEach(key => {
@@ -65,7 +69,30 @@ class ApiClient {
       }
     });
     
+    // Dodatkowo sprawdź klucze, które zawierają słowo "token" lub "password"
+    Object.keys(sanitized).forEach(key => {
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey.includes('token') || 
+        lowerKey.includes('password') || 
+        lowerKey.includes('secret') || 
+        lowerKey.includes('auth') ||
+        lowerKey.includes('key')
+      ) {
+        sanitized[key] = '***HIDDEN***';
+      }
+    });
+    
     return sanitized;
+  }
+
+  /**
+   * Bezpiecznie loguje odpowiedź, usuwając wrażliwe dane jak tokeny
+   * @param data Dane odpowiedzi do zalogowania
+   * @returns Bezpieczna kopia danych bez wrażliwych informacji
+   */
+  private sanitizeResponseForLogging(data: any): any {
+    return this.sanitizePayloadForLogging(data);
   }
 
   /**
@@ -218,13 +245,21 @@ class ApiClient {
               return {} as T;
             }
             
+            // Obsługa kodu 205 (Reset Content) lub pustej odpowiedzi
+            if (newResponse.status === 205 || newResponse.headers.get('content-length') === '0') {
+              if (DEBUG) {
+                console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} ${newResponse.status === 205 ? 'Reset Content' : 'Empty Response'}`);
+              }
+              return {} as T;
+            }
+            
             // Parsuj odpowiedź jako JSON
             const newResponseData = await newResponse.json();
             
             // Loguj odpowiedź, jeśli DEBUG jest włączony
             if (DEBUG) {
               console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} ${newResponse.statusText}`);
-              console.log('📦 Response Data:', newResponseData);
+              console.log('📦 Response Data:', this.sanitizeResponseForLogging(newResponseData));
             }
             
             return newResponseData;
@@ -265,13 +300,21 @@ class ApiClient {
         return {} as T;
       }
       
+      // Obsługa kodu 205 (Reset Content) lub pustej odpowiedzi
+      if (response.status === 205 || response.headers.get('content-length') === '0') {
+        if (DEBUG) {
+          console.log(`✅ API RESPONSE: ${response.status} ${response.status === 205 ? 'Reset Content' : 'Empty Response'}`);
+        }
+        return {} as T;
+      }
+      
       // Parsuj odpowiedź jako JSON
       const responseData = await response.json();
       
       // Loguj odpowiedź, jeśli DEBUG jest włączony
       if (DEBUG) {
         console.log(`✅ API RESPONSE: ${response.status} ${response.statusText}`);
-        console.log('📦 Response Data:', responseData);
+        console.log('📦 Response Data:', this.sanitizeResponseForLogging(responseData));
       }
       
       return responseData;
@@ -322,12 +365,19 @@ class ApiClient {
    * @param endpoint Endpoint API
    * @param data Dane do wysłania
    * @param authenticated Czy zapytanie wymaga uwierzytelnienia
+   * @param additionalHeaders Dodatkowe nagłówki do wysłania
    * @returns Odpowiedź z API
    */
-  async post<T>(endpoint: string, data: any, authenticated: boolean = false): Promise<T> {
+  async post<T>(
+    endpoint: string, 
+    data: any, 
+    authenticated: boolean = false,
+    additionalHeaders: Record<string, string> = {}
+  ): Promise<T> {
     const options: RequestInit = {
       method: 'POST',
       body: JSON.stringify(data),
+      headers: { ...additionalHeaders }
     };
     
     if (authenticated) {
@@ -338,6 +388,7 @@ class ApiClient {
       }
       
       options.headers = {
+        ...options.headers,
         'Authorization': `Bearer ${accessToken}`,
       };
     }

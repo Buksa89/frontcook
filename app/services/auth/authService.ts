@@ -57,10 +57,27 @@ export const login = async (
  */
 export const logout = async (): Promise<{ success: boolean; message?: string; }> => {
   try {
+    // Pobierz tokeny
+    const { accessToken, refreshToken } = await getTokens();
+    
+    // Wywołaj API do wylogowania, jeśli mamy oba tokeny
+    if (refreshToken && accessToken) {
+      try {
+        await authApi.logout(refreshToken, accessToken);
+        // Ignorujemy ewentualne błędy z API - zawsze wylogowujemy lokalnie
+      } catch (error) {
+        console.warn('Błąd podczas wylogowywania na serwerze:', error);
+        // Kontynuujemy wylogowanie lokalne nawet jeśli API zwróciło błąd
+      }
+    }
+    
+    // Usuń tokeny lokalnie
     await removeTokens();
+    
+    // Zawsze zwracamy sukces, niezależnie od odpowiedzi API
     return { success: true };
   } catch (error) {
-    console.error('Błąd podczas wylogowywania:', error);
+    console.error('Błąd podczas wylogowywania lokalnie:', error);
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas wylogowywania' 
