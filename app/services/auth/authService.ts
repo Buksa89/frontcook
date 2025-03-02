@@ -2,6 +2,7 @@ import { storeTokens, getTokens, removeTokens, isAuthenticated } from './authSto
 import { refreshAccessToken } from './refreshTokens';
 import { authApi } from '../../api';
 import { ApiError } from '../../api/api';
+import { asyncStorageService } from '../storage';
 
 /**
  * Loguje użytkownika i zapisuje tokeny
@@ -19,6 +20,12 @@ export const login = async (
     if (response && response.access && response.refresh) {
       // Zapisz tokeny
       await storeTokens(response.access, response.refresh);
+      
+      // Zapisz nazwę aktywnego użytkownika
+      if (response.username) {
+        await asyncStorageService.storeActiveUser(response.username);
+      }
+      
       return { success: true };
     }
     
@@ -73,6 +80,9 @@ export const logout = async (): Promise<{ success: boolean; message?: string; }>
     
     // Usuń tokeny lokalnie
     await removeTokens();
+    
+    // Usuń nazwę aktywnego użytkownika
+    await asyncStorageService.removeActiveUser();
     
     // Zawsze zwracamy sukces, niezależnie od odpowiedzi API
     return { success: true };
