@@ -1,8 +1,8 @@
-import { Model } from '@nozbe/watermelondb'
 import { field, text, children, lazy, writer } from '@nozbe/watermelondb/decorators'
 import { Q } from '@nozbe/watermelondb'
 import { Associations } from '@nozbe/watermelondb'
 import { Observable } from 'rxjs'
+import BaseModel from './BaseModel'
 import RecipeTag from './RecipeTag'
 import Ingredient from './Ingredient'
 
@@ -11,7 +11,7 @@ interface UpdateTimesParams {
   totalTime?: number
 }
 
-export default class Recipe extends Model {
+export default class Recipe extends BaseModel {
   static table = 'recipes'
   static associations: Associations = {
     recipe_tags: { type: 'has_many', foreignKey: 'recipe_id' },

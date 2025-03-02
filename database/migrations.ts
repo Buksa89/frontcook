@@ -68,6 +68,58 @@ export default schemaMigrations({
           ]
         })
       ]
+    },
+    {
+      toVersion: 5,
+      steps: [
+        // Add sync fields to all tables
+        {
+          type: 'sql',
+          sql: `
+            -- Add sync fields to tags
+            ALTER TABLE tags 
+            ADD COLUMN sync_status TEXT DEFAULT 'synced',
+            ADD COLUMN last_sync TEXT DEFAULT NULL,
+            ADD COLUMN is_local INTEGER DEFAULT 0,
+            ADD COLUMN owner TEXT DEFAULT NULL;
+
+            -- Add sync fields to recipes
+            ALTER TABLE recipes 
+            ADD COLUMN sync_status TEXT DEFAULT 'synced',
+            ADD COLUMN last_sync TEXT DEFAULT NULL,
+            ADD COLUMN is_local INTEGER DEFAULT 0,
+            ADD COLUMN owner TEXT DEFAULT NULL;
+
+            -- Add sync fields to recipe_tags
+            ALTER TABLE recipe_tags 
+            ADD COLUMN sync_status TEXT DEFAULT 'synced',
+            ADD COLUMN last_sync TEXT DEFAULT NULL,
+            ADD COLUMN is_local INTEGER DEFAULT 0,
+            ADD COLUMN owner TEXT DEFAULT NULL;
+
+            -- Add sync fields to ingredients
+            ALTER TABLE ingredients 
+            ADD COLUMN sync_status TEXT DEFAULT 'synced',
+            ADD COLUMN last_sync TEXT DEFAULT NULL,
+            ADD COLUMN is_local INTEGER DEFAULT 0,
+            ADD COLUMN owner TEXT DEFAULT NULL;
+
+            -- Add sync fields to shopping_items
+            ALTER TABLE shopping_items 
+            ADD COLUMN sync_status TEXT DEFAULT 'synced',
+            ADD COLUMN last_sync TEXT DEFAULT NULL,
+            ADD COLUMN is_local INTEGER DEFAULT 0,
+            ADD COLUMN owner TEXT DEFAULT NULL;
+
+            -- Add sync fields to user_settings
+            ALTER TABLE user_settings 
+            ADD COLUMN sync_status TEXT DEFAULT 'synced',
+            ADD COLUMN last_sync TEXT DEFAULT NULL,
+            ADD COLUMN is_local INTEGER DEFAULT 0,
+            ADD COLUMN owner TEXT DEFAULT NULL;
+          `
+        }
+      ]
     }
   ]
 }) 

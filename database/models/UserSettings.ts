@@ -1,8 +1,8 @@
-import { Model } from '@nozbe/watermelondb'
 import { field, writer } from '@nozbe/watermelondb/decorators'
 import { Database } from '@nozbe/watermelondb'
+import BaseModel from './BaseModel'
 
-export default class UserSettings extends Model {
+export default class UserSettings extends BaseModel {
   static table = 'user_settings'
 
   @field('language') language!: string
@@ -14,6 +14,9 @@ export default class UserSettings extends Model {
       console.log(`[DB Settings] Zmiana języka: ${this.language} -> ${newLanguage}`);
       await this.update(settings => {
         settings.language = newLanguage
+        settings.syncStatus = 'pending'
+        settings.lastSync = new Date().toISOString()
+        settings.isLocal = true
       });
     } catch (error) {
       console.error(`[DB Settings] Błąd zmiany języka: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -26,6 +29,9 @@ export default class UserSettings extends Model {
       console.log(`[DB Settings] Zmiana auto-tłumaczenia: ${this.autoTranslateRecipes} -> ${autoTranslate}`);
       await this.update(settings => {
         settings.autoTranslateRecipes = autoTranslate
+        settings.syncStatus = 'pending'
+        settings.lastSync = new Date().toISOString()
+        settings.isLocal = true
       });
     } catch (error) {
       console.error(`[DB Settings] Błąd zmiany auto-tłumaczenia: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -38,6 +44,9 @@ export default class UserSettings extends Model {
       console.log(`[DB Settings] Zmiana widoczności dla znajomych: ${this.allowFriendsViewsRecipes} -> ${allowFriendsViews}`);
       await this.update(settings => {
         settings.allowFriendsViewsRecipes = allowFriendsViews
+        settings.syncStatus = 'pending'
+        settings.lastSync = new Date().toISOString()
+        settings.isLocal = true
       });
     } catch (error) {
       console.error(`[DB Settings] Błąd zmiany widoczności: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -60,6 +69,10 @@ export default class UserSettings extends Model {
           settings.language = 'pl'
           settings.autoTranslateRecipes = true
           settings.allowFriendsViewsRecipes = true
+          settings.syncStatus = 'pending'
+          settings.lastSync = new Date().toISOString()
+          settings.isLocal = true
+          settings.owner = null
         });
       });
 

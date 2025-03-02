@@ -1,11 +1,11 @@
-import { Model } from '@nozbe/watermelondb'
 import { field, text, children, lazy, writer } from '@nozbe/watermelondb/decorators'
 import { Q } from '@nozbe/watermelondb'
 import { Associations } from '@nozbe/watermelondb'
 import { Observable } from 'rxjs'
+import BaseModel from './BaseModel'
 import RecipeTag from './RecipeTag'
 
-export default class Tag extends Model {
+export default class Tag extends BaseModel {
   static table = 'tags'
   static associations: Associations = {
     recipe_tags: { type: 'has_many', foreignKey: 'tag_id' }

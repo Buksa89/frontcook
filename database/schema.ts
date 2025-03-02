@@ -1,6 +1,14 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb'
 import { TableSchema, ColumnSchema, AppSchema } from '@nozbe/watermelondb'
 
+// Wspólne kolumny synchronizacji
+const syncColumns = [
+  { name: 'sync_status', type: 'string' },
+  { name: 'last_sync', type: 'string' },
+  { name: 'is_local', type: 'boolean' },
+  { name: 'owner', type: 'string', isOptional: true }
+]
+
 const tagsSchema: TableSchema = tableSchema({
   name: 'tags',
   columns: [
@@ -9,6 +17,7 @@ const tagsSchema: TableSchema = tableSchema({
     { name: 'user_email', type: 'string', isOptional: true },
     { name: 'order', type: 'number' }, // For integers we use number type
     { name: 'name', type: 'string' }, // WatermelonDB doesn't have max length constraints at schema level
+    ...syncColumns
   ]
 })
 
@@ -30,7 +39,8 @@ const recipesSchema: TableSchema = tableSchema({
     { name: 'notes', type: 'string', isOptional: true },
     { name: 'nutrition', type: 'string', isOptional: true },
     { name: 'video', type: 'string', isOptional: true }, // For URLField
-    { name: 'source', type: 'string', isOptional: true }
+    { name: 'source', type: 'string', isOptional: true },
+    ...syncColumns
   ]
 })
 
@@ -39,6 +49,7 @@ const recipeTagsSchema: TableSchema = tableSchema({
   columns: [
     { name: 'recipe_id', type: 'string' }, // References the recipe.id
     { name: 'tag_id', type: 'string' }, // References the tag.id
+    ...syncColumns
   ]
 })
 
@@ -52,7 +63,8 @@ const ingredientsSchema: TableSchema = tableSchema({
     { name: 'type', type: 'string', isOptional: true },
     { name: 'recipe_id', type: 'string' },
     { name: 'order', type: 'number' },
-    { name: 'original_str', type: 'string' }
+    { name: 'original_str', type: 'string' },
+    ...syncColumns
   ],
   columnIndexes: [
     { columns: ['recipe_id', 'order'], unique: true }
@@ -69,7 +81,8 @@ const shoppingItemsSchema: TableSchema = tableSchema({
     { name: 'name', type: 'string', isIndexed: true },
     { name: 'type', type: 'string', isOptional: true },
     { name: 'order', type: 'number', isIndexed: true },
-    { name: 'is_checked', type: 'boolean', isOptional: false, isIndexed: true }
+    { name: 'is_checked', type: 'boolean', isOptional: false, isIndexed: true },
+    ...syncColumns
   ]
 })
 
@@ -79,12 +92,13 @@ const userSettingsSchema: TableSchema = tableSchema({
   columns: [
     { name: 'language', type: 'string' },
     { name: 'auto_translate_recipes', type: 'boolean' },
-    { name: 'allow_friends_views_recipes', type: 'boolean' }
+    { name: 'allow_friends_views_recipes', type: 'boolean' },
+    ...syncColumns
   ]
 })
 
 const schema: AppSchema = appSchema({
-  version: 4, // Increasing version number for the new table
+  version: 5, // Increasing version number for sync fields
   tables: [
     tagsSchema,
     recipesSchema,
