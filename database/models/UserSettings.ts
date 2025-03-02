@@ -10,38 +10,64 @@ export default class UserSettings extends Model {
   @field('allow_friends_views_recipes') allowFriendsViewsRecipes!: boolean
 
   @writer async updateLanguage(newLanguage: 'pl' | 'en') {
-    await this.update(settings => {
-      settings.language = newLanguage
-    })
+    try {
+      console.log(`[DB Settings] Zmiana języka: ${this.language} -> ${newLanguage}`);
+      await this.update(settings => {
+        settings.language = newLanguage
+      });
+    } catch (error) {
+      console.error(`[DB Settings] Błąd zmiany języka: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 
   @writer async updateAutoTranslate(autoTranslate: boolean) {
-    await this.update(settings => {
-      settings.autoTranslateRecipes = autoTranslate
-    })
+    try {
+      console.log(`[DB Settings] Zmiana auto-tłumaczenia: ${this.autoTranslateRecipes} -> ${autoTranslate}`);
+      await this.update(settings => {
+        settings.autoTranslateRecipes = autoTranslate
+      });
+    } catch (error) {
+      console.error(`[DB Settings] Błąd zmiany auto-tłumaczenia: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 
   @writer async updateAllowFriendsViews(allowFriendsViews: boolean) {
-    await this.update(settings => {
-      settings.allowFriendsViewsRecipes = allowFriendsViews
-    })
+    try {
+      console.log(`[DB Settings] Zmiana widoczności dla znajomych: ${this.allowFriendsViewsRecipes} -> ${allowFriendsViews}`);
+      await this.update(settings => {
+        settings.allowFriendsViewsRecipes = allowFriendsViews
+      });
+    } catch (error) {
+      console.error(`[DB Settings] Błąd zmiany widoczności: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 
   // Static method to get or create settings
   static async getOrCreate(database: Database): Promise<UserSettings> {
-    const settings = await database.get<UserSettings>('user_settings').query().fetch()
-    
-    if (settings.length > 0) {
-      return settings[0]
-    }
+    try {
+      const settings = await database.get<UserSettings>('user_settings').query().fetch();
+      
+      if (settings.length > 0) {
+        console.log(`[DB Settings] Pobrano ustawienia: język=${settings[0].language}, auto-tłumaczenie=${settings[0].autoTranslateRecipes}, widoczność=${settings[0].allowFriendsViewsRecipes}`);
+        return settings[0];
+      }
 
-    // Create default settings if none exist
-    return await database.write(async () => {
-      return await database.get<UserSettings>('user_settings').create(settings => {
-        settings.language = 'pl'
-        settings.autoTranslateRecipes = true
-        settings.allowFriendsViewsRecipes = true
-      })
-    })
+      const newSettings = await database.write(async () => {
+        return await database.get<UserSettings>('user_settings').create(settings => {
+          settings.language = 'pl'
+          settings.autoTranslateRecipes = true
+          settings.allowFriendsViewsRecipes = true
+        });
+      });
+
+      console.log(`[DB Settings] Utworzono domyślne ustawienia: język=pl, auto-tłumaczenie=true, widoczność=true`);
+      return newSettings;
+    } catch (error) {
+      console.error(`[DB Settings] Błąd bazy danych: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 } 

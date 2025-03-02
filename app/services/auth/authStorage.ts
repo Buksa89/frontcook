@@ -16,8 +16,14 @@ const storage: StorageInterface = DEBUG ? AsyncStorage : EncryptedStorage;
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 
+const maskToken = (token: string): string => {
+  if (!token) return '';
+  if (token.length <= 8) return '*'.repeat(token.length);
+  return token.substring(0, 4) + '*'.repeat(token.length - 8) + token.substring(token.length - 4);
+};
+
 /**
- * Przechowuje tokeny uwierzytelniania (access i refresh) w odpowiednim magazynie
+ * Przechowuje tokeny uwierzytelniania w magazynie
  * @param accessToken Token dostępu
  * @param refreshToken Token odświeżania
  */
@@ -25,24 +31,43 @@ export const storeTokens = async (accessToken: string, refreshToken: string): Pr
   try {
     await storage.setItem(ACCESS_TOKEN_KEY, accessToken);
     await storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    console.log('Tokeny zapisane pomyślnie');
+    console.log('[Auth Storage] Zapisano tokeny:', {
+      accessToken: maskToken(accessToken),
+      refreshToken: maskToken(refreshToken),
+      timestamp: new Date().toISOString()
+    });
   } catch (e) {
-    console.error('Błąd podczas zapisywania tokenów', e);
+    console.error('[Auth Storage] Błąd podczas zapisywania tokenów:', {
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
     throw e;
   }
 };
 
 /**
  * Pobiera tokeny uwierzytelniania z magazynu
- * @returns Obiekt zawierający accessToken i refreshToken
+ * @returns Obiekt zawierający tokeny lub null jeśli nie istnieją
  */
-export const getTokens = async (): Promise<{ accessToken: string | null, refreshToken: string | null }> => {
+export const getTokens = async (): Promise<{ accessToken: string | null; refreshToken: string | null }> => {
   try {
-    const accessToken = await storage.getItem(ACCESS_TOKEN_KEY);
-    const refreshToken = await storage.getItem(REFRESH_TOKEN_KEY);
+    const [accessToken, refreshToken] = await Promise.all([
+      storage.getItem(ACCESS_TOKEN_KEY),
+      storage.getItem(REFRESH_TOKEN_KEY)
+    ]);
+    
+    console.log('[Auth Storage] Odczytano tokeny:', {
+      accessToken: accessToken ? maskToken(accessToken) : null,
+      refreshToken: refreshToken ? maskToken(refreshToken) : null,
+      timestamp: new Date().toISOString()
+    });
+    
     return { accessToken, refreshToken };
   } catch (e) {
-    console.error('Błąd podczas odczytywania tokenów', e);
+    console.error('[Auth Storage] Błąd podczas odczytywania tokenów:', {
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
     throw e;
   }
 };
@@ -54,9 +79,14 @@ export const removeTokens = async (): Promise<void> => {
   try {
     await storage.removeItem(ACCESS_TOKEN_KEY);
     await storage.removeItem(REFRESH_TOKEN_KEY);
-    console.log('Tokeny usunięte pomyślnie');
+    console.log('[Auth Storage] Usunięto tokeny:', {
+      timestamp: new Date().toISOString()
+    });
   } catch (e) {
-    console.error('Błąd podczas usuwania tokenów', e);
+    console.error('[Auth Storage] Błąd podczas usuwania tokenów:', {
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
     throw e;
   }
 };
@@ -68,9 +98,16 @@ export const removeTokens = async (): Promise<void> => {
 export const isAuthenticated = async (): Promise<boolean> => {
   try {
     const accessToken = await storage.getItem(ACCESS_TOKEN_KEY);
+    console.log('[Auth Storage] Sprawdzono stan uwierzytelnienia:', {
+      isAuthenticated: accessToken !== null,
+      timestamp: new Date().toISOString()
+    });
     return accessToken !== null;
   } catch (e) {
-    console.error('Błąd podczas sprawdzania uwierzytelnienia', e);
+    console.error('[Auth Storage] Błąd podczas sprawdzania uwierzytelnienia:', {
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
     return false;
   }
 };

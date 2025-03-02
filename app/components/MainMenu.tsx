@@ -113,8 +113,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'account-settings',
       label: 'Ustawienia konta',
       icon: <Ionicons name="settings-outline" size={24} color="#666" />,
-      section: 'account',
-      requiresAuth: true
+      section: 'account'
     },
     {
       id: 'login',

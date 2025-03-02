@@ -3,6 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Klucze używane do przechowywania danych
 const ACTIVE_USER_KEY = 'active_user';
 
+const maskSensitiveData = (key: string, value: string): string => {
+  const sensitiveKeys = ['password', 'token', 'access', 'refresh'];
+  if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
+    return '*'.repeat(8);
+  }
+  return value;
+};
+
 /**
  * Przechowuje nazwę aktywnego użytkownika w AsyncStorage
  * @param username Nazwa aktywnego użytkownika
@@ -10,9 +18,17 @@ const ACTIVE_USER_KEY = 'active_user';
 export const storeActiveUser = async (username: string): Promise<void> => {
   try {
     await AsyncStorage.setItem(ACTIVE_USER_KEY, username);
-    console.log('Nazwa aktywnego użytkownika zapisana pomyślnie');
+    console.log('[Storage] Zapisano dane:', {
+      key: ACTIVE_USER_KEY,
+      value: username,
+      timestamp: new Date().toISOString()
+    });
   } catch (e) {
-    console.error('Błąd podczas zapisywania nazwy aktywnego użytkownika', e);
+    console.error('[Storage] Błąd podczas zapisywania nazwy aktywnego użytkownika:', {
+      key: ACTIVE_USER_KEY,
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
     throw e;
   }
 };
@@ -24,9 +40,18 @@ export const storeActiveUser = async (username: string): Promise<void> => {
 export const getActiveUser = async (): Promise<string | null> => {
   try {
     const username = await AsyncStorage.getItem(ACTIVE_USER_KEY);
+    console.log('[Storage] Odczytano dane:', {
+      key: ACTIVE_USER_KEY,
+      value: username,
+      timestamp: new Date().toISOString()
+    });
     return username;
   } catch (e) {
-    console.error('Błąd podczas odczytywania nazwy aktywnego użytkownika', e);
+    console.error('[Storage] Błąd podczas odczytywania nazwy aktywnego użytkownika:', {
+      key: ACTIVE_USER_KEY,
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
     throw e;
   }
 };
@@ -37,9 +62,16 @@ export const getActiveUser = async (): Promise<string | null> => {
 export const removeActiveUser = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ACTIVE_USER_KEY);
-    console.log('Nazwa aktywnego użytkownika usunięta pomyślnie');
+    console.log('[Storage] Usunięto dane:', {
+      key: ACTIVE_USER_KEY,
+      timestamp: new Date().toISOString()
+    });
   } catch (e) {
-    console.error('Błąd podczas usuwania nazwy aktywnego użytkownika', e);
+    console.error('[Storage] Błąd podczas usuwania nazwy aktywnego użytkownika:', {
+      key: ACTIVE_USER_KEY,
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
     throw e;
   }
 };
@@ -51,9 +83,18 @@ export const removeActiveUser = async (): Promise<void> => {
 export const hasActiveUser = async (): Promise<boolean> => {
   try {
     const username = await AsyncStorage.getItem(ACTIVE_USER_KEY);
+    console.log('[Storage] Sprawdzono istnienie użytkownika:', {
+      key: ACTIVE_USER_KEY,
+      exists: username !== null,
+      timestamp: new Date().toISOString()
+    });
     return username !== null;
   } catch (e) {
-    console.error('Błąd podczas sprawdzania aktywnego użytkownika', e);
+    console.error('[Storage] Błąd podczas sprawdzania aktywnego użytkownika:', {
+      key: ACTIVE_USER_KEY,
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
     return false;
   }
 };
