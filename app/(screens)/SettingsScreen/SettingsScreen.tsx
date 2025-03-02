@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Switch, TouchableOpacity, ActivityIndicator, Sc
 import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import database from '../../../database';
 import { UserSettings } from '../../../database';
+import { useAuth } from '../../../app/context/authContext';
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -11,12 +12,13 @@ export default function SettingsScreen() {
   const [autoTranslate, setAutoTranslate] = useState(true);
   const [allowFriendsViews, setAllowFriendsViews] = useState(true);
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
+  const { activeUser } = useAuth();
 
-  // Load settings when component mounts
+  // Load settings when component mounts or activeUser changes
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const userSettings = await UserSettings.getOrCreate(database);
+        const userSettings = await UserSettings.getOrCreate(database, activeUser);
         setSettings(userSettings);
         setLanguage(userSettings.language as 'pl' | 'en');
         setAutoTranslate(userSettings.autoTranslateRecipes);
@@ -30,7 +32,7 @@ export default function SettingsScreen() {
     };
 
     loadSettings();
-  }, []);
+  }, [activeUser]);
 
   // Update settings when values change
   const updateLanguage = async (newLanguage: 'pl' | 'en') => {

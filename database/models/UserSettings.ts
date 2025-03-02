@@ -1,6 +1,7 @@
 import { field, writer } from '@nozbe/watermelondb/decorators'
 import { Database } from '@nozbe/watermelondb'
 import BaseModel from './BaseModel'
+import { Q } from '@nozbe/watermelondb'
 
 export default class UserSettings extends BaseModel {
   static table = 'user_settings'
@@ -55,12 +56,15 @@ export default class UserSettings extends BaseModel {
   }
 
   // Static method to get or create settings
-  static async getOrCreate(database: Database): Promise<UserSettings> {
+  static async getOrCreate(database: Database, owner: string | null = null): Promise<UserSettings> {
     try {
-      const settings = await database.get<UserSettings>('user_settings').query().fetch();
+      // Query settings for specific owner
+      const settings = await database.get<UserSettings>('user_settings')
+        .query(Q.where('owner', owner))
+        .fetch();
       
       if (settings.length > 0) {
-        console.log(`[DB Settings] Pobrano ustawienia: język=${settings[0].language}, auto-tłumaczenie=${settings[0].autoTranslateRecipes}, widoczność=${settings[0].allowFriendsViewsRecipes}`);
+        console.log(`[DB Settings] Pobrano ustawienia dla ${owner}: język=${settings[0].language}, auto-tłumaczenie=${settings[0].autoTranslateRecipes}, widoczność=${settings[0].allowFriendsViewsRecipes}`);
         return settings[0];
       }
 
@@ -72,11 +76,11 @@ export default class UserSettings extends BaseModel {
           settings.syncStatus = 'pending'
           settings.lastSync = new Date().toISOString()
           settings.isLocal = true
-          settings.owner = null
+          settings.owner = owner
         });
       });
 
-      console.log(`[DB Settings] Utworzono domyślne ustawienia: język=pl, auto-tłumaczenie=true, widoczność=true`);
+      console.log(`[DB Settings] Utworzono domyślne ustawienia dla ${owner}: język=pl, auto-tłumaczenie=true, widoczność=true`);
       return newSettings;
     } catch (error) {
       console.error(`[DB Settings] Błąd bazy danych: ${error instanceof Error ? error.message : 'Unknown error'}`);
