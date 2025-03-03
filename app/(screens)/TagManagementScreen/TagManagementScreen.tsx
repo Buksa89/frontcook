@@ -5,6 +5,8 @@ import { Q } from '@nozbe/watermelondb';
 import { MaterialIcons, AntDesign, Feather } from '@expo/vector-icons';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
+import RecipeTag from '../../../database/models/RecipeTag';
+import { Observable } from 'rxjs';
 
 // Base component that receives tags as props
 const TagManagementScreenComponent = ({ tags }: { tags: Tag[] }) => {
@@ -15,10 +17,25 @@ const TagManagementScreenComponent = ({ tags }: { tags: Tag[] }) => {
   const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
 
   const deleteTag = async (tag: Tag) => {
-    await database.write(async () => {
-      await tag.destroyPermanently();
-    });
-    setMenuVisible(false);
+    try {
+      await database.write(async () => {
+        // First, get all related RecipeTags
+        const recipeTags = await database
+          .get<RecipeTag>('recipe_tags')
+          .query(Q.where('tag_id', tag.id))
+          .fetch();
+
+        // Delete all related RecipeTags first
+        await Promise.all(recipeTags.map(recipeTag => recipeTag.destroyPermanently()));
+
+        // Then delete the tag itself
+        await tag.destroyPermanently();
+      });
+      setMenuVisible(false);
+    } catch (error) {
+      console.error(`Error deleting tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      Alert.alert('Błąd', 'Nie udało się usunąć tagu');
+    }
   };
 
   const startEdit = (tag: Tag) => {
@@ -30,12 +47,24 @@ const TagManagementScreenComponent = ({ tags }: { tags: Tag[] }) => {
   const saveEdit = async () => {
     if (!editingTag || !editText.trim()) return;
 
-    await database.write(async () => {
-      await editingTag.updateName(editText.trim());
-    });
+    try {
+      // Create new tag with the same order as the edited one
+      await Tag.createOrUpdate(database, {
+        name: editText,
+        order: editingTag.order
+      }, true);
 
-    setEditingTag(null);
-    setEditText('');
+      // Delete the old tag
+      await database.write(async () => {
+        await editingTag.destroyPermanently();
+      });
+
+      setEditingTag(null);
+      setEditText('');
+    } catch (error) {
+      console.error(`Error updating tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      Alert.alert('Błąd', 'Nie udało się zaktualizować tagu');
+    }
   };
 
   const showTagMenu = (tag: Tag) => {
@@ -46,16 +75,19 @@ const TagManagementScreenComponent = ({ tags }: { tags: Tag[] }) => {
   const addNewTag = async () => {
     if (!newTagText.trim()) return;
 
-    const maxOrder = tags.reduce((max, tag) => Math.max(max, tag.order), -1);
+    try {
+      const maxOrder = tags.reduce((max, tag) => Math.max(max, tag.order), -1);
 
-    await database.write(async () => {
-      await database.get<Tag>('tags').create(tag => {
-        tag.name = newTagText.trim();
-        tag.order = maxOrder + 1;
+      await Tag.createOrUpdate(database, {
+        name: newTagText,
+        order: maxOrder + 1
       });
-    });
 
-    setNewTagText('');
+      setNewTagText('');
+    } catch (error) {
+      console.error(`Error adding tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      Alert.alert('Błąd', 'Nie udało się dodać tagu');
+    }
   };
 
   const renderItem = ({ item }: { item: Tag }) => (
@@ -194,6 +226,35 @@ const TagManagementScreenComponent = ({ tags }: { tags: Tag[] }) => {
     </KeyboardAvoidingView>
   );
 };
+
+// Create an observable factory that handles the async operation
+const createTagsObservable = (): Observable<Tag[]> => {
+  return new Observable(subscriber => {
+    let subscription: any;
+    
+    Tag.observeAll(database)
+      .then(observable => {
+        subscription = observable.subscribe(tags => subscriber.next(tags))
+      })
+      .catch(error => {
+        console.error('Error observing tags:', error)
+        subscriber.next([])
+      })
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  })
+}
+
+// Enhance component with tags data
+const enhance = withObservables([], () => ({
+  tags: createTagsObservable()
+}));
+
+export default enhance(TagManagementScreenComponent);
 
 const styles = StyleSheet.create({
   container: {
@@ -355,12 +416,4 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
-});
-
-// Enhance the component with WatermelonDB observables
-export default withObservables([], () => ({
-  tags: database
-    .get<Tag>('tags')
-    .query(Q.sortBy('order', Q.asc))
-    .observe()
-}))(TagManagementScreenComponent); 
+}); 

@@ -2,7 +2,9 @@ import { Platform } from 'react-native'
 import { Database } from '@nozbe/watermelondb'
 import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs'
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
+import { Q } from '@nozbe/watermelondb'
 import { DEBUG } from '../app/constants/env'
+import { asyncStorageService } from '../app/services/storage'
 
 import schema from './schema'
 import migrations from './migrations'
@@ -74,20 +76,38 @@ const defaultTags: DefaultTag[] = [
 
 // Function to populate default tags
 async function populateDefaultTags(): Promise<void> {
-  const tagsCollection = database.get<Tag>('tags')
-  const existingTags = await tagsCollection.query().fetch()
-  
-  if (existingTags.length === 0) {
-    await database.write(async () => {
-      const promises = defaultTags.map(tag => 
-        tagsCollection.create((record: Tag) => {
-          record.name = tag.name
-          record.order = tag.order
-        })
-      )
-      await Promise.all(promises)
-    })
-    console.log('Default tags created successfully')
+  try {
+    const activeUser = await asyncStorageService.getActiveUser();
+    if (activeUser) {
+      console.log('Active user exists, skipping default tags creation');
+      return;
+    }
+
+    const tagsCollection = database.get<Tag>('tags');
+    const existingTags = await tagsCollection
+      .query(Q.where('owner', null))
+      .fetch();
+    
+    if (existingTags.length === 0) {
+      await database.write(async () => {
+        const promises = defaultTags.map(tag => 
+          tagsCollection.create(record => {
+            record.name = tag.name
+            record.order = tag.order
+            record.owner = null
+            record.syncStatus = 'pending'
+            record.lastSync = new Date().toISOString()
+            record.isLocal = true
+          })
+        )
+        await Promise.all(promises)
+      })
+      console.log('Default system tags created successfully')
+    } else {
+      console.log('System tags already exist, skipping creation')
+    }
+  } catch (error) {
+    console.error('Error populating default tags:', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 

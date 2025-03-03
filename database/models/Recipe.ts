@@ -19,7 +19,6 @@ export default class Recipe extends BaseModel {
   }
 
   @field('remote_id') remoteId!: string | null
-  @text('user_email') userEmail!: string | null
   @text('name') name!: string
   @text('description') description!: string | null
   @text('image') image!: string | null

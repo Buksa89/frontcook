@@ -14,7 +14,6 @@ const tagsSchema: TableSchema = tableSchema({
   columns: [
     // Note: local_id is automatically handled by WatermelonDB as 'id'
     { name: 'remote_id', type: 'string', isOptional: true }, // Using string for bigint to avoid JS number limitations
-    { name: 'user_email', type: 'string', isOptional: true },
     { name: 'order', type: 'number' }, // For integers we use number type
     { name: 'name', type: 'string' }, // WatermelonDB doesn't have max length constraints at schema level
     ...syncColumns
@@ -26,7 +25,6 @@ const recipesSchema: TableSchema = tableSchema({
   columns: [
     // Note: local_id is automatically handled by WatermelonDB as 'id'
     { name: 'remote_id', type: 'string', isOptional: true }, // Using string for bigint
-    { name: 'user_email', type: 'string', isOptional: true },
     { name: 'name', type: 'string' },
     { name: 'description', type: 'string', isOptional: true },
     { name: 'image', type: 'string', isOptional: true }, // We'll store the image path/url
