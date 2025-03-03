@@ -117,6 +117,7 @@ const EditRecipeScreen = ({
           ];
         } else {
           // Create new recipe
+          const activeUser = await asyncStorageService.getActiveUser();
           recipe = await recipesCollection.create(recipe => {
             recipe.name = formData.name;
             recipe.description = formData.description;
@@ -130,6 +131,7 @@ const EditRecipeScreen = ({
             recipe.source = formData.source;
             recipe.rating = 0;
             recipe.isApproved = true;
+            recipe.owner = activeUser;
           });
         }
 
@@ -143,28 +145,18 @@ const EditRecipeScreen = ({
         const newOperations = [
           ...ingredientLines.map((line, index) => {
             const parsed = parseIngredient(line);
-            // Jeśli nie ma podanej ilości, ustawiamy 1 (niezależnie od jednostki)
             const amount = parsed.amount === null ? 1 : parsed.amount;
-            console.log('Parsed ingredient with default:', { line, parsed, finalAmount: amount });
-            return ingredientsCollection.prepareCreate((ingredient: Ingredient) => {
+            return ingredientsCollection.prepareCreate(ingredient => {
               ingredient.recipeId = recipe.id;
               ingredient.order = index + 1;
               ingredient.originalStr = parsed.originalStr;
               ingredient.amount = amount;
               ingredient.unit = parsed.unit;
               ingredient.name = parsed.name;
-              console.log('Saving ingredient with defaults:', {
-                recipeId: recipe.id,
-                order: index + 1,
-                originalStr: parsed.originalStr,
-                amount,
-                unit: parsed.unit,
-                name: parsed.name
-              });
             });
           }),
           ...formData.selectedTags.map(tag => 
-            recipeTagsCollection.prepareCreate((rt: RecipeTag) => {
+            recipeTagsCollection.prepareCreate(rt => {
               rt.recipeId = recipe.id;
               rt.tagId = tag.id;
             })

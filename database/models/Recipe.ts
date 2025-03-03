@@ -2,9 +2,11 @@ import { field, text, children, lazy, writer } from '@nozbe/watermelondb/decorat
 import { Q } from '@nozbe/watermelondb'
 import { Associations } from '@nozbe/watermelondb'
 import { Observable } from 'rxjs'
+import { Database } from '@nozbe/watermelondb'
 import BaseModel from './BaseModel'
 import RecipeTag from './RecipeTag'
 import Ingredient from './Ingredient'
+import { asyncStorageService } from '../../app/services/storage'
 
 interface UpdateTimesParams {
   prepTime?: number
@@ -16,6 +18,17 @@ export default class Recipe extends BaseModel {
   static associations: Associations = {
     recipe_tags: { type: 'has_many', foreignKey: 'recipe_id' },
     ingredients: { type: 'has_many', foreignKey: 'recipe_id' }
+  }
+
+  // Query methods
+  static async observeAll(database: Database): Promise<Observable<Recipe[]>> {
+    const activeUser = await asyncStorageService.getActiveUser();
+    return database
+      .get<Recipe>('recipes')
+      .query(
+        Q.where('owner', activeUser)
+      )
+      .observe();
   }
 
   @field('remote_id') remoteId!: string | null

@@ -3,7 +3,7 @@ import Tag from '../../../database/models/Tag';
 export type MaterialIconName = 'sort-by-alpha' | 'grade' | 'schedule';
 
 export type SortOption = {
-  key: 'name' | 'rating' | 'totalTime';
+  key: 'name' | 'rating' | 'totalTime' | 'prepTime';
   label: string;
   icon: MaterialIconName;
 };

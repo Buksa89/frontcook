@@ -7,9 +7,9 @@ import Tag from '../../../database/models/Tag';
 import Recipe from '../../../database/models/Recipe';
 import RecipeTag from '../../../database/models/RecipeTag';
 import { Q } from '@nozbe/watermelondb';
-import { Observable } from 'rxjs';
+import { Observable, from } from 'rxjs';
 import { router } from 'expo-router';
-import { map, switchMap } from 'rxjs/operators';
+import { switchMap, map } from 'rxjs/operators';
 import { ResetFiltersContext } from '../../_layout';
 import { of } from 'rxjs';
 import { EnhancedTagList } from './TagList';
@@ -19,11 +19,18 @@ import { SortMenu } from './SortMenu';
 import { EnhancedFilterMenu } from './FilterMenu';
 import { EnhancedRecipeCard } from './RecipeCard';
 import { useAuth } from '../../../app/context';
+import { asyncStorageService } from '../../../app/services/storage';
+
+interface EnhanceRecipeListProps {
+  sortBy: SortOption['key'] | null;
+  filters: FilterState;
+}
 
 const sortOptions: SortOption[] = [
   { key: 'name', label: 'Nazwa (A-Z)', icon: 'sort-by-alpha' },
   { key: 'rating', label: 'Ocena (najwyższa)', icon: 'grade' },
-  { key: 'totalTime', label: 'Czas przygotowania', icon: 'schedule' },
+  { key: 'prepTime', label: 'Czas przygotowania', icon: 'schedule' },
+  { key: 'totalTime', label: 'Czas całkowity', icon: 'schedule' },
 ];
 
 const RecipeList = ({ recipes }: { recipes: Recipe[] }) => (
@@ -44,108 +51,50 @@ const RecipeList = ({ recipes }: { recipes: Recipe[] }) => (
   </>
 );
 
-const enhanceRecipeList = withObservables<
-  { 
-    sortBy: SortOption['key'] | null;
-    filters: FilterState;
-    reloadKey: number;
-  },
-  { recipes: Observable<Recipe[]> }
->(
-  ['sortBy', 'filters', 'reloadKey'],
-  ({ sortBy, filters }) => ({
-    recipes: database.get<Recipe>('recipes')
-      .query()
-      .observeWithColumns(['rating', 'name', 'prep_time', 'total_time', 'description', 'ingredients', 'instructions', 'notes'])
-      .pipe(
-        switchMap(recipes => {
-          // First apply text search and basic filters
-          let filteredRecipes = recipes.filter(recipe => {
-            // Apply text search filter
-            if (filters.searchPhrase) {
-              const searchLower = filters.searchPhrase.toLowerCase();
-              if (!(
-                recipe.name.toLowerCase().includes(searchLower) ||
-                recipe.description?.toLowerCase().includes(searchLower) ||
-                recipe.instructions.toLowerCase().includes(searchLower) ||
-                recipe.notes?.toLowerCase().includes(searchLower)
-              )) {
-                return false;
-              }
+const enhance = withObservables(['sortBy', 'filters'], ({ sortBy, filters }: EnhanceRecipeListProps) => ({
+  recipes: from(asyncStorageService.getActiveUser()).pipe(
+    switchMap(activeUser => 
+      database.get<Recipe>('recipes')
+        .query(
+          Q.experimentalJoinTables(['recipe_tags']),
+          Q.and(
+            activeUser ? Q.where('owner', activeUser) : Q.where('owner', null),
+            filters.searchPhrase ? Q.where('name', Q.like(`%${filters.searchPhrase}%`)) : Q.where('id', Q.notEq(null)),
+            filters.minRating ? Q.where('rating', Q.gte(filters.minRating)) : Q.where('id', Q.notEq(null)),
+            filters.maxPrepTime ? Q.where('prep_time', Q.lte(filters.maxPrepTime)) : Q.where('id', Q.notEq(null)),
+            filters.selectedTags.length > 0
+              ? Q.on('recipe_tags', 'tag_id', Q.oneOf(filters.selectedTags.map((tag: Tag) => tag.id)))
+              : Q.where('id', Q.notEq(null))
+          )
+        )
+        .observe()
+        .pipe(
+          map(recipes => {
+            let sortedRecipes = [...recipes];
+            switch (sortBy) {
+              case 'name':
+                sortedRecipes.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+              case 'rating':
+                sortedRecipes.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                break;
+              case 'prepTime':
+                sortedRecipes.sort((a, b) => (a.prepTime || 0) - (b.prepTime || 0));
+                break;
+              case 'totalTime':
+                sortedRecipes.sort((a, b) => (a.totalTime || 0) - (b.totalTime || 0));
+                break;
+              default:
+                break;
             }
+            return sortedRecipes;
+          })
+        )
+    )
+  )
+}));
 
-            // Apply rating filter
-            if (filters.minRating !== null && (recipe.rating || 0) < filters.minRating) {
-              return false;
-            }
-
-            // Apply time filters
-            if (filters.maxPrepTime !== null && 
-                ((recipe.prepTime || 0) === 0 || (recipe.prepTime || 0) > filters.maxPrepTime)) {
-              return false;
-            }
-
-            if (filters.maxTotalTime !== null && 
-                ((recipe.totalTime || 0) === 0 || (recipe.totalTime || 0) > filters.maxTotalTime)) {
-              return false;
-            }
-
-            return true;
-          });
-
-          // If no tag filters, return current results
-          if (filters.selectedTags.length === 0) {
-            return of(filteredRecipes);
-          }
-
-          // Apply tag filters
-          const tagIds = filters.selectedTags.map(tag => tag.id);
-          return database
-            .get<RecipeTag>('recipe_tags')
-            .query(Q.where('tag_id', Q.oneOf(tagIds)))
-            .observe()
-            .pipe(
-              map(recipeTags => {
-                // Group recipe IDs by recipe to count tags
-                const recipeTagCounts = new Map<string, number>();
-                recipeTags.forEach(rt => {
-                  recipeTagCounts.set(rt.recipeId, (recipeTagCounts.get(rt.recipeId) || 0) + 1);
-                });
-
-                // Filter recipes that have ALL selected tags
-                return filteredRecipes.filter(recipe => 
-                  recipeTagCounts.get(recipe.id) === tagIds.length
-                );
-              })
-            );
-        }),
-        map(filteredRecipes => {
-          // Apply sorting
-          const recipesToSort = [...filteredRecipes];
-          if (sortBy) {
-            recipesToSort.sort((a, b) => {
-              switch (sortBy) {
-                case 'name':
-                  return a.name.localeCompare(b.name);
-                case 'rating':
-                  return (b.rating || 0) - (a.rating || 0);
-                case 'totalTime':
-                  return (a.totalTime || 0) - (b.totalTime || 0);
-                default:
-                  return 0;
-              }
-            });
-          } else {
-            // Default sorting by name
-            recipesToSort.sort((a, b) => a.name.localeCompare(b.name));
-          }
-          return recipesToSort;
-        })
-      )
-  })
-);
-
-const EnhancedRecipeList = enhanceRecipeList(RecipeList);
+const EnhancedRecipeList = enhance(RecipeList);
 
 export default function RecipeListScreen() {
   const { reloadKey } = useAuth();

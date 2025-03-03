@@ -1,10 +1,10 @@
-import { Model } from '@nozbe/watermelondb'
 import { field, relation } from '@nozbe/watermelondb/decorators'
 import { Associations } from '@nozbe/watermelondb'
 import Recipe from './Recipe'
 import Tag from './Tag'
+import BaseModel from './BaseModel'
 
-export default class RecipeTag extends Model {
+export default class RecipeTag extends BaseModel {
   static table = 'recipe_tags'
   static associations: Associations = {
     recipes: { type: 'belongs_to', key: 'recipe_id' },
