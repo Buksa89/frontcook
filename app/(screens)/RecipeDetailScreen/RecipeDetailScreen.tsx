@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking, Share } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
@@ -9,13 +9,14 @@ import Tag from '../../../database/models/Tag';
 import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
 import { Q } from '@nozbe/watermelondb';
-import { Observable } from 'rxjs';
+import { Observable, from } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { RecipeHeader } from './RecipeHeader';
 import { RecipeRating } from './RecipeRating';
 import { ServingsProvider } from './ServingsContext';
 import { ServingsAdjuster } from './ServingsAdjuster';
 import { ScaledIngredient } from './ScaledIngredient';
+import { asyncStorageService } from '../../../app/services/storage';
 
 interface RecipeDetailsScreenProps {
   recipe: Recipe | null;
@@ -171,20 +172,32 @@ const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId: string 
     .pipe(
       switchMap(recipe => {
         if (!recipe) return new Observable<Tag[]>(subscriber => subscriber.next([]));
-        return database
-          .get<RecipeTag>('recipe_tags')
-          .query(Q.where('recipe_id', recipe.id))
-          .observe()
-          .pipe(
-            switchMap(async recipeTags => {
-              const tags = await Promise.all(
-                recipeTags.map(rt => 
-                  database.get<Tag>('tags').find(rt.tagId)
-                )
-              );
-              return tags.filter((tag): tag is Tag => tag !== null);
-            })
-          );
+        return from(asyncStorageService.getActiveUser()).pipe(
+          switchMap(activeUser => 
+            database
+              .get<RecipeTag>('recipe_tags')
+              .query(Q.where('recipe_id', recipe.id))
+              .observe()
+              .pipe(
+                switchMap(async recipeTags => {
+                  const tags = await Promise.all(
+                    recipeTags.map(async rt => {
+                      const tag = await database.get<Tag>('tags')
+                        .query(
+                          Q.and(
+                            Q.where('id', rt.tagId),
+                            activeUser ? Q.where('owner', activeUser) : Q.where('owner', null)
+                          )
+                        )
+                        .fetch();
+                      return tag[0] || null;
+                    })
+                  );
+                  return tags.filter((tag): tag is Tag => tag !== null);
+                })
+              )
+          )
+        );
       })
     ),
   ingredients: database.get<Recipe>('recipes')

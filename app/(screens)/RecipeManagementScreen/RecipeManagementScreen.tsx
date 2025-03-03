@@ -6,13 +6,14 @@ import { withObservables } from '@nozbe/watermelondb/react';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
 import { Q } from '@nozbe/watermelondb';
-import { Observable, of } from 'rxjs';
-import { switchMap, map } from 'rxjs/operators';
+import { Observable, of, from } from 'rxjs';
+import { switchMap, map, mergeMap } from 'rxjs/operators';
 import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
 import { Model } from '@nozbe/watermelondb';
 import { RecipeForm } from './RecipeForm';
 import { parseIngredient } from '../../utils/ingredientParser';
+import { asyncStorageService } from '../../../app/services/storage';
 
 interface EditRecipeScreenProps {
   existingRecipe: Recipe | null;
@@ -216,29 +217,47 @@ const enhance = withObservables(['recipeId'], ({ recipeId }: EnhanceProps) => ({
   existingRecipe: recipeId 
     ? database.get<Recipe>('recipes').findAndObserve(recipeId)
     : of(null),
-  availableTags: database.get<Tag>('tags')
-    .query()
-    .observe() as Observable<Tag[]>,
+  availableTags: from(asyncStorageService.getActiveUser()).pipe(
+    mergeMap(activeUser => 
+      database.get<Tag>('tags')
+        .query(
+          activeUser ? Q.where('owner', activeUser) : Q.where('owner', null)
+        )
+        .observe()
+    )
+  ),
   selectedTags: recipeId
     ? database.get<Recipe>('recipes')
         .findAndObserve(recipeId)
         .pipe(
           switchMap(recipe => {
             if (!recipe) return of([]);
-            return database
-              .get<RecipeTag>('recipe_tags')
-              .query(Q.where('recipe_id', recipe.id))
-              .observe()
-              .pipe(
-                switchMap(async recipeTags => {
-                  const tags = await Promise.all(
-                    recipeTags.map(rt => 
-                      database.get<Tag>('tags').find(rt.tagId)
-                    )
-                  );
-                  return tags.filter((tag): tag is Tag => tag !== null);
-                })
-              );
+            return from(asyncStorageService.getActiveUser()).pipe(
+              switchMap(activeUser => 
+                database
+                  .get<RecipeTag>('recipe_tags')
+                  .query(Q.where('recipe_id', recipe.id))
+                  .observe()
+                  .pipe(
+                    switchMap(async recipeTags => {
+                      const tags = await Promise.all(
+                        recipeTags.map(async rt => {
+                          const tag = await database.get<Tag>('tags')
+                            .query(
+                              Q.and(
+                                Q.where('id', rt.tagId),
+                                activeUser ? Q.where('owner', activeUser) : Q.where('owner', null)
+                              )
+                            )
+                            .fetch();
+                          return tag[0] || null;
+                        })
+                      );
+                      return tags.filter((tag): tag is Tag => tag !== null);
+                    })
+                  )
+              )
+            );
           })
         )
     : of([]),

@@ -54,6 +54,16 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           const result = await logout();
           if (result.success) {
             Alert.alert("Wylogowano", "Zostałeś pomyślnie wylogowany");
+            // Najpierw przekieruj do ekranu logowania
+            router.push({
+              pathname: '/(screens)/AuthScreen/AuthScreen'
+            });
+            // A następnie po krótkim opóźnieniu wróć do listy przepisów
+            setTimeout(() => {
+              router.push({
+                pathname: '/(screens)/RecipeListScreen/RecipeListScreen'
+              });
+            }, 100);
           } else {
             Alert.alert("Błąd", result.message || "Wystąpił błąd podczas wylogowywania");
           }

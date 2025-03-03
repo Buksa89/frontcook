@@ -3,16 +3,17 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { withObservables } from '@nozbe/watermelondb/react';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, map } from 'rxjs/operators';
+import { Observable, from } from 'rxjs';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
 import Recipe from '../../../database/models/Recipe';
 import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
 import { Q } from '@nozbe/watermelondb';
-import { Observable } from 'rxjs';
 import { AddShopingItemMenu } from '../../../app/components/AddShopingItemMenu';
 import { ServingsProvider, useServings } from '../../(screens)/RecipeDetailScreen/ServingsContext';
+import { asyncStorageService } from '../../../app/services/storage';
 
 // Komponent opakowujący ServingsProvider, który ustawia początkowe wartości
 const ServingsProviderWithInitialValue = ({ children, servings }: { children: React.ReactNode, servings: number | null }) => {
@@ -134,14 +135,26 @@ const enhance = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => 
     .query(Q.where('recipe_id', recipe.id))
     .observe()
     .pipe(
-      switchMap(async recipeTags => {
-        const tags = await Promise.all(
-          recipeTags.map(rt => 
-            database.get<Tag>('tags').find(rt.tagId)
-          )
-        );
-        return tags.filter((tag): tag is Tag => tag !== null);
-      })
+      switchMap(recipeTags => 
+        from(asyncStorageService.getActiveUser()).pipe(
+          switchMap(activeUser => 
+            Promise.all(
+              recipeTags.map(async rt => {
+                const tag = await database.get<Tag>('tags')
+                  .query(
+                    Q.and(
+                      Q.where('id', rt.tagId),
+                      activeUser ? Q.where('owner', activeUser) : Q.where('owner', null)
+                    )
+                  )
+                  .fetch();
+                return tag[0] || null;
+              })
+            )
+          ),
+          map(tags => tags.filter((tag): tag is Tag => tag !== null))
+        )
+      )
     ),
   ingredients: database.get<Recipe>('recipes')
     .findAndObserve(recipe.id)

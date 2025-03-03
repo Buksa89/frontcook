@@ -6,6 +6,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   activeUser: string | null;
+  reloadKey: number;
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<{ success: boolean; message?: string }>;
   register: (username: string, email: string, password: string) => Promise<{ success: boolean; message?: string; fieldErrors?: Record<string, string[]> }>;
@@ -18,6 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeUser, setActiveUser] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState<number>(0);
 
   useEffect(() => {
     // Sprawdź, czy użytkownik jest zalogowany przy starcie aplikacji
@@ -50,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Pobierz nazwę aktywnego użytkownika po zalogowaniu
         const activeUsername = await asyncStorageService.getActiveUser();
         setActiveUser(activeUsername);
+        setReloadKey(prev => prev + 1);
       }
       return result;
     } catch (error) {
@@ -67,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (result.success) {
         setIsAuthenticated(false);
         setActiveUser(null);
+        setReloadKey(prev => prev + 1);
       }
       return result;
     } catch (error) {
@@ -92,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated,
         isLoading,
         activeUser,
+        reloadKey,
         login,
         logout,
         register,

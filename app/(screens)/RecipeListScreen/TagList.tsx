@@ -3,7 +3,10 @@ import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
-import { Observable } from 'rxjs';
+import { Observable, from } from 'rxjs';
+import { mergeMap } from 'rxjs/operators';
+import { Q } from '@nozbe/watermelondb';
+import { asyncStorageService } from '../../../app/services/storage';
 
 interface TagListProps {
   tags: Tag[];
@@ -41,7 +44,13 @@ export const TagList = ({ tags, selectedTags, onSelectTag }: TagListProps) => (
 
 // Enhance the TagList component to observe tags from the database
 const enhance = withObservables<{ selectedTags: Tag[]; onSelectTag: (tag: Tag) => void }, { tags: Observable<Tag[]> }>([], () => ({
-  tags: database.get('tags').query().observe() as Observable<Tag[]>
+  tags: from(asyncStorageService.getActiveUser()).pipe(
+    mergeMap(activeUser => 
+      database.get<Tag>('tags')
+        .query(Q.where('owner', Q.eq(activeUser)))
+        .observe()
+    )
+  )
 }));
 
 export const EnhancedTagList = enhance(TagList);

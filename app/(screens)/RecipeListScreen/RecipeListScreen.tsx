@@ -18,6 +18,7 @@ import { AddRecipeMenu } from './AddRecipeMenu';
 import { SortMenu } from './SortMenu';
 import { EnhancedFilterMenu } from './FilterMenu';
 import { EnhancedRecipeCard } from './RecipeCard';
+import { useAuth } from '../../../app/context';
 
 const sortOptions: SortOption[] = [
   { key: 'name', label: 'Nazwa (A-Z)', icon: 'sort-by-alpha' },
@@ -25,15 +26,33 @@ const sortOptions: SortOption[] = [
   { key: 'totalTime', label: 'Czas przygotowania', icon: 'schedule' },
 ];
 
-// Enhance RecipeCard to observe recipes with sorting
+const RecipeList = ({ recipes }: { recipes: Recipe[] }) => (
+  <>
+    <FlatList
+      data={recipes}
+      renderItem={({ item }) => <EnhancedRecipeCard recipe={item} />}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
+      ListEmptyComponent={() => (
+        <View style={styles.emptyContainer}>
+          <MaterialIcons name="menu-book" size={80} color="#ccc" style={styles.emptyIcon} />
+          <Text style={styles.emptyText}>Nie znaleziono przepisów</Text>
+          <Text style={styles.emptySubText}>Dodaj swój pierwszy przepis!</Text>
+        </View>
+      )}
+    />
+  </>
+);
+
 const enhanceRecipeList = withObservables<
   { 
     sortBy: SortOption['key'] | null;
     filters: FilterState;
+    reloadKey: number;
   },
   { recipes: Observable<Recipe[]> }
 >(
-  ['sortBy', 'filters'],
+  ['sortBy', 'filters', 'reloadKey'],
   ({ sortBy, filters }) => ({
     recipes: database.get<Recipe>('recipes')
       .query()
@@ -62,12 +81,12 @@ const enhanceRecipeList = withObservables<
 
             // Apply time filters
             if (filters.maxPrepTime !== null && 
-                (recipe.prepTime === 0 || recipe.prepTime > filters.maxPrepTime)) {
+                ((recipe.prepTime || 0) === 0 || (recipe.prepTime || 0) > filters.maxPrepTime)) {
               return false;
             }
 
             if (filters.maxTotalTime !== null && 
-                (recipe.totalTime === 0 || recipe.totalTime > filters.maxTotalTime)) {
+                ((recipe.totalTime || 0) === 0 || (recipe.totalTime || 0) > filters.maxTotalTime)) {
               return false;
             }
 
@@ -121,38 +140,19 @@ const enhanceRecipeList = withObservables<
             recipesToSort.sort((a, b) => a.name.localeCompare(b.name));
           }
           return recipesToSort;
-
-          return filteredRecipes;
         })
       )
   })
 );
 
-const EnhancedRecipeList = enhanceRecipeList(
-  ({ recipes }) => (
-    <>
-      <FlatList
-        data={recipes}
-        renderItem={({ item }) => <EnhancedRecipeCard recipe={item} />}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="menu-book" size={80} color="#ccc" style={styles.emptyIcon} />
-            <Text style={styles.emptyText}>Nie znaleziono przepisów</Text>
-            <Text style={styles.emptySubText}>Dodaj swój pierwszy przepis!</Text>
-          </View>
-        )}
-      />
-    </>
-  )
-);
+const EnhancedRecipeList = enhanceRecipeList(RecipeList);
 
 export default function RecipeListScreen() {
+  const { reloadKey } = useAuth();
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [currentSort, setCurrentSort] = useState<SortOption['key'] | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption['key'] | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     selectedTags: [],
     minRating: null,
@@ -171,7 +171,7 @@ export default function RecipeListScreen() {
   // Reset function for filters and sorting
   const resetFiltersAndSort = useCallback(() => {
     console.log('Resetting filters and sorting');
-    setCurrentSort(null);
+    setSortBy(null);
     setFilters({
       selectedTags: [],
       minRating: null,
@@ -215,14 +215,14 @@ export default function RecipeListScreen() {
           <TouchableOpacity 
             style={[
               styles.filterButton,
-              currentSort && styles.filterButtonActive
+              sortBy && styles.filterButtonActive
             ]}
             onPress={() => setShowSortMenu(true)}
           >
             <MaterialIcons 
               name="sort" 
               size={20} 
-              color={currentSort ? "#2196F3" : "#666"} 
+              color={sortBy ? "#2196F3" : "#666"} 
             />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -252,8 +252,9 @@ export default function RecipeListScreen() {
       </View>
 
       <EnhancedRecipeList 
-        sortBy={currentSort}
+        sortBy={sortBy}
         filters={filters}
+        reloadKey={reloadKey}
       />
       
       <View style={styles.fabContainer}>
@@ -275,12 +276,12 @@ export default function RecipeListScreen() {
       </View>
 
       <AddRecipeMenu visible={showAddMenu} onClose={() => setShowAddMenu(false)} />
-      <SortMenu 
+      <SortMenu
         visible={showSortMenu}
         onClose={() => setShowSortMenu(false)}
-        currentSort={currentSort}
-        onSortChange={setCurrentSort}
         sortOptions={sortOptions}
+        currentSort={sortBy}
+        onSortChange={setSortBy}
       />
       <EnhancedFilterMenu 
         visible={showFilterMenu}

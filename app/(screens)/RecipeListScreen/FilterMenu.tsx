@@ -5,6 +5,10 @@ import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
 import { FilterState } from './types';
+import { asyncStorageService } from '../../../app/services/storage';
+import { Q } from '@nozbe/watermelondb';
+import { from } from 'rxjs';
+import { mergeMap } from 'rxjs/operators';
 
 interface FilterMenuProps {
   visible: boolean;
@@ -179,7 +183,13 @@ const FilterMenu = ({ visible, onClose, filters, onFiltersChange, availableTags 
 };
 
 const enhance = withObservables([], () => ({
-  availableTags: database.get<Tag>('tags').query().observe()
+  availableTags: from(asyncStorageService.getActiveUser()).pipe(
+    mergeMap(activeUser => 
+      database.get<Tag>('tags')
+        .query(Q.where('owner', Q.eq(activeUser)))
+        .observe()
+    )
+  )
 }));
 
 export const EnhancedFilterMenu = enhance(FilterMenu);
