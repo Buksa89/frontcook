@@ -72,7 +72,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           console.error("Logout error:", error);
         }
         break;
-      // Add other cases here when implementing other menu items
     }
     onClose();
   };
@@ -89,8 +88,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'notifications',
       label: 'Powiadomienia',
       icon: <Ionicons name="notifications-outline" size={24} color="#666" />,
-      section: 'main',
-      requiresAuth: true
+      section: 'main'
     },
     {
       id: 'pending-recipes',

@@ -25,6 +25,22 @@ obsluga logout
 6. obsluga bledow api
 7. ladniejsze notyfikacje bledow/sukcesow
 
+znajomi
+przepisy do akceptacji
+stalking
+dodawanie recipes web
+dodawanie recipes foto
+foto przepisow
+ikonka prep time w sortowaniu
+bug: przepis po dodaniu nie pojawia sie na liscie, trzeba odswiezyc
+poprawa wizualna alertow
+dodanie opcji pro
+dodanie reklam
+dodanie resetu hasla
+dodanie logwania do settingsow
+przenoszenie tagow i shopping items
+dodanie parsowania pdf
+
 8. upewnienie sie ze mamy te same regexy na hasla na backendzie i froncie - przy tworzeniu i resecie i updatach z admina i z settingsow
 
 9 upewnienie sie ze mamy te same unique together
