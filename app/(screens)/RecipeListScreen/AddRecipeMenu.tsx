@@ -1,92 +1,141 @@
-import React from 'react';
-import { Modal, Pressable, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Pressable, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useAuth } from '../../context';
+import { WebImportModal } from './WebImportModal';
+import { ScanRecipeModal } from './ScanRecipeModal';
 
 interface AddRecipeMenuProps {
   visible: boolean;
   onClose: () => void;
 }
 
-export const AddRecipeMenu = ({ visible, onClose }: AddRecipeMenuProps) => (
-  <Modal
-    visible={visible}
-    transparent={true}
-    animationType="slide"
-    onRequestClose={onClose}
-  >
-    <Pressable 
-      style={styles.modalOverlay}
-      onPress={onClose}
-    >
-      <View style={styles.menuContainer}>
-        <View style={styles.menuHeader}>
-          <Text style={styles.menuTitle}>Dodaj przepis</Text>
-          <TouchableOpacity onPress={onClose}>
-            <MaterialIcons name="close" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => {
-            onClose();
-            router.push({
-              pathname: '/(screens)/RecipeManagementScreen/RecipeManagementScreen'
-            });
-          }}
-        >
-          <View style={styles.menuItemContent}>
-            <View style={styles.iconContainer}>
-              <MaterialIcons name="edit" size={24} color="#2196F3" />
-            </View>
-            <Text style={styles.menuItemText}>Dodaj ręcznie</Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={24} color="#666" />
-        </TouchableOpacity>
+export const AddRecipeMenu = ({ visible, onClose }: AddRecipeMenuProps) => {
+  const { activeUser } = useAuth();
+  const isAuthenticated = !!activeUser;
+  const [showWebImportModal, setShowWebImportModal] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
 
-        <TouchableOpacity 
-          style={[styles.menuItem, styles.menuItemDisabled]}
-          disabled={true}
-        >
-          <View style={styles.menuItemContent}>
-            <View style={[styles.iconContainer, styles.iconContainerDisabled]}>
-              <MaterialIcons name="camera-alt" size={24} color="#999" />
-            </View>
-            <Text style={styles.menuItemTextDisabled}>Zeskanuj</Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={24} color="#ddd" />
-        </TouchableOpacity>
+  const handleAuthRequiredPress = () => {
+    Alert.alert("Wymagane logowanie", "Zaloguj się, aby uzyskać dostęp do tej funkcji");
+  };
 
-        <TouchableOpacity 
-          style={[styles.menuItem, styles.menuItemDisabled]}
-          disabled={true}
+  return (
+    <>
+      <Modal
+        visible={visible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={onClose}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={onClose}
         >
-          <View style={styles.menuItemContent}>
-            <View style={[styles.iconContainer, styles.iconContainerDisabled]}>
-              <MaterialIcons name="language" size={24} color="#999" />
+          <View style={styles.menuContainer}>
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuTitle}>Dodaj przepis</Text>
+              <TouchableOpacity onPress={onClose}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
             </View>
-            <Text style={styles.menuItemTextDisabled}>Z internetu</Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={24} color="#ddd" />
-        </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                onClose();
+                router.push({
+                  pathname: '/(screens)/RecipeManagementScreen/RecipeManagementScreen'
+                });
+              }}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={styles.iconContainer}>
+                  <MaterialIcons name="edit" size={24} color="#2196F3" />
+                </View>
+                <Text style={styles.menuItemText}>Dodaj ręcznie</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color="#666" />
+            </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.menuItem, styles.menuItemDisabled]}
-          disabled={true}
-        >
-          <View style={styles.menuItemContent}>
-            <View style={[styles.iconContainer, styles.iconContainerDisabled]}>
-              <MaterialIcons name="picture-as-pdf" size={24} color="#999" />
-            </View>
-            <Text style={styles.menuItemTextDisabled}>Cały PDF</Text>
+            <TouchableOpacity 
+              style={[styles.menuItem, !isAuthenticated && styles.menuItemDisabled]}
+              disabled={!isAuthenticated}
+              onPress={() => {
+                if (!isAuthenticated) {
+                  handleAuthRequiredPress();
+                  return;
+                }
+                onClose();
+                setShowScanModal(true);
+              }}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={[styles.iconContainer, !isAuthenticated && styles.iconContainerDisabled]}>
+                  <MaterialIcons name="camera-alt" size={24} color={isAuthenticated ? "#2196F3" : "#999"} />
+                </View>
+                <Text style={isAuthenticated ? styles.menuItemText : styles.menuItemTextDisabled}>Zeskanuj</Text>
+              </View>
+              {!isAuthenticated && (
+                <Text style={styles.requiresAuthText}>Wymaga logowania</Text>
+              )}
+              <MaterialIcons name="chevron-right" size={24} color={isAuthenticated ? "#666" : "#ddd"} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.menuItem, !isAuthenticated && styles.menuItemDisabled]}
+              disabled={!isAuthenticated}
+              onPress={() => {
+                if (!isAuthenticated) {
+                  handleAuthRequiredPress();
+                  return;
+                }
+                onClose();
+                setShowWebImportModal(true);
+              }}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={[styles.iconContainer, !isAuthenticated && styles.iconContainerDisabled]}>
+                  <MaterialIcons name="language" size={24} color={isAuthenticated ? "#2196F3" : "#999"} />
+                </View>
+                <Text style={isAuthenticated ? styles.menuItemText : styles.menuItemTextDisabled}>Z internetu</Text>
+              </View>
+              {!isAuthenticated && (
+                <Text style={styles.requiresAuthText}>Wymaga logowania</Text>
+              )}
+              <MaterialIcons name="chevron-right" size={24} color={isAuthenticated ? "#666" : "#ddd"} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.menuItem, styles.menuItemDisabled]}
+              disabled={true}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={[styles.iconContainer, styles.iconContainerDisabled]}>
+                  <MaterialIcons name="picture-as-pdf" size={24} color="#999" />
+                </View>
+                <Text style={styles.menuItemTextDisabled}>Cały PDF</Text>
+              </View>
+              <Text style={styles.comingSoonText}>Wkrótce</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#ddd" />
+            </TouchableOpacity>
           </View>
-          <MaterialIcons name="chevron-right" size={24} color="#ddd" />
-        </TouchableOpacity>
-      </View>
-    </Pressable>
-  </Modal>
-);
+        </Pressable>
+      </Modal>
+
+      <WebImportModal 
+        visible={showWebImportModal} 
+        onClose={() => setShowWebImportModal(false)} 
+      />
+      
+      <ScanRecipeModal 
+        visible={showScanModal} 
+        onClose={() => setShowScanModal(false)} 
+      />
+    </>
+  );
+};
 
 const styles = StyleSheet.create({
   modalOverlay: {
@@ -124,6 +173,7 @@ const styles = StyleSheet.create({
   menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   iconContainer: {
     width: 40,
@@ -147,5 +197,17 @@ const styles = StyleSheet.create({
   menuItemTextDisabled: {
     fontSize: 16,
     color: '#999',
+  },
+  requiresAuthText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    marginRight: 8,
+  },
+  comingSoonText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    marginRight: 8,
   },
 }); 
