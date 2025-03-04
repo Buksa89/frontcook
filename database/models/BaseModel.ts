@@ -2,6 +2,8 @@ import { Model } from '@nozbe/watermelondb'
 import { field, text } from '@nozbe/watermelondb/decorators'
 import { SyncStatus } from '@nozbe/watermelondb/Model'
 import { Q } from '@nozbe/watermelondb'
+import { Database } from '@nozbe/watermelondb'
+import { asyncStorageService } from '../../app/services/storage'
 
 export default class BaseModel extends Model {
   @field('sync_status') syncStatus!: SyncStatus
@@ -28,75 +30,75 @@ export default class BaseModel extends Model {
     return this.lastSync ? new Date(this.lastSync) : null
   }
 
+  // Override update method to automatically update sync fields
+  async update(recordUpdater?: (record: this) => void): Promise<this> {
+    try {
+      console.log(`[DB ${this.table}] Updating record ${this.id}`);
+      
+      const result = await super.update(record => {
+        // First apply the user's updates if provided
+        if (recordUpdater) {
+          recordUpdater(record);
+          console.log(`[DB ${this.table}] Record ${this.id} updated with:`, record._raw);
+        }
+        
+        // Then update sync fields
+        record._raw.sync_status = 'pending';
+        record._raw.last_sync = new Date().toISOString();
+        record._raw.is_local = true;
+      });
+
+      return result;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error updating record ${this.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
   // Helper method to mark record and its related records as deleted
   async markAsDeleted(cascade: boolean = true): Promise<void> {
     try {
-      console.log(`[DB ${this.table}] Marking record ${this.id} as deleted (cascade: ${cascade})`);
+      
       await this.database.write(async () => {
         // Mark this record as deleted
         await this.update(() => {
           this.isDeleted = true;
-          this.syncStatus = 'pending';
-          this.lastSync = new Date().toISOString();
-          this.isLocal = true;
         });
 
-        if (cascade) {
-          // Handle cascade deletion based on model type
-          switch (this.table) {
-            case 'recipes':
-              // Mark all related ingredients and recipe_tags as deleted
-              const [ingredients, recipeTags] = await Promise.all([
-                this.database.get('ingredients')
-                  .query(Q.where('recipe_id', this.id))
-                  .fetch(),
-                this.database.get('recipe_tags')
-                  .query(Q.where('recipe_id', this.id))
-                  .fetch()
-              ]);
-              
-              // Mark ingredients as deleted
-              for (const ingredient of ingredients) {
-                await ingredient.update(() => {
-                  ingredient.isDeleted = true;
-                  ingredient.syncStatus = 'pending';
-                  ingredient.lastSync = new Date().toISOString();
-                  ingredient.isLocal = true;
-                });
-              }
-
-              // Mark recipe_tags as deleted
-              for (const recipeTag of recipeTags) {
-                await recipeTag.update(() => {
-                  recipeTag.isDeleted = true;
-                  recipeTag.syncStatus = 'pending';
-                  recipeTag.lastSync = new Date().toISOString();
-                  recipeTag.isLocal = true;
-                });
-              }
-              break;
-
-            case 'tags':
-              // Mark all related recipe_tags as deleted
-              const relatedRecipeTags = await this.database.get('recipe_tags')
-                .query(Q.where('tag_id', this.id))
-                .fetch();
-              
-              // Mark recipe_tags as deleted
-              for (const recipeTag of relatedRecipeTags) {
-                await recipeTag.update(() => {
-                  recipeTag.isDeleted = true;
-                  recipeTag.syncStatus = 'pending';
-                  recipeTag.lastSync = new Date().toISOString();
-                  recipeTag.isLocal = true;
-                });
-              }
-              break;
-          }
-        }
       });
+      
+      console.log(`[DB ${this.table}] Successfully marked record ${this.id} as deleted`);
     } catch (error) {
       console.error(`[DB ${this.table}] Error marking record as deleted: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  // Base create method that handles sync fields
+  static async create<T extends BaseModel>(
+    this: { new(): T } & typeof BaseModel,
+    database: Database,
+    recordUpdater: (record: T) => void
+  ): Promise<T> {
+    try {
+      const activeUser = await asyncStorageService.getActiveUser();
+      
+      const record = await database.get(this.table).create((record: T) => {
+        // First apply the user's updates
+        recordUpdater(record);
+        
+        // Then set sync and owner fields
+        record.owner = activeUser;
+        record.syncStatus = 'pending';
+        record.lastSync = new Date().toISOString();
+        record.isLocal = true;
+
+        console.log(`[DB ${this.table}] New record created with:`, record._raw);
+      });
+
+      return record;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error creating record: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }

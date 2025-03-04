@@ -89,12 +89,15 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
             try {
               const allItems = await database
                 .get('shopping_items')
-                .query()
+                .query(
+                  Q.where('is_deleted', false)
+                )
                 .fetch();
               
-              await database.write(async () => {
-                await Promise.all(allItems.map(item => item.destroyPermanently()));
-              });
+              // Usuwamy wszystkie elementy jeden po drugim
+              for (const item of allItems) {
+                await item.markAsDeleted();
+              }
               
               Alert.alert(
                 "Lista wyczyszczona",
@@ -142,28 +145,11 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
     setIsAddingToList(true);
 
     try {
-      // Pobieramy aktualną listę niezaznaczonych elementów, aby ustalić nowy order
-      const uncheckedItems = await database
-        .get('shopping_items')
-        .query(
-          Q.where('is_checked', false)
-        )
-        .fetch();
-
-      // Ustalamy maksymalny order
-      let maxOrder = -1;
-      uncheckedItems.forEach(item => {
-        const itemOrder = (item as ShoppingItem).order;
-        if (itemOrder > maxOrder) {
-          maxOrder = itemOrder;
-        }
-      });
-
       // Filtrujemy wybrane składniki
       const selectedItems = ingredients.filter(item => selectedIngredients.has(item.id));
 
       // Dodajemy każdy wybrany składnik do listy zakupów
-      for (let [index, ingredient] of selectedItems.entries()) {
+      for (let ingredient of selectedItems) {
         // Sprawdzamy, czy składnik powinien być skalowany
         const scalable = isIngredientScalable(ingredient.amount);
         
@@ -172,14 +158,10 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
           ? scaleValue(ingredient.amount, scaleFactor)
           : ingredient.amount;
 
-        await ShoppingItem.createOrUpdate(database, {
-          name: ingredient.name || ingredient.originalStr,
-          amount: scaledAmount,
-          unit: ingredient.unit,
-          type: ingredient.type,
-          order: maxOrder + index + 1,
-          isChecked: false
-        });
+        // Formatujemy tekst w formacie "ilość jednostka nazwa"
+        const itemText = `${formatScaledValue(scaledAmount)} ${ingredient.unit || ''} ${ingredient.name}`.trim();
+        
+        await ShoppingItem.createOrUpdate(database, itemText);
       }
 
       // Informujemy użytkownika o sukcesie
@@ -231,7 +213,7 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
             {item.unit && (
               <Text style={styles.unit}>{item.unit} </Text>
             )}
-            <Text>{item.name || item.originalStr}</Text>
+            <Text>{item.name}</Text>
           </Text>
         </View>
       </TouchableOpacity>

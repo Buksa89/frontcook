@@ -6,11 +6,13 @@ import { MaterialIcons, AntDesign, Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import database from '../../../database';
 import ShoppingItem from '../../../database/models/ShoppingItem';
-import { parseShoppingItem } from '../../../app/utils/shoppingItemParser';
 import { of as observableOf, Observable } from 'rxjs';
 
 // Base component that receives shopping items as props
-const ShoppingListScreenComponent = ({ shoppingItems }: { shoppingItems: ShoppingItem[] }) => {
+const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: { 
+  uncheckedItems: ShoppingItem[],
+  checkedItems: ShoppingItem[] 
+}) => {
   const [newItemText, setNewItemText] = useState('');
   const [isCheckedListVisible, setIsCheckedListVisible] = useState(true);
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
@@ -19,25 +21,25 @@ const ShoppingListScreenComponent = ({ shoppingItems }: { shoppingItems: Shoppin
   const [selectedItem, setSelectedItem] = useState<ShoppingItem | null>(null);
   const navigation = useNavigation();
 
-  const uncheckedItems = shoppingItems.filter(item => !item.isChecked);
-  const checkedItems = shoppingItems.filter(item => item.isChecked);
-
   // Dodajemy przycisk czyszczenia listy do paska nawigacji
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity
           style={styles.headerButton}
-          onPress={confirmClearAll}
+          onPress={() => {
+            console.log("Clear all button pressed");
+            confirmClearAll();
+          }}
         >
           <MaterialIcons name="delete-sweep" size={24} color="#ff4444" />
         </TouchableOpacity>
       ),
     });
-  }, [navigation, shoppingItems]);
+  }, [navigation]);
 
   const confirmClearAll = () => {
-    if (shoppingItems.length === 0) return;
+    if (uncheckedItems.length === 0 && checkedItems.length === 0) return;
 
     Alert.alert(
       "Wyczyść listę",
@@ -57,35 +59,31 @@ const ShoppingListScreenComponent = ({ shoppingItems }: { shoppingItems: Shoppin
   };
 
   const clearAllItems = async () => {
-    await database.write(async () => {
-      await Promise.all(shoppingItems.map(item => item.destroyPermanently()));
-    });
+    try {
+      // Usuwamy najpierw niezaznaczone
+      await Promise.all(uncheckedItems.map(item => item.markAsDeleted()));
+      // Potem zaznaczone
+      await Promise.all(checkedItems.map(item => item.markAsDeleted()));
+    } catch (error) {
+      console.error("Błąd usuwania wszystkich produktów:", error);
+    }
   };
 
   const toggleItemCheck = async (item: ShoppingItem) => {
-    const newIsChecked = !item.isChecked;
-    const targetItems = newIsChecked ? checkedItems : uncheckedItems;
-    const maxOrder = targetItems.reduce((max, item) => Math.max(max, item.order), -1);
-    
-    await ShoppingItem.createOrUpdate(database, {
-      name: item.name,
-      amount: item.amount,
-      unit: item.unit,
-      type: item.type,
-      order: maxOrder + 1,
-      isChecked: newIsChecked
-    });
-
-    await database.write(async () => {
-      await item.destroyPermanently();
-    });
+    try {
+      await item.toggleChecked();
+    } catch (error) {
+      console.error("Błąd zmiany stanu produktu:", error);
+    }
   };
 
   const deleteItem = async (item: ShoppingItem) => {
-    await database.write(async () => {
-      await item.destroyPermanently();
-    });
-    setMenuVisible(false);
+    try {
+      await item.markAsDeleted();
+      setMenuVisible(false);
+    } catch (error) {
+      console.error("Błąd usuwania produktu:", error);
+    }
   };
 
   const startEdit = (item: ShoppingItem) => {
@@ -96,26 +94,14 @@ const ShoppingListScreenComponent = ({ shoppingItems }: { shoppingItems: Shoppin
 
   const saveEdit = async () => {
     if (!editingItem || !editText.trim()) return;
-
-    const parsedItem = parseShoppingItem(editText);
     
-    // Tworzymy nowy element z zachowaniem kolejności edytowanego
-    await ShoppingItem.createOrUpdate(database, {
-      name: parsedItem.name,
-      amount: parsedItem.amount,
-      unit: parsedItem.unit,
-      order: editingItem.order,
-      isChecked: editingItem.isChecked,
-      type: parsedItem.name // Aktualizujemy też typ na podstawie nowej nazwy
-    }, true);
-
-    // Usuwamy stary element
-    await database.write(async () => {
-      await editingItem.destroyPermanently();
-    });
-
-    setEditingItem(null);
-    setEditText('');
+    try {
+      await editingItem.updateWithParsing(editText);
+      setEditingItem(null);
+      setEditText('');
+    } catch (error) {
+      console.error("Błąd podczas edycji produktu:", error);
+    }
   };
 
   const showItemMenu = (item: ShoppingItem) => {
@@ -123,27 +109,23 @@ const ShoppingListScreenComponent = ({ shoppingItems }: { shoppingItems: Shoppin
     setMenuVisible(true);
   };
 
-  const clearCheckedItems = async () => {
-    await database.write(async () => {
-      await Promise.all(checkedItems.map(item => item.destroyPermanently()));
-    });
-  };
-
   const addNewItem = async () => {
     if (!newItemText.trim()) return;
 
-    const parsedItem = parseShoppingItem(newItemText);
-    const maxOrder = uncheckedItems.reduce((max, item) => Math.max(max, item.order), -1);
+    try {
+      await ShoppingItem.createOrUpdate(database, newItemText);
+      setNewItemText('');
+    } catch (error) {
+      console.error("Błąd dodawania produktu:", error);
+    }
+  };
 
-    await ShoppingItem.createOrUpdate(database, {
-      name: parsedItem.name,
-      amount: parsedItem.amount,
-      unit: parsedItem.unit,
-      order: maxOrder + 1,
-      isChecked: false
-    });
-
-    setNewItemText('');
+  const clearCheckedItems = async () => {
+    try {
+      await Promise.all(checkedItems.map(item => item.markAsDeleted()));
+    } catch (error) {
+      console.error("Błąd usuwania zaznaczonych produktów:", error);
+    }
   };
 
   const renderItem = ({ item }: { item: ShoppingItem }) => (
@@ -191,7 +173,7 @@ const ShoppingListScreenComponent = ({ shoppingItems }: { shoppingItems: Shoppin
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
-      {(!shoppingItems || shoppingItems.length === 0) && (
+      {(!uncheckedItems || uncheckedItems.length === 0) && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>Lista zakupów jest pusta</Text>
           <Text style={styles.emptySubText}>Dodaj składniki z przepisów do listy zakupów</Text>
@@ -549,29 +531,8 @@ const styles = StyleSheet.create({
   },
 });
 
-// Create an observable factory that handles the async operation
-const createShoppingItemsObservable = (): Observable<ShoppingItem[]> => {
-  return new Observable(subscriber => {
-    let subscription: any;
-    
-    ShoppingItem.observeAll(database)
-      .then(observable => {
-        subscription = observable.subscribe(items => subscriber.next(items))
-      })
-      .catch(error => {
-        console.error('Error observing shopping items:', error)
-        subscriber.next([])
-      })
-
-    return () => {
-      if (subscription) {
-        subscription.unsubscribe()
-      }
-    }
-  })
-}
-
 // Enhance the component with WatermelonDB observables
 export default withObservables([], () => ({
-  shoppingItems: createShoppingItemsObservable()
+  uncheckedItems: ShoppingItem.observeUnchecked(database),
+  checkedItems: ShoppingItem.observeChecked(database)
 }))(ShoppingListScreenComponent); 
