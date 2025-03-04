@@ -2,11 +2,12 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb'
 import { TableSchema, ColumnSchema, AppSchema } from '@nozbe/watermelondb'
 
 // Wspólne kolumny synchronizacji
-const syncColumns = [
-  { name: 'sync_status', type: 'string' },
-  { name: 'last_sync', type: 'string' },
-  { name: 'is_local', type: 'boolean' },
-  { name: 'owner', type: 'string', isOptional: true }
+const syncColumns: ColumnSchema[] = [
+  { name: 'sync_status', type: 'string' as const },
+  { name: 'last_sync', type: 'string' as const },
+  { name: 'is_local', type: 'boolean' as const },
+  { name: 'owner', type: 'string' as const, isOptional: true },
+  { name: 'is_deleted', type: 'boolean' as const, isOptional: false }
 ]
 
 const tagsSchema: TableSchema = tableSchema({
@@ -96,7 +97,7 @@ const userSettingsSchema: TableSchema = tableSchema({
 })
 
 const schema: AppSchema = appSchema({
-  version: 5, // Increasing version number for sync fields
+  version: 6, // Increasing version number for is_deleted field
   tables: [
     tagsSchema,
     recipesSchema,

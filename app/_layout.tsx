@@ -18,6 +18,7 @@ type RootStackParamList = {
   '(screens)/FriendsScreen/FriendsScreen': undefined;
   '(screens)/SettingsScreen/SettingsScreen': undefined;
   '(screens)/AuthScreen/AuthScreen': undefined;
+  '(screens)/DatabaseDebugScreen/DatabaseDebugScreen': undefined;
 };
 
 type NavigationProps = NativeStackHeaderProps;
@@ -355,6 +356,22 @@ export default function RootLayout() {
             name="(screens)/AuthScreen/AuthScreen" 
             options={{ 
               headerTitle: "Logowanie",
+              headerBackTitle: "Wróć",
+              headerStyle: {
+                backgroundColor: '#fff'
+              },
+              headerTitleStyle: {
+                fontSize: 20,
+                fontWeight: '600',
+                color: '#333'
+              },
+              headerShadowVisible: false
+            }} 
+          />
+          <Stack.Screen 
+            name="(screens)/DatabaseDebugScreen/DatabaseDebugScreen" 
+            options={{ 
+              headerTitle: "Debug bazy danych",
               headerBackTitle: "Wróć",
               headerStyle: {
                 backgroundColor: '#fff'

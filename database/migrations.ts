@@ -120,6 +120,39 @@ export default schemaMigrations({
           `
         }
       ]
+    },
+    {
+      toVersion: 6,
+      steps: [
+        {
+          type: 'sql',
+          sql: `
+            -- Add is_deleted field to tags
+            ALTER TABLE tags 
+            ADD COLUMN is_deleted INTEGER DEFAULT 0;
+
+            -- Add is_deleted field to recipes
+            ALTER TABLE recipes 
+            ADD COLUMN is_deleted INTEGER DEFAULT 0;
+
+            -- Add is_deleted field to recipe_tags
+            ALTER TABLE recipe_tags 
+            ADD COLUMN is_deleted INTEGER DEFAULT 0;
+
+            -- Add is_deleted field to ingredients
+            ALTER TABLE ingredients 
+            ADD COLUMN is_deleted INTEGER DEFAULT 0;
+
+            -- Add is_deleted field to shopping_items
+            ALTER TABLE shopping_items 
+            ADD COLUMN is_deleted INTEGER DEFAULT 0;
+
+            -- Add is_deleted field to user_settings
+            ALTER TABLE user_settings 
+            ADD COLUMN is_deleted INTEGER DEFAULT 0;
+          `
+        }
+      ]
     }
   ]
 }) 

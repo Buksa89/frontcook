@@ -3,6 +3,7 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, Pressable,
 import { MaterialIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../context';
+import type { RootStackParamList } from '../_layout';
 
 interface MainMenuProps {
   visible: boolean;
@@ -23,31 +24,27 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
   const { isAuthenticated, logout } = useAuth();
 
   const handleMenuItemPress = async (id: string) => {
+    const navigate = (screen: string) => {
+      router.push({
+        pathname: screen
+      } as any); // Tymczasowe obejście problemu z typami
+    };
+
     switch (id) {
       case 'tags':
-        router.push({
-          pathname: '/(screens)/TagManagementScreen/TagManagementScreen'
-        });
+        navigate('/(screens)/TagManagementScreen/TagManagementScreen');
         break;
       case 'notifications':
-        router.push({
-          pathname: '/(screens)/NotificationScreen/NotificationScreen'
-        });
+        navigate('/(screens)/NotificationScreen/NotificationScreen');
         break;
       case 'friends':
-        router.push({
-          pathname: '/(screens)/FriendsScreen/FriendsScreen'
-        });
+        navigate('/(screens)/FriendsScreen/FriendsScreen');
         break;
       case 'account-settings':
-        router.push({
-          pathname: '/(screens)/SettingsScreen/SettingsScreen'
-        });
+        navigate('/(screens)/SettingsScreen/SettingsScreen');
         break;
       case 'login':
-        router.push({
-          pathname: '/(screens)/AuthScreen/AuthScreen'
-        });
+        navigate('/(screens)/AuthScreen/AuthScreen');
         break;
       case 'logout':
         try {
@@ -55,14 +52,10 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           if (result.success) {
             Alert.alert("Wylogowano", "Zostałeś pomyślnie wylogowany");
             // Najpierw przekieruj do ekranu logowania
-            router.push({
-              pathname: '/(screens)/AuthScreen/AuthScreen'
-            });
+            navigate('/(screens)/AuthScreen/AuthScreen');
             // A następnie po krótkim opóźnieniu wróć do listy przepisów
             setTimeout(() => {
-              router.push({
-                pathname: '/(screens)/RecipeListScreen/RecipeListScreen'
-              });
+              navigate('/(screens)/RecipeListScreen/RecipeListScreen');
             }, 100);
           } else {
             Alert.alert("Błąd", result.message || "Wystąpił błąd podczas wylogowywania");
@@ -71,6 +64,9 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           Alert.alert("Błąd", "Wystąpił nieoczekiwany błąd podczas wylogowywania");
           console.error("Logout error:", error);
         }
+        break;
+      case 'database-debug':
+        navigate('/(screens)/DatabaseDebugScreen/DatabaseDebugScreen');
         break;
     }
     onClose();
@@ -121,6 +117,12 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'account-settings',
       label: 'Ustawienia konta',
       icon: <Ionicons name="settings-outline" size={24} color="#666" />,
+      section: 'account'
+    },
+    {
+      id: 'database-debug',
+      label: 'Debug bazy danych',
+      icon: <MaterialIcons name="storage" size={24} color="#666" />,
       section: 'account'
     },
     {
