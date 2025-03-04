@@ -104,17 +104,38 @@ const EditRecipeScreen = ({
           });
           recipe = existingRecipe;
 
-          // Get existing tags and ingredients to delete
+          // Get existing tags and ingredients
           const [existingTags, existingIngredients] = await Promise.all([
             recipeTagsCollection.query(Q.where('recipe_id', recipe.id)).fetch(),
             database.get<Ingredient>('ingredients').query(Q.where('recipe_id', recipe.id)).fetch()
           ]);
 
+          // Find tags to remove (those that are no longer selected)
+          const tagsToRemove = existingTags.filter(rt => 
+            !formData.selectedTags.some(tag => tag.id === rt.tagId)
+          );
+
           // Add delete operations
           operations = [
-            ...existingTags.map((tag: RecipeTag) => tag.prepareDestroyPermanently()),
-            ...existingIngredients.map((ingredient: Ingredient) => ingredient.prepareDestroyPermanently())
+            ...tagsToRemove.map(rt => rt.prepareDestroyPermanently()),
+            ...existingIngredients.map(ingredient => ingredient.prepareDestroyPermanently())
           ];
+
+          // Prepare creation only for new tags
+          const existingTagIds = existingTags.map(rt => rt.tagId);
+          const newTags = formData.selectedTags.filter(tag => 
+            !existingTagIds.includes(tag.id)
+          );
+
+          // Add operations for new tags
+          operations.push(
+            ...newTags.map(tag => 
+              recipeTagsCollection.prepareCreate(rt => {
+                rt.recipeId = recipe.id;
+                rt.tagId = tag.id;
+              })
+            )
+          );
         } else {
           // Create new recipe
           const activeUser = await asyncStorageService.getActiveUser();
@@ -133,6 +154,16 @@ const EditRecipeScreen = ({
             recipe.isApproved = true;
             recipe.owner = activeUser;
           });
+
+          // For new recipe, create all tag relationships
+          operations.push(
+            ...formData.selectedTags.map(tag => 
+              recipeTagsCollection.prepareCreate(rt => {
+                rt.recipeId = recipe.id;
+                rt.tagId = tag.id;
+              })
+            )
+          );
         }
 
         // Prepare ingredients creation
@@ -154,13 +185,7 @@ const EditRecipeScreen = ({
               ingredient.unit = parsed.unit;
               ingredient.name = parsed.name;
             });
-          }),
-          ...formData.selectedTags.map(tag => 
-            recipeTagsCollection.prepareCreate(rt => {
-              rt.recipeId = recipe.id;
-              rt.tagId = tag.id;
-            })
-          )
+          })
         ];
 
         // Execute all operations in a single batch
@@ -209,49 +234,9 @@ const enhance = withObservables(['recipeId'], ({ recipeId }: EnhanceProps) => ({
   existingRecipe: recipeId 
     ? database.get<Recipe>('recipes').findAndObserve(recipeId)
     : of(null),
-  availableTags: from(asyncStorageService.getActiveUser()).pipe(
-    mergeMap(activeUser => 
-      database.get<Tag>('tags')
-        .query(
-          activeUser ? Q.where('owner', activeUser) : Q.where('owner', null)
-        )
-        .observe()
-    )
-  ),
+  availableTags: Tag.observeAll(database),
   selectedTags: recipeId
-    ? database.get<Recipe>('recipes')
-        .findAndObserve(recipeId)
-        .pipe(
-          switchMap(recipe => {
-            if (!recipe) return of([]);
-            return from(asyncStorageService.getActiveUser()).pipe(
-              switchMap(activeUser => 
-                database
-                  .get<RecipeTag>('recipe_tags')
-                  .query(Q.where('recipe_id', recipe.id))
-                  .observe()
-                  .pipe(
-                    switchMap(async recipeTags => {
-                      const tags = await Promise.all(
-                        recipeTags.map(async rt => {
-                          const tag = await database.get<Tag>('tags')
-                            .query(
-                              Q.and(
-                                Q.where('id', rt.tagId),
-                                activeUser ? Q.where('owner', activeUser) : Q.where('owner', null)
-                              )
-                            )
-                            .fetch();
-                          return tag[0] || null;
-                        })
-                      );
-                      return tags.filter((tag): tag is Tag => tag !== null);
-                    })
-                  )
-              )
-            );
-          })
-        )
+    ? Tag.observeForRecipe(database, recipeId)
     : of([]),
   ingredients: recipeId
     ? database.get<Recipe>('recipes')

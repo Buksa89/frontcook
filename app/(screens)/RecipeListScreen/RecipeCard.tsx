@@ -130,32 +130,7 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
 // Enhance RecipeCard to observe recipe tags and ingredients
 const enhance = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => ({
   recipe,
-  tags: database
-    .get<RecipeTag>('recipe_tags')
-    .query(Q.where('recipe_id', recipe.id))
-    .observe()
-    .pipe(
-      switchMap(recipeTags => 
-        from(asyncStorageService.getActiveUser()).pipe(
-          switchMap(activeUser => 
-            Promise.all(
-              recipeTags.map(async rt => {
-                const tag = await database.get<Tag>('tags')
-                  .query(
-                    Q.and(
-                      Q.where('id', rt.tagId),
-                      activeUser ? Q.where('owner', activeUser) : Q.where('owner', null)
-                    )
-                  )
-                  .fetch();
-                return tag[0] || null;
-              })
-            )
-          ),
-          map(tags => tags.filter((tag): tag is Tag => tag !== null))
-        )
-      )
-    ),
+  tags: Tag.observeForRecipe(database, recipe.id),
   ingredients: database.get<Recipe>('recipes')
     .findAndObserve(recipe.id)
     .pipe(

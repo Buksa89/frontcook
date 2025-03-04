@@ -44,13 +44,7 @@ export const TagList = ({ tags, selectedTags, onSelectTag }: TagListProps) => (
 
 // Enhance the TagList component to observe tags from the database
 const enhance = withObservables<{ selectedTags: Tag[]; onSelectTag: (tag: Tag) => void }, { tags: Observable<Tag[]> }>([], () => ({
-  tags: from(asyncStorageService.getActiveUser()).pipe(
-    mergeMap(activeUser => 
-      database.get<Tag>('tags')
-        .query(Q.where('owner', Q.eq(activeUser)))
-        .observe()
-    )
-  )
+  tags: Tag.observeAll(database)
 }));
 
 export const EnhancedTagList = enhance(TagList);

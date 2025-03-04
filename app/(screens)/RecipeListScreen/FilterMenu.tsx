@@ -183,13 +183,7 @@ const FilterMenu = ({ visible, onClose, filters, onFiltersChange, availableTags 
 };
 
 const enhance = withObservables([], () => ({
-  availableTags: from(asyncStorageService.getActiveUser()).pipe(
-    mergeMap(activeUser => 
-      database.get<Tag>('tags')
-        .query(Q.where('owner', Q.eq(activeUser)))
-        .observe()
-    )
-  )
+  availableTags: Tag.observeAll(database)
 }));
 
 export const EnhancedFilterMenu = enhance(FilterMenu);
