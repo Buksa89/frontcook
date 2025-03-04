@@ -35,11 +35,7 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
 
   const handleRatingChange = async (newRating: number) => {
     try {
-      await database.write(async () => {
-        await recipe.update(recipe => {
-          recipe.rating = newRating;
-        });
-      });
+      await recipe?.updateRating(newRating);
     } catch (error) {
       console.error('Błąd podczas aktualizacji oceny:', error);
     }
@@ -168,17 +164,7 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
 const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId: string }) => ({
   recipe: database.get<Recipe>('recipes').findAndObserve(recipeId),
   tags: Tag.observeForRecipe(database, recipeId),
-  ingredients: database.get<Recipe>('recipes')
-    .findAndObserve(recipeId)
-    .pipe(
-      switchMap(recipe => {
-        if (!recipe) return new Observable<Ingredient[]>(subscriber => subscriber.next([]));
-        return database
-          .get<Ingredient>('ingredients')
-          .query(Q.where('recipe_id', recipe.id))
-          .observe();
-      })
-    )
+  ingredients: Ingredient.observeForRecipe(database, recipeId)
 }));
 
 const EnhancedRecipeDetailsScreen = enhance(RecipeDetailsScreen);

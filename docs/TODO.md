@@ -1,6 +1,11 @@
-obsluga
-    login
-    logout
+wyswietlanie skladnikow
+update rating
+skladniki i etapy klikalne
+settingsy perfect
+prep time przy sortowaniu, na koniec jesli 0
+
+
+
 synchronizacja:
     settings
     tags
@@ -43,7 +48,6 @@ dodanie parsowania pdf
 
 8. upewnienie sie ze mamy te same regexy na hasla na backendzie i froncie - przy tworzeniu i resecie i updatach z admina i z settingsow
 
-9 upewnienie sie ze mamy te same unique together
 
 zarzadzanie tokenem:
 https://chatgpt.com/c/67c60929-7658-8008-8824-4e885f95ab8c
