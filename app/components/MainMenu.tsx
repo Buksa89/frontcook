@@ -18,6 +18,7 @@ interface MenuItem {
   disabled?: boolean;
   requiresAuth?: boolean;
   hideWhenAuth?: boolean;
+  hideWhenNotAuth?: boolean;
 }
 
 export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
@@ -137,7 +138,9 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       label: 'Wyloguj',
       icon: <AntDesign name="logout" size={24} color="#666" />,
       section: 'account',
-      requiresAuth: true
+      hideWhenAuth: false,
+      requiresAuth: true,
+      hideWhenNotAuth: true
     },
   ];
 
@@ -152,7 +155,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           // Określ, czy element powinien być wyłączony
           const isDisabled = item.disabled || (item.requiresAuth && !isAuthenticated);
           // Określ, czy element powinien być ukryty
-          const shouldHide = item.hideWhenAuth && isAuthenticated;
+          const shouldHide = (item.hideWhenAuth && isAuthenticated) || (item.hideWhenNotAuth && !isAuthenticated);
           
           if (shouldHide) return null;
           

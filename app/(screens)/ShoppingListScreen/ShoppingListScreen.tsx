@@ -21,24 +21,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
   const [selectedItem, setSelectedItem] = useState<ShoppingItem | null>(null);
   const navigation = useNavigation();
 
-  // Dodajemy przycisk czyszczenia listy do paska nawigacji
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => {
-            console.log("Clear all button pressed");
-            confirmClearAll();
-          }}
-        >
-          <MaterialIcons name="delete-sweep" size={24} color="#ff4444" />
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation]);
-
-  const confirmClearAll = () => {
+  const confirmClearAll = React.useCallback(() => {
     if (uncheckedItems.length === 0 && checkedItems.length === 0) return;
 
     Alert.alert(
@@ -56,16 +39,34 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
         }
       ]
     );
-  };
+  }, [uncheckedItems.length, checkedItems.length]);
+
+  // Dodajemy przycisk czyszczenia listy do paska nawigacji
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => {
+            console.log("Clear all button pressed");
+            confirmClearAll();
+          }}
+        >
+          <MaterialIcons name="delete-sweep" size={24} color="#ff4444" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, confirmClearAll]);
 
   const clearAllItems = async () => {
     try {
-      // Usuwamy najpierw niezaznaczone
-      await Promise.all(uncheckedItems.map(item => item.markAsDeleted()));
-      // Potem zaznaczone
-      await Promise.all(checkedItems.map(item => item.markAsDeleted()));
+      await Promise.all([
+        ...uncheckedItems.map(item => item.markAsDeleted()),
+        ...checkedItems.map(item => item.markAsDeleted())
+      ]);
     } catch (error) {
       console.error("Błąd usuwania wszystkich produktów:", error);
+      Alert.alert("Błąd", "Nie udało się usunąć wszystkich produktów");
     }
   };
 

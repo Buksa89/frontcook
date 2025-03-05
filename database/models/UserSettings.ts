@@ -11,24 +11,14 @@ export default class UserSettings extends BaseModel {
   @field('auto_translate_recipes') autoTranslateRecipes!: boolean
   @field('allow_friends_views_recipes') allowFriendsViewsRecipes!: boolean
 
-  // Helper method to check if current user can modify these settings
-  private async canModify(): Promise<boolean> {
-    const activeUser = await asyncStorageService.getActiveUser();
-    return this.owner === activeUser;
-  }
+
 
   @writer async updateLanguage(newLanguage: 'pl' | 'en') {
     try {
-      if (!await this.canModify()) {
-        throw new Error('Nie masz uprawnień do modyfikacji tych ustawień');
-      }
 
-      console.log(`[DB Settings] Zmiana języka: ${this.language} -> ${newLanguage}`);
       await this.update(settings => {
         settings.language = newLanguage
-        settings.syncStatus = 'pending'
-        settings.lastSync = new Date().toISOString()
-        settings.isLocal = true
+        console.log(`[DB Settings] Zmiana języka: ${this.language} -> ${newLanguage}`);
       });
     } catch (error) {
       console.error(`[DB Settings] Błąd zmiany języka: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -38,16 +28,10 @@ export default class UserSettings extends BaseModel {
 
   @writer async updateAutoTranslate(autoTranslate: boolean) {
     try {
-      if (!await this.canModify()) {
-        throw new Error('Nie masz uprawnień do modyfikacji tych ustawień');
-      }
-
-      console.log(`[DB Settings] Zmiana auto-tłumaczenia: ${this.autoTranslateRecipes} -> ${autoTranslate}`);
+      
       await this.update(settings => {
         settings.autoTranslateRecipes = autoTranslate
-        settings.syncStatus = 'pending'
-        settings.lastSync = new Date().toISOString()
-        settings.isLocal = true
+        console.log(`[DB Settings] Zmiana auto-tłumaczenia: ${this.autoTranslateRecipes} -> ${autoTranslate}`);
       });
     } catch (error) {
       console.error(`[DB Settings] Błąd zmiany auto-tłumaczenia: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -57,16 +41,10 @@ export default class UserSettings extends BaseModel {
 
   @writer async updateAllowFriendsViews(allowFriendsViews: boolean) {
     try {
-      if (!await this.canModify()) {
-        throw new Error('Nie masz uprawnień do modyfikacji tych ustawień');
-      }
 
-      console.log(`[DB Settings] Zmiana widoczności dla znajomych: ${this.allowFriendsViewsRecipes} -> ${allowFriendsViews}`);
       await this.update(settings => {
         settings.allowFriendsViewsRecipes = allowFriendsViews
-        settings.syncStatus = 'pending'
-        settings.lastSync = new Date().toISOString()
-        settings.isLocal = true
+        console.log(`[DB Settings] Zmiana widoczności dla znajomych: ${this.allowFriendsViewsRecipes} -> ${allowFriendsViews}`);
       });
     } catch (error) {
       console.error(`[DB Settings] Błąd zmiany widoczności: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -94,9 +72,6 @@ export default class UserSettings extends BaseModel {
           settings.language = 'pl'
           settings.autoTranslateRecipes = true
           settings.allowFriendsViewsRecipes = true
-          settings.syncStatus = 'pending'
-          settings.lastSync = new Date().toISOString()
-          settings.isLocal = true
           settings.owner = activeUser
         });
       });

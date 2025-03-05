@@ -1,7 +1,4 @@
-wyswietlanie skladnikow
-update rating
-skladniki i etapy klikalne
-settingsy perfect
+
 prep time przy sortowaniu, na koniec jesli 0
 
 

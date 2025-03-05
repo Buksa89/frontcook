@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import database from '../../../database';
 import { UserSettings } from '../../../database';
 import { useAuth } from '../../../app/context/authContext';
+import { LoginPrompt } from './LoginPrompt';
+import { PasswordChange } from './PasswordChange';
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -24,8 +27,9 @@ export default function SettingsScreen() {
         setAutoTranslate(userSettings.autoTranslateRecipes);
         setAllowFriendsViews(userSettings.allowFriendsViewsRecipes);
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'Nie udało się załadować ustawień';
         console.error('Błąd podczas ładowania ustawień:', error);
-        Alert.alert('Błąd', 'Nie udało się załadować ustawień');
+        Alert.alert('Błąd', message);
       } finally {
         setLoading(false);
       }
@@ -35,7 +39,7 @@ export default function SettingsScreen() {
   }, []);
 
   const handleError = (error: any, action: string) => {
-    const message = error instanceof Error ? error.message : 'Nieznany błąd';
+    const message = error instanceof Error ? error.message : `Nie udało się ${action}`;
     console.error(`Błąd podczas ${action}:`, error);
     Alert.alert('Błąd', message);
   };
@@ -49,6 +53,8 @@ export default function SettingsScreen() {
       setLanguageDropdownOpen(false);
     } catch (error) {
       handleError(error, 'zmiany języka');
+      // Przywróć poprzednią wartość w przypadku błędu
+      setLanguage(settings.language as 'pl' | 'en');
     }
   };
 
@@ -60,6 +66,8 @@ export default function SettingsScreen() {
       setAutoTranslate(value);
     } catch (error) {
       handleError(error, 'zmiany auto-tłumaczenia');
+      // Przywróć poprzednią wartość w przypadku błędu
+      setAutoTranslate(settings.autoTranslateRecipes);
     }
   };
 
@@ -71,6 +79,8 @@ export default function SettingsScreen() {
       setAllowFriendsViews(value);
     } catch (error) {
       handleError(error, 'zmiany widoczności dla znajomych');
+      // Przywróć poprzednią wartość w przypadku błędu
+      setAllowFriendsViews(settings.allowFriendsViewsRecipes);
     }
   };
 
@@ -135,6 +145,8 @@ export default function SettingsScreen() {
           </View>
         )}
       </View>
+
+      {activeUser ? <PasswordChange /> : <LoginPrompt />}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Przepisy</Text>

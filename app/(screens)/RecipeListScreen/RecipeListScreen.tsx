@@ -59,6 +59,7 @@ const enhance = withObservables(['sortBy', 'filters'], ({ sortBy, filters }: Enh
           Q.experimentalJoinTables(['recipe_tags']),
           Q.and(
             activeUser ? Q.where('owner', activeUser) : Q.where('owner', null),
+            Q.where('is_deleted', false),
             filters.searchPhrase ? Q.where('name', Q.like(`%${filters.searchPhrase}%`)) : Q.where('id', Q.notEq(null)),
             filters.minRating ? Q.where('rating', Q.gte(filters.minRating)) : Q.where('id', Q.notEq(null)),
             filters.maxPrepTime ? Q.where('prep_time', Q.lte(filters.maxPrepTime)) : Q.where('id', Q.notEq(null)),

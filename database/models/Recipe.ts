@@ -183,14 +183,27 @@ export default class Recipe extends BaseModel {
             .fetch()
         ]);
 
-        // Mark all related records as deleted
-        await Promise.all([
-          ...relatedRecipeTags.map(recipeTag => recipeTag.markAsDeleted()),
-          ...relatedIngredients.map(ingredient => ingredient.markAsDeleted())
-        ]);
+        // Prepare all operations
+        const operations = [
+          // Mark recipe as deleted
+          this.prepareUpdate(() => {
+            this.isDeleted = true;
+          }),
+          // Mark all related records as deleted
+          ...relatedRecipeTags.map(recipeTag => 
+            recipeTag.prepareUpdate(() => {
+              recipeTag.isDeleted = true;
+            })
+          ),
+          ...relatedIngredients.map(ingredient => 
+            ingredient.prepareUpdate(() => {
+              ingredient.isDeleted = true;
+            })
+          )
+        ];
 
-        // Mark the recipe itself as deleted
-        await super.markAsDeleted();
+        // Execute all operations in a batch
+        await this.database.batch(...operations);
         
         console.log(`[DB ${this.table}] Successfully marked recipe ${this.id} and related records as deleted (${relatedRecipeTags.length} recipe_tags, ${relatedIngredients.length} ingredients)`);
       });
