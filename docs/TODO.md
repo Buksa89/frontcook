@@ -1,4 +1,5 @@
 spytaj usera przy logowaniu o synchronizacje
+sync id po obu stronach, automatyczne tworzenie
 synchro listy zakupow
 
 
