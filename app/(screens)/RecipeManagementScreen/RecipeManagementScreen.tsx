@@ -12,7 +12,6 @@ import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
 import { Model } from '@nozbe/watermelondb';
 import { RecipeForm } from './RecipeForm';
-import { parseIngredient } from '../../utils/ingredientParser';
 import { asyncStorageService } from '../../../app/services/storage';
 
 interface EditRecipeScreenProps {

@@ -5,7 +5,7 @@ import { Observable } from 'rxjs'
 import BaseModel from './BaseModel'
 import { asyncStorageService } from '../../app/services/storage'
 import { map } from 'rxjs/operators'
-import { parseShoppingItem } from '../../app/utils/shoppingItemParser'
+import { parseIngredient } from '../../app/utils/ingredientParser'
 
 export default class ShoppingItem extends BaseModel {
   static table = 'shopping_items'
@@ -142,7 +142,7 @@ export default class ShoppingItem extends BaseModel {
   ): Promise<ShoppingItem> {
     return await database.write(async () => {
       try {
-        const parsed = parseShoppingItem(text);
+        const parsed = parseIngredient(text);
         console.log(`[DB ShoppingItem] Creating/updating item from text: "${text}" -> name=${parsed.name}, amount=${parsed.amount}, unit=${parsed.unit}`);
 
         const existingItem = await this.findExisting(
@@ -221,7 +221,7 @@ export default class ShoppingItem extends BaseModel {
 
   @writer async updateWithParsing(text: string) {
     try {
-      const parsed = parseShoppingItem(text);
+      const parsed = parseIngredient(text);
       console.log(`[DB ShoppingItem] Updating item ${this.id} with parsed text: "${text}" -> name=${parsed.name}, amount=${parsed.amount}, unit=${parsed.unit}`);
       
       // Sprawdzamy czy istnieje już taki sam element (inny niż ten)

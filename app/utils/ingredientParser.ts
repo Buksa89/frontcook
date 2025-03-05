@@ -1,10 +1,9 @@
 import { UNIT_MAPPING, Unit } from '../constants/units';
 
 interface ParsedIngredient {
-  amount: number | null;
+  amount: number;
   unit: Unit | null;
   name: string;
-  originalStr: string;
 }
 
 /**
@@ -45,22 +44,28 @@ const parseAmount = (amount: string): number => {
 };
 
 /**
- * Parsuje tekst składnika na jego komponenty
+ * Parsuje tekst elementu listy zakupów na jego komponenty
+ * Przykłady:
+ * "2 kg mąki" -> { amount: 2, unit: "kg", name: "mąki" }
+ * "Chleb" -> { amount: 1, unit: null, name: "Chleb" }
+ * "1.5 l mleka" -> { amount: 1.5, unit: "l", name: "mleka" }
  */
-export const parseIngredient = (text: string): ParsedIngredient => {
-  const originalStr = text.trim();
-  let remainingText = originalStr;
-  let amount: number | null = null;
-  let unit: Unit | null = null;
+export const parseIngredient = (originalStr: string): ParsedIngredient => {
+  let remainingText = originalStr.trim();
+  let amount = 1; // Domyślna wartość to 1
 
   // Znajdź liczbę na początku (może być ułamek lub liczba z przecinkiem)
   const amountMatch = remainingText.match(/^(\d+(?:[.,]\d+)?(?:\s+\d+\/\d+)?|\d+\/\d+)/);
   if (amountMatch) {
-    amount = parseAmount(amountMatch[0]);
+    const parsedAmount = parseAmount(amountMatch[0]);
+    if (!isNaN(parsedAmount)) {
+      amount = parsedAmount;
+    }
     remainingText = remainingText.slice(amountMatch[0].length).trim();
   }
 
-  // Sprawdź czy następne słowo (lub tekst bez spacji) to jednostka
+  // Sprawdź czy następne słowo to jednostka
+  let unit: Unit | null = null;
   const unitMatch = remainingText.match(/^(\S+)/);
   if (unitMatch) {
     const possibleUnit = unitMatch[1].toLowerCase();
@@ -71,12 +76,11 @@ export const parseIngredient = (text: string): ParsedIngredient => {
   }
 
   // Reszta tekstu to nazwa
-  const name = remainingText.trim();
+  const name = remainingText.trim().toLowerCase();
 
   return {
     amount,
     unit,
-    name,
-    originalStr
+    name: name || originalStr.toLowerCase() // Jeśli nie ma nazwy, użyj całego tekstu
   };
 }; 

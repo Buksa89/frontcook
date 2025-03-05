@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking, Share } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { withObservables } from '@nozbe/watermelondb/react';
@@ -17,6 +17,7 @@ import { ServingsProvider } from './ServingsContext';
 import { ServingsAdjuster } from './ServingsAdjuster';
 import { ScaledIngredient } from './ScaledIngredient';
 import { asyncStorageService } from '../../../app/services/storage';
+import { InstructionStep } from './InstructionStep';
 
 interface RecipeDetailsScreenProps {
   recipe: Recipe | null;
@@ -25,13 +26,25 @@ interface RecipeDetailsScreenProps {
 }
 
 const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenProps) => {
-  if (!recipe) {
-    return (
-      <View style={styles.container}>
-        <Text>Ładowanie...</Text>
-      </View>
-    );
-  }
+  const [isStepChecked, setIsStepChecked] = useState<boolean[]>([]);
+  
+  useEffect(() => {
+    if (recipe) {
+      const stepsCount = recipe.instructions.split('\n')
+        .map(instruction => instruction.trim())
+        .filter(instruction => instruction.length > 0)
+        .length;
+      setIsStepChecked(new Array(stepsCount).fill(false));
+    }
+  }, [recipe]);
+
+  const toggleStep = (index: number) => {
+    setIsStepChecked(prev => {
+      const newState = [...prev];
+      newState[index] = !newState[index];
+      return newState;
+    });
+  };
 
   const handleRatingChange = async (newRating: number) => {
     try {
@@ -103,13 +116,24 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Składniki</Text>
             {ingredients.map((ingredient, index) => (
-              <ScaledIngredient key={index} ingredient={ingredient} />
+              <View key={index} style={styles.ingredientRow}>
+                <ScaledIngredient key={index} ingredient={ingredient} />
+              </View>
             ))}
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Instrukcje</Text>
-            <Text style={styles.sectionContent}>{recipe.instructions}</Text>
+            {recipe.instructions.split('\n')
+              .map(instruction => instruction.trim())
+              .filter(instruction => instruction.length > 0)
+              .map((instruction, index) => (
+                <InstructionStep
+                  key={index}
+                  step={instruction}
+                  stepNumber={index + 1}
+                />
+              ))}
           </View>
 
           {recipe.notes && (
@@ -266,5 +290,31 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontSize: 16,
     marginLeft: 8,
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  instructionRow: {
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 1,
+  },
+  instructionRowChecked: {
+    backgroundColor: '#CCCCCC',
+  },
+  instructionContent: {
+    fontSize: 16,
+    color: '#444',
+    lineHeight: 24,
+  },
+  stepNumber: {
+    fontWeight: '500',
+    color: '#2196F3',
+  },
+  textChecked: {
+    color: '#fff',
   },
 }); 
