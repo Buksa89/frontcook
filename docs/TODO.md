@@ -1,5 +1,10 @@
+spytaj usera przy logowaniu o synchronizacje
+synchro listy zakupow
+
+
 
 prep time przy sortowaniu, na koniec jesli 0
+ikonke czasu zmien  wjednym miejscu
 
 
 
@@ -42,6 +47,8 @@ dodanie resetu hasla
 dodanie logwania do settingsow
 przenoszenie tagow i shopping items
 dodanie parsowania pdf
+przy tworzeniu elementu, sprawdzaj czy juz nie istnieje
+
 
 8. upewnienie sie ze mamy te same regexy na hasla na backendzie i froncie - przy tworzeniu i resecie i updatach z admina i z settingsow
 

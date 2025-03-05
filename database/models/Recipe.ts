@@ -40,7 +40,7 @@ export default class Recipe extends BaseModel {
           .get<Recipe>('recipes')
           .query(
             Q.and(
-              Q.where('owner', activeUser),
+              Q.where('user_id', activeUser),
               Q.where('is_deleted', false)
             )
           )
@@ -115,7 +115,7 @@ export default class Recipe extends BaseModel {
           record.source = data.source || null;
           record.rating = 0;
           record.isApproved = true;
-          record.owner = activeUser;
+          record.userId = activeUser;
         });
 
         // Create tag relationships for new recipe
@@ -148,7 +148,6 @@ export default class Recipe extends BaseModel {
     });
   }
 
-  @field('remote_id') remoteId!: string | null
   @text('name') name!: string
   @text('description') description!: string | null
   @text('image') image!: string | null

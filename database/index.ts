@@ -85,7 +85,7 @@ async function populateDefaultTags(): Promise<void> {
 
     const tagsCollection = database.get<Tag>('tags');
     const existingTags = await tagsCollection
-      .query(Q.where('owner', null))
+      .query(Q.where('user_id', null))
       .fetch();
     
     if (existingTags.length === 0) {
@@ -94,7 +94,7 @@ async function populateDefaultTags(): Promise<void> {
           tagsCollection.create(record => {
             record.name = tag.name
             record.order = tag.order
-            record.owner = null
+            record.userId = null
             record.syncStatus = 'pending'
             record.lastSync = new Date().toISOString()
             record.isLocal = true

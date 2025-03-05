@@ -57,9 +57,9 @@ export default class UserSettings extends BaseModel {
     try {
       const activeUser = await asyncStorageService.getActiveUser();
       
-      // Query settings for specific owner
+      // Query settings for specific userId
       const settings = await database.get<UserSettings>('user_settings')
-        .query(Q.where('owner', activeUser))
+        .query(Q.where('user_id', activeUser))
         .fetch();
       
       if (settings.length > 0) {
@@ -72,7 +72,7 @@ export default class UserSettings extends BaseModel {
           settings.language = 'pl'
           settings.autoTranslateRecipes = true
           settings.allowFriendsViewsRecipes = true
-          settings.owner = activeUser
+          settings.userId = activeUser
         });
       });
 

@@ -6,10 +6,10 @@ import { Database } from '@nozbe/watermelondb'
 import { asyncStorageService } from '../../app/services/storage'
 
 export default class BaseModel extends Model {
+  @text('user_id') userId!: string | null
   @field('sync_status') syncStatus!: SyncStatus
   @field('last_sync') lastSync!: string
   @field('is_local') isLocal!: boolean
-  @text('owner') owner!: string | null
   @field('is_deleted') isDeleted!: boolean
 
   // Helper methods for sync status
@@ -87,8 +87,8 @@ export default class BaseModel extends Model {
         // First apply the user's updates
         recordUpdater(record);
         
-        // Then set sync and owner fields
-        record.owner = activeUser;
+        // Then set sync and userId fields
+        record.userId = activeUser;
         record.syncStatus = 'pending';
         record.lastSync = new Date().toISOString();
         record.isLocal = true;

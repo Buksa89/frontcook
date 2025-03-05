@@ -10,7 +10,6 @@ import { parseIngredient } from '../../app/utils/ingredientParser'
 export default class ShoppingItem extends BaseModel {
   static table = 'shopping_items'
 
-  @field('remote_id') remoteId!: string | null
   @field('amount') amount!: number
   @text('unit') unit!: string | null
   @text('name') name!: string
@@ -28,7 +27,7 @@ export default class ShoppingItem extends BaseModel {
           .get<ShoppingItem>('shopping_items')
           .query(
             Q.and(
-              Q.where('owner', activeUser),
+              Q.where('user_id', activeUser),
               Q.where('is_deleted', false)
             )
           )
@@ -54,7 +53,7 @@ export default class ShoppingItem extends BaseModel {
           .get<ShoppingItem>('shopping_items')
           .query(
             Q.and(
-              Q.where('owner', activeUser),
+              Q.where('user_id', activeUser),
               Q.where('is_checked', false),
               Q.where('is_deleted', false)
             )
@@ -81,7 +80,7 @@ export default class ShoppingItem extends BaseModel {
           .get<ShoppingItem>('shopping_items')
           .query(
             Q.and(
-              Q.where('owner', activeUser),
+              Q.where('user_id', activeUser),
               Q.where('is_checked', true),
               Q.where('is_deleted', false)
             )
@@ -108,13 +107,13 @@ export default class ShoppingItem extends BaseModel {
   ): Promise<ShoppingItem | null> {
     try {
       const activeUser = await asyncStorageService.getActiveUser();
-      console.log(`[DB ShoppingItem] Searching for existing item: name=${name}, unit=${unit}, isChecked=${isChecked}, owner=${activeUser}`)
+      console.log(`[DB ShoppingItem] Searching for existing item: name=${name}, unit=${unit}, isChecked=${isChecked}, userId=${activeUser}`)
       
       const items = await database
         .get<ShoppingItem>('shopping_items')
         .query(
           Q.and(
-            Q.where('owner', activeUser),
+            Q.where('userId', activeUser),
             Q.where('name', Q.eq(name)),
             Q.where('unit', Q.eq(unit)),
             Q.where('is_checked', Q.eq(isChecked)),

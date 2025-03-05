@@ -90,7 +90,6 @@ export default class Ingredient extends BaseModel {
     return operations;
   }
 
-  @field('remote_id') remoteId!: string | null
   @field('amount') amount!: number | null
   @text('unit') unit!: string | null
   @text('name') name!: string

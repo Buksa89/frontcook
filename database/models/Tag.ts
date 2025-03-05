@@ -13,7 +13,6 @@ export default class Tag extends BaseModel {
     recipe_tags: { type: 'has_many' as const, foreignKey: 'tag_id' }
   }
 
-  @field('remote_id') remoteId!: string | null
   @field('order') order!: number
   @text('name') name!: string
 
@@ -30,7 +29,7 @@ export default class Tag extends BaseModel {
           .get<Tag>('tags')
           .query(
             Q.and(
-              Q.where('owner', activeUser),
+              Q.where('user_id', activeUser),
               Q.where('is_deleted', false)
             )
           )
@@ -55,7 +54,7 @@ export default class Tag extends BaseModel {
           .query(
             Q.experimentalJoinTables(['recipe_tags']),
             Q.and(
-              Q.where('owner', activeUser),
+              Q.where('user_id', activeUser),
               Q.where('is_deleted', false),
               Q.on('recipe_tags', 'recipe_id', recipeId)
             )

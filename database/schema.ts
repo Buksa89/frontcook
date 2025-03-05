@@ -6,7 +6,7 @@ const syncColumns: ColumnSchema[] = [
   { name: 'sync_status', type: 'string' as const },
   { name: 'last_sync', type: 'string' as const },
   { name: 'is_local', type: 'boolean' as const },
-  { name: 'owner', type: 'string' as const, isOptional: true },
+  { name: 'user_id', type: 'string' as const, isOptional: true },
   { name: 'is_deleted', type: 'boolean' as const, isOptional: false }
 ]
 
