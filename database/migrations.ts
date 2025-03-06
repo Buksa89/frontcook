@@ -81,42 +81,42 @@ export default schemaMigrations({
             ADD COLUMN sync_status TEXT DEFAULT 'synced',
             ADD COLUMN last_sync TEXT DEFAULT NULL,
             ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN user_id TEXT DEFAULT NULL;
+            ADD COLUMN owner TEXT DEFAULT NULL;
 
             -- Add sync fields to recipes
             ALTER TABLE recipes 
             ADD COLUMN sync_status TEXT DEFAULT 'synced',
             ADD COLUMN last_sync TEXT DEFAULT NULL,
             ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN user_id TEXT DEFAULT NULL;
+            ADD COLUMN owner TEXT DEFAULT NULL;
 
             -- Add sync fields to recipe_tags
             ALTER TABLE recipe_tags 
             ADD COLUMN sync_status TEXT DEFAULT 'synced',
             ADD COLUMN last_sync TEXT DEFAULT NULL,
             ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN user_id TEXT DEFAULT NULL;
+            ADD COLUMN owner TEXT DEFAULT NULL;
 
             -- Add sync fields to ingredients
             ALTER TABLE ingredients 
             ADD COLUMN sync_status TEXT DEFAULT 'synced',
             ADD COLUMN last_sync TEXT DEFAULT NULL,
             ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN user_id TEXT DEFAULT NULL;
+            ADD COLUMN owner TEXT DEFAULT NULL;
 
             -- Add sync fields to shopping_items
             ALTER TABLE shopping_items 
             ADD COLUMN sync_status TEXT DEFAULT 'synced',
             ADD COLUMN last_sync TEXT DEFAULT NULL,
             ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN user_id TEXT DEFAULT NULL;
+            ADD COLUMN owner TEXT DEFAULT NULL;
 
             -- Add sync fields to user_settings
             ALTER TABLE user_settings 
             ADD COLUMN sync_status TEXT DEFAULT 'synced',
             ADD COLUMN last_sync TEXT DEFAULT NULL,
             ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN user_id TEXT DEFAULT NULL;
+            ADD COLUMN owner TEXT DEFAULT NULL;
           `
         }
       ]

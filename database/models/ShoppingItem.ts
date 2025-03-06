@@ -27,7 +27,7 @@ export default class ShoppingItem extends BaseModel {
           .get<ShoppingItem>('shopping_items')
           .query(
             Q.and(
-              Q.where('user_id', activeUser),
+              Q.where('owner', activeUser),
               Q.where('is_deleted', false)
             )
           )
@@ -53,7 +53,7 @@ export default class ShoppingItem extends BaseModel {
           .get<ShoppingItem>('shopping_items')
           .query(
             Q.and(
-              Q.where('user_id', activeUser),
+              Q.where('owner', activeUser),
               Q.where('is_checked', false),
               Q.where('is_deleted', false)
             )
@@ -80,7 +80,7 @@ export default class ShoppingItem extends BaseModel {
           .get<ShoppingItem>('shopping_items')
           .query(
             Q.and(
-              Q.where('user_id', activeUser),
+              Q.where('owner', activeUser),
               Q.where('is_checked', true),
               Q.where('is_deleted', false)
             )
@@ -107,13 +107,13 @@ export default class ShoppingItem extends BaseModel {
   ): Promise<ShoppingItem | null> {
     try {
       const activeUser = await asyncStorageService.getActiveUser();
-      console.log(`[DB ShoppingItem] Searching for existing item: name=${name}, unit=${unit}, isChecked=${isChecked}, userId=${activeUser}`)
+      console.log(`[DB ShoppingItem] Searching for existing item: name=${name}, unit=${unit}, isChecked=${isChecked}, owner=${activeUser}`)
       
       const items = await database
         .get<ShoppingItem>('shopping_items')
         .query(
           Q.and(
-            Q.where('userId', activeUser),
+            Q.where('owner', activeUser),
             Q.where('name', Q.eq(name)),
             Q.where('unit', Q.eq(unit)),
             Q.where('is_checked', Q.eq(isChecked)),

@@ -40,7 +40,7 @@ export default class Recipe extends BaseModel {
           .get<Recipe>('recipes')
           .query(
             Q.and(
-              Q.where('user_id', activeUser),
+              Q.where('owner', activeUser),
               Q.where('is_deleted', false)
             )
           )
@@ -115,7 +115,7 @@ export default class Recipe extends BaseModel {
           record.source = data.source || null;
           record.rating = 0;
           record.isApproved = true;
-          record.userId = activeUser;
+          record.owner = activeUser;
         });
 
         // Create tag relationships for new recipe

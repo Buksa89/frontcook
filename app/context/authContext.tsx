@@ -1,6 +1,9 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Alert } from 'react-native';
 import authService from '../services/auth';
 import { asyncStorageService } from '../services/storage';
+import database from '../../database';
+import { Q } from '@nozbe/watermelondb';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -20,6 +23,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeUser, setActiveUser] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState<number>(0);
+
+  // Funkcja do sprawdzania i przypisywania lokalnych danych do użytkownika
+  const checkAndAssignLocalDataToUser = async (username: string) => {
+    try {
+      // Sprawdź czy istnieją lokalne dane bez właściciela
+      const tables = ['recipes', 'ingredients', 'tags', 'shopping_items', 'user_settings'];
+      let hasLocalData = false;
+
+      for (const table of tables) {
+        const localData = await database.get(table).query(
+          Q.where('owner', null),
+          Q.where('is_deleted', false)
+        ).fetch();
+
+        if (localData.length > 0) {
+          hasLocalData = true;
+          break;
+        }
+      }
+
+      if (hasLocalData) {
+        // Pokaż alert z pytaniem o synchronizację
+        return new Promise((resolve) => {
+          Alert.alert(
+            'Synchronizacja danych',
+            'Wykryto lokalne dane. Czy chcesz przypisać je do swojego konta?',
+            [
+              {
+                text: 'Nie',
+                style: 'cancel',
+                onPress: () => resolve(false)
+              },
+              {
+                text: 'Tak',
+                onPress: async () => {
+                  // Aktualizuj właściciela dla wszystkich lokalnych danych
+                  await database.write(async () => {
+                    for (const table of tables) {
+                      const localData = await database.get(table).query(
+                        Q.where('owner', null),
+                        Q.where('is_deleted', false)
+                      ).fetch();
+
+                      for (const record of localData) {
+                        await record.update(item => {
+                          item.owner = username;
+                        });
+                      }
+                    }
+                  });
+                  resolve(true);
+                }
+              }
+            ]
+          );
+        });
+      }
+    } catch (error) {
+      console.error('Błąd podczas sprawdzania lokalnych danych:', error);
+    }
+  };
 
   useEffect(() => {
     // Sprawdź, czy użytkownik jest zalogowany przy starcie aplikacji
@@ -46,12 +110,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (username: string, password: string) => {
     try {
       const result = await authService.login(username, password);
+      
       if (result.success) {
         setIsAuthenticated(true);
         
         // Pobierz nazwę aktywnego użytkownika po zalogowaniu
         const activeUsername = await asyncStorageService.getActiveUser();
         setActiveUser(activeUsername);
+
+        // Sprawdź i przypisz lokalne dane do użytkownika
+        await checkAndAssignLocalDataToUser(activeUsername);
+        
         setReloadKey(prev => prev + 1);
       }
       return result;
