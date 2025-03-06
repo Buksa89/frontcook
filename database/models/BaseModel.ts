@@ -6,23 +6,23 @@ import { Database } from '@nozbe/watermelondb'
 import { asyncStorageService } from '../../app/services/storage'
 
 export default class BaseModel extends Model {
-  @text('user_id') userId!: string | null
-  @field('sync_status') syncStatus!: SyncStatus
+  @field('sync_status') synchStatus!: SyncStatus
   @field('last_sync') lastSync!: string
   @field('is_local') isLocal!: boolean
+  @text('user_id') userId!: string | null
   @field('is_deleted') isDeleted!: boolean
 
   // Helper methods for sync status
   get isPending(): boolean {
-    return this.syncStatus === 'pending'
+    return this.synchStatus === 'pending'
   }
 
   get isSynced(): boolean {
-    return this.syncStatus === 'synced'
+    return this.synchStatus === 'synced'
   }
 
   get hasConflict(): boolean {
-    return this.syncStatus === 'conflict'
+    return this.synchStatus === 'conflict'
   }
 
   // Helper method to format last sync date
@@ -89,7 +89,7 @@ export default class BaseModel extends Model {
         
         // Then set sync and userId fields
         record.userId = activeUser;
-        record.syncStatus = 'pending';
+        record.synchStatus = 'pending';
         record.lastSync = new Date().toISOString();
         record.isLocal = true;
 

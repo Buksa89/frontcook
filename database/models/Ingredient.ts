@@ -68,7 +68,7 @@ export default class Ingredient extends BaseModel {
       ...existingIngredients.map(ingredient => 
         ingredient.prepareUpdate(record => {
           record.isDeleted = true;
-          record.syncStatus = 'pending';
+          record.synchStatus = 'pending';
           record.lastSync = new Date().toISOString();
         })
       ),
