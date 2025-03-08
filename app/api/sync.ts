@@ -44,7 +44,7 @@ export interface IngredientSync extends BaseSyncItem {
   unit: string | null;
   type: string | null;
   order: number;
-  recipe_id: string;
+  recipe: string;
   original_str: string;
 }
 

@@ -8,6 +8,7 @@ import { parseIngredient } from '../../app/utils/ingredientParser'
 import { Observable, from } from 'rxjs'
 import { switchMap } from 'rxjs/operators'
 import { SyncItemType, IngredientSync } from '../../app/api/sync'
+import database from '../../database'
 
 export default class Ingredient extends BaseModel {
   static table = 'ingredients'
@@ -95,7 +96,7 @@ export default class Ingredient extends BaseModel {
   @text('unit') unit!: string | null
   @text('name') name!: string
   @text('type') type!: string | null
-  @text('recipe_id') recipeId!: string
+  @field('recipe_id') recipeId!: string
   @field('order') order!: number
   @text('original_str') originalStr!: string
 
@@ -103,8 +104,27 @@ export default class Ingredient extends BaseModel {
   @relation('recipes', 'recipe_id') recipe!: Recipe
 
   static async deserialize(item: SyncItemType) {
+    if (item.object_type !== 'ingredient') {
+      throw new Error(`Invalid object type for Ingredient: ${item.object_type}`);
+    }
+    console.log('item', item);
     const baseFields = await BaseModel.deserialize(item);
     const ingredientItem = item as IngredientSync;
+    
+    if (!ingredientItem.recipe) {
+      throw new Error(`Missing recipe for ingredient ${item.sync_id}`);
+    }
+
+    // Find recipe by sync_id
+    const recipes = await database.get('recipes').query(
+      Q.where('sync_id', ingredientItem.recipe)
+    ).fetch();
+    
+    if (recipes.length === 0) {
+      throw new Error(`Recipe with sync_id ${ingredientItem.recipe} not found`);
+    }
+    
+    console.log(`[Ingredient] Found recipe ${recipes[0].id} for sync_id ${ingredientItem.recipe}`);
     
     return {
       ...baseFields,
@@ -112,7 +132,7 @@ export default class Ingredient extends BaseModel {
       unit: ingredientItem.unit,
       name: ingredientItem.name,
       type: ingredientItem.type,
-      recipe_id: ingredientItem.recipe_id,
+      recipe_id: recipes[0].id,
       order: ingredientItem.order,
       original_str: ingredientItem.original_str
     };
