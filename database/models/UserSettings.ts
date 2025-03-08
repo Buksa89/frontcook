@@ -14,13 +14,16 @@ export default class UserSettings extends BaseModel {
   @field('auto_translate_recipes') autoTranslateRecipes!: boolean
   @field('allow_friends_views_recipes') allowFriendsViewsRecipes!: boolean
 
-  serializeFromApi(item: SyncItemType): void {
-    super.serializeFromApi(item);
+  static async deserialize(item: SyncItemType) {
+    const baseFields = await BaseModel.deserialize(item);
     const settingsItem = item as UserSettingsSync;
     
-    this.language = settingsItem.language;
-    this.autoTranslateRecipes = settingsItem.auto_translate_recipes;
-    this.allowFriendsViewsRecipes = settingsItem.allow_friends_views_recipes;
+    return {
+      ...baseFields,
+      language: settingsItem.language,
+      auto_translate_recipes: settingsItem.auto_translate_recipes,
+      allow_friends_views_recipes: settingsItem.allow_friends_views_recipes
+    };
   }
 
   @writer async updateLanguage(newLanguage: 'pl' | 'en') {

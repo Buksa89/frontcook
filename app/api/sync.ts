@@ -56,8 +56,8 @@ export interface TagSync extends BaseSyncItem {
 
 export interface RecipeTagSync extends BaseSyncItem {
   object_type: 'recipe_tag';
-  recipe_id: string;
-  tag_id: string;
+  recipe: string;  // This is sync_id of the recipe
+  tag: string;     // This is sync_id of the tag
 }
 
 export interface UserSettingsSync extends BaseSyncItem {
@@ -74,6 +74,7 @@ export interface SyncRequest {
   recipes?: RecipeSync[];
   ingredients?: IngredientSync[];
   tags?: TagSync[];
+  recipe_tags?: RecipeTagSync[];
   user_settings?: UserSettingsSync[];
 }
 
@@ -82,6 +83,7 @@ export interface SyncResponse {
   recipes?: RecipeSync[];
   ingredients?: IngredientSync[];
   tags?: TagSync[];
+  recipe_tags?: RecipeTagSync[];
   user_settings?: UserSettingsSync[];
 }
 

@@ -16,12 +16,14 @@ export default class BaseModel extends Model {
   @text('owner') owner!: string | null
   @field('is_deleted') isDeleted!: boolean
 
-  serializeFromApi(item: SyncItemType): void {
-    this.syncId = item.sync_id;
-    this.synchStatus = 'synced';
-    this.lastUpdate = item.last_update;
-    this.isDeleted = item.is_deleted;
-    this.isLocal = false;
+  static async deserialize(item: SyncItemType) {
+    return {
+      sync_id: item.sync_id,
+      sync_status: 'synced',
+      last_update: item.last_update,
+      is_deleted: item.is_deleted,
+      is_local: false
+    };
   }
 
   // Helper methods for sync status

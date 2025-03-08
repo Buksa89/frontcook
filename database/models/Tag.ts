@@ -112,11 +112,14 @@ export default class Tag extends BaseModel {
     return this.name.charAt(0).toUpperCase() + this.name.slice(1).toLowerCase()
   }
 
-  serializeFromApi(item: SyncItemType): void {
-    super.serializeFromApi(item);
+  static async deserialize(item: SyncItemType) {
+    const baseFields = await BaseModel.deserialize(item);
     const tagItem = item as TagSync;
     
-    this.name = tagItem.name;
-    this.order = tagItem.order;
+    return {
+      ...baseFields,
+      name: tagItem.name,
+      order: tagItem.order
+    };
   }
 }

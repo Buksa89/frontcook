@@ -102,16 +102,19 @@ export default class Ingredient extends BaseModel {
   // Relation to access the related Recipe
   @relation('recipes', 'recipe_id') recipe!: Recipe
 
-  serializeFromApi(item: SyncItemType): void {
-    super.serializeFromApi(item);
+  static async deserialize(item: SyncItemType) {
+    const baseFields = await BaseModel.deserialize(item);
     const ingredientItem = item as IngredientSync;
     
-    this.amount = ingredientItem.amount;
-    this.unit = ingredientItem.unit;
-    this.name = ingredientItem.name;
-    this.type = ingredientItem.type;
-    this.recipeId = ingredientItem.recipe_id;
-    this.order = ingredientItem.order;
-    this.originalStr = ingredientItem.original_str;
+    return {
+      ...baseFields,
+      amount: ingredientItem.amount,
+      unit: ingredientItem.unit,
+      name: ingredientItem.name,
+      type: ingredientItem.type,
+      recipe_id: ingredientItem.recipe_id,
+      order: ingredientItem.order,
+      original_str: ingredientItem.original_str
+    };
   }
 } 

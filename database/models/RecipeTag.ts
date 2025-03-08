@@ -4,6 +4,8 @@ import Recipe from './Recipe'
 import Tag from './Tag'
 import BaseModel from './BaseModel'
 import { SyncItemType, RecipeTagSync } from '../../app/api/sync'
+import { Q } from '@nozbe/watermelondb'
+import database from '../../database'
 
 export default class RecipeTag extends BaseModel {
   static table = 'recipe_tags'
@@ -19,14 +21,40 @@ export default class RecipeTag extends BaseModel {
   @relation('recipes', 'recipe_id') recipe!: Recipe
   @relation('tags', 'tag_id') tag!: Tag
 
-  serializeFromApi(item: SyncItemType): void {
+  static async deserialize(item: SyncItemType) {
     if (item.object_type !== 'recipe_tag') {
       throw new Error(`Invalid object type for RecipeTag: ${item.object_type}`);
     }
-    super.serializeFromApi(item);
-    const recipeTagItem = item as RecipeTagSync;
+
+    const baseFields = await BaseModel.deserialize(item);
+    const recipeTagItem = item as unknown as RecipeTagSync;
     
-    this.recipeId = recipeTagItem.recipe_id;
-    this.tagId = recipeTagItem.tag_id;
+    if (!recipeTagItem.recipe || !recipeTagItem.tag) {
+      throw new Error(`Missing recipe or tag for recipe_tag ${item.sync_id}`);
+    }
+
+    // Find recipe by sync_id
+    const recipes = await database.get('recipes').query(
+      Q.where('sync_id', recipeTagItem.recipe)
+    ).fetch();
+    
+    if (recipes.length === 0) {
+      throw new Error(`Recipe with sync_id ${recipeTagItem.recipe} not found`);
+    }
+
+    // Find tag by sync_id
+    const tags = await database.get('tags').query(
+      Q.where('sync_id', recipeTagItem.tag)
+    ).fetch();
+
+    if (tags.length === 0) {
+      throw new Error(`Tag with sync_id ${recipeTagItem.tag} not found`);
+    }
+
+    return {
+      ...baseFields,
+      recipe_id: recipes[0].id,
+      tag_id: tags[0].id
+    };
   }
 } 

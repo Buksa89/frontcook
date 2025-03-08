@@ -22,6 +22,31 @@ interface PullResponseItem {
   sync_id: string;
   last_update: string;
   is_deleted: boolean;
+  name?: string;
+  description?: string | null;
+  image?: string | null;
+  rating?: number | null;
+  is_approved?: boolean;
+  prep_time?: number | null;
+  total_time?: number | null;
+  servings?: number | null;
+  instructions?: string;
+  notes?: string | null;
+  nutrition?: string | null;
+  video?: string | null;
+  source?: string | null;
+  amount?: number | null;
+  unit?: string | null;
+  type?: string | null;
+  order?: number;
+  is_checked?: boolean;
+  recipe_id?: string;
+  original_str?: string;
+  recipe?: string;
+  tag?: string;
+  language?: string;
+  auto_translate_recipes?: boolean;
+  allow_friends_views_recipes?: boolean;
   [key: string]: any;
 }
 
@@ -37,7 +62,7 @@ const SYNC_INTERVAL = 30000//5 * 60 * 1000; // 5 minut
 const MIN_SYNC_INTERVAL = 30 * 1000; // 30 sekund - minimalny czas między synchronizacjami
 const IS_DEBUG = __DEV__; // Sprawdzenie czy aplikacja jest w trybie debug
 
-type TableName = 'shopping_items' | 'recipes' | 'ingredients' | 'tags' | 'user_settings';
+type TableName = 'shopping_items' | 'recipes' | 'ingredients' | 'tags' | 'user_settings' | 'recipe_tags';
 
 // Rozszerzony interfejs dla _RawRecord
 interface ExtendedRawRecord {
@@ -312,21 +337,27 @@ class SyncService {
               Q.where('sync_id', item.sync_id)
             ).fetch();
 
+            // Get deserialized data
+            const deserializedData = await collection.modelClass.deserialize(item);
+
             if (existingRecords.length === 0) {
               // Record doesn't exist - create new one
               console.log(`[Sync Service] Creating new ${item.object_type} with sync_id: ${item.sync_id}`);
-              await collection.create((record: any) => {
-                record.serializeFromApi(item);
-                record.owner = activeUser;
+              await collection.create(record => {
+                Object.assign(record._raw, deserializedData);
+                record._raw.sync_status = 'synced';
+                record._raw.owner = activeUser;
               });
             } else {
               // Record exists - check if update needed
-              const existingRecord = existingRecords[0] as Model & { _raw: ExtendedRawRecord };
+              const existingRecord = existingRecords[0];
+              
               if (new Date(item.last_update) > new Date(existingRecord._raw.last_update)) {
                 console.log(`[Sync Service] Updating ${item.object_type} with sync_id: ${item.sync_id}`);
-                await existingRecord.update((record: any) => {
-                  record.serializeFromApi(item);
-                  record.owner = activeUser;
+                await existingRecord.update(record => {
+                  Object.assign(record._raw, deserializedData);
+                  record._raw.sync_status = 'synced';
+                  record._raw.owner = activeUser;
                 });
               }
             }
@@ -359,6 +390,8 @@ class SyncService {
         return 'shopping_items';
       case 'user_settings':
         return 'user_settings';
+      case 'recipe_tag':
+        return 'recipe_tags';
       default:
         throw new Error(`Unknown object type: ${objectType}`);
     }

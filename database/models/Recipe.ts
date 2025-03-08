@@ -220,22 +220,25 @@ export default class Recipe extends BaseModel {
     })
   }
 
-  serializeFromApi(item: SyncItemType): void {
-    super.serializeFromApi(item);
+  static async deserialize(item: SyncItemType) {
+    const baseFields = await BaseModel.deserialize(item);
     const recipeItem = item as RecipeSync;
     
-    this.name = recipeItem.name;
-    this.description = recipeItem.description;
-    this.image = recipeItem.image;
-    this.rating = recipeItem.rating;
-    this.isApproved = recipeItem.is_approved;
-    this.prepTime = recipeItem.prep_time;
-    this.totalTime = recipeItem.total_time;
-    this.servings = recipeItem.servings;
-    this.instructions = recipeItem.instructions;
-    this.notes = recipeItem.notes;
-    this.nutrition = recipeItem.nutrition;
-    this.video = recipeItem.video;
-    this.source = recipeItem.source;
+    return {
+      ...baseFields,
+      name: recipeItem.name,
+      description: recipeItem.description,
+      image: recipeItem.image,
+      rating: recipeItem.rating,
+      is_approved: recipeItem.is_approved,
+      prep_time: recipeItem.prep_time,
+      total_time: recipeItem.total_time,
+      servings: recipeItem.servings,
+      instructions: recipeItem.instructions,
+      notes: recipeItem.notes,
+      nutrition: recipeItem.nutrition,
+      video: recipeItem.video,
+      source: recipeItem.source
+    };
   }
 } 

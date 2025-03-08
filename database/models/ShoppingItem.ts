@@ -258,15 +258,18 @@ export default class ShoppingItem extends BaseModel {
     }
   }
 
-  serializeFromApi(item: SyncItemType): void {
-    super.serializeFromApi(item);
+  static async deserialize(item: SyncItemType) {
+    const baseFields = await BaseModel.deserialize(item);
     const shoppingItem = item as ShoppingItemSync;
     
-    this.amount = typeof shoppingItem.amount === 'string' ? parseFloat(shoppingItem.amount) : shoppingItem.amount;
-    this.unit = shoppingItem.unit;
-    this.name = shoppingItem.name;
-    this.type = shoppingItem.type;
-    this.order = shoppingItem.order;
-    this.isChecked = shoppingItem.is_checked;
+    return {
+      ...baseFields,
+      amount: typeof shoppingItem.amount === 'string' ? parseFloat(shoppingItem.amount) : shoppingItem.amount,
+      unit: shoppingItem.unit,
+      name: shoppingItem.name,
+      type: shoppingItem.type,
+      order: shoppingItem.order,
+      is_checked: shoppingItem.is_checked
+    };
   }
 } 
