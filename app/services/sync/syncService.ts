@@ -292,6 +292,9 @@ class SyncService {
       // Pull changes from server
       await this.syncPull(lastSync);
 
+      // Push pending changes to server
+      await this.syncPush();
+
       // Continue with the rest of the sync process...
     } catch (error) {
       console.error('[Sync Service] Sync failed:', error);
@@ -337,7 +340,7 @@ class SyncService {
               Q.where('sync_id', item.sync_id)
             ).fetch();
 
-            // Get deserialized data
+            // Deserialize data before creating/updating record
             const deserializedData = await collection.modelClass.deserialize(item);
 
             if (existingRecords.length === 0) {
@@ -345,18 +348,15 @@ class SyncService {
               console.log(`[Sync Service] Creating new ${item.object_type} with sync_id: ${item.sync_id}`);
               await collection.create(record => {
                 Object.assign(record._raw, deserializedData);
-                record._raw.sync_status = 'synced';
                 record._raw.owner = activeUser;
               });
             } else {
               // Record exists - check if update needed
               const existingRecord = existingRecords[0];
-              
               if (new Date(item.last_update) > new Date(existingRecord._raw.last_update)) {
                 console.log(`[Sync Service] Updating ${item.object_type} with sync_id: ${item.sync_id}`);
                 await existingRecord.update(record => {
                   Object.assign(record._raw, deserializedData);
-                  record._raw.sync_status = 'synced';
                   record._raw.owner = activeUser;
                 });
               }
@@ -374,6 +374,58 @@ class SyncService {
         console.error('[Sync Service] Pull sync failed:', error);
         hasMoreData = false;
       }
+    }
+  }
+
+  private async getPendingRecordsForPush(table: TableName): Promise<(Model & { _raw: ExtendedRawRecord, serialize: () => any })[]> {
+    return await database.get(table).query(
+      Q.where('sync_status', 'pending'),
+      Q.sortBy('last_update', Q.asc)
+    ).fetch() as (Model & { _raw: ExtendedRawRecord, serialize: () => any })[];
+  }
+
+  private async syncPush(): Promise<void> {
+    try {
+      // Get oldest pending records from all tables at once
+      const tables: TableName[] = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings'];
+      const allRecords = [];
+      
+      for (const table of tables) {
+        const records = await this.getPendingRecordsForPush(table);
+        allRecords.push(...records.slice(0, BATCH_SIZE));
+      }
+
+      // Sort all records by last_update
+      allRecords.sort((a, b) => new Date(a._raw.last_update).getTime() - new Date(b._raw.last_update).getTime());
+
+      // Serialize records
+      const serializedRecords = allRecords.map(record => record.serialize());
+
+      // If there are no pending records, return
+      if (serializedRecords.length === 0) {
+        return;
+      }
+
+      console.log('[Sync Service] Pushing changes to server:', serializedRecords);
+      
+      // Send changes to server
+      await api.post('/api/sync/push/', serializedRecords, true);
+
+      // Update status of sent records to 'synced' while preserving their last_update
+      await database.write(async () => {
+        for (const record of allRecords) {
+          const originalLastUpdate = record._raw.last_update;
+          await record.update(rec => {
+            rec._raw.sync_status = 'synced';
+            rec._raw.last_update = originalLastUpdate;
+          });
+        }
+      });
+
+      console.log('[Sync Service] Successfully pushed changes to server');
+    } catch (error) {
+      console.error('[Sync Service] Push sync failed:', error);
+      throw error;
     }
   }
 

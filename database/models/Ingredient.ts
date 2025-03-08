@@ -9,6 +9,8 @@ import { Observable, from } from 'rxjs'
 import { switchMap } from 'rxjs/operators'
 import { SyncItemType, IngredientSync } from '../../app/api/sync'
 import database from '../../database'
+import { v4 as uuidv4 } from 'uuid'
+import { asyncStorageService } from '../../app/services/storage'
 
 export default class Ingredient extends BaseModel {
   static table = 'ingredients'
@@ -85,6 +87,13 @@ export default class Ingredient extends BaseModel {
           ingredient.unit = parsed.unit;
           ingredient.name = parsed.name;
           ingredient.type = null;
+          
+          // Initialize base fields
+          ingredient.synchStatus = 'pending';
+          ingredient.lastUpdate = new Date().toISOString();
+          ingredient.isLocal = true;
+          ingredient.isDeleted = false;
+          ingredient.syncId = uuidv4();
         });
       })
     ];
@@ -102,6 +111,21 @@ export default class Ingredient extends BaseModel {
 
   // Relation to access the related Recipe
   @relation('recipes', 'recipe_id') recipe!: Recipe
+
+  serialize(): IngredientSync {
+    const base = super.serialize();
+    return {
+      ...base,
+      object_type: 'ingredient',
+      name: this.name,
+      amount: this.amount,
+      unit: this.unit,
+      type: this.type,
+      order: this.order,
+      recipe: this.recipe.syncId,  // Use sync_id of the recipe
+      original_str: this.originalStr
+    };
+  }
 
   static async deserialize(item: SyncItemType) {
     if (item.object_type !== 'ingredient') {
@@ -136,5 +160,36 @@ export default class Ingredient extends BaseModel {
       order: ingredientItem.order,
       original_str: ingredientItem.original_str
     };
+  }
+
+  static async createIngredient(
+    database: Database,
+    recordUpdater: (record: Ingredient) => void
+  ): Promise<Ingredient> {
+    try {
+      const collection = database.get<Ingredient>('ingredients');
+      const activeUser = await asyncStorageService.getActiveUser();
+      
+      const record = await collection.create((record: any) => {
+        console.log(`[DB ${this.table}] Creating new ingredient`);
+        
+        // Initialize base fields first
+        record.synchStatus = 'pending';
+        record.lastUpdate = new Date().toISOString();
+        record.isLocal = true;
+        record.isDeleted = false;
+        record.syncId = uuidv4();
+        record.owner = activeUser;
+        
+        // Then apply user's updates
+        recordUpdater(record as Ingredient);
+        console.log(`[DB ${this.table}] New ingredient created with:`, record._raw);
+      });
+
+      return record;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error creating ingredient: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 } 

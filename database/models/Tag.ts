@@ -21,6 +21,16 @@ export default class Tag extends BaseModel {
   // Children relation to access recipe_tags
   @children('recipe_tags') recipeTags!: Observable<RecipeTag[]>
 
+  serialize(): TagSync {
+    const base = super.serialize();
+    return {
+      ...base,
+      object_type: 'tag',
+      name: this.name,
+      order: this.order
+    };
+  }
+
   // Query methods
   static observeAll(database: Database): Observable<Tag[]> {
     return new Observable<Tag[]>(subscriber => {

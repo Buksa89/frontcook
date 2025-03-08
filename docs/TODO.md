@@ -59,3 +59,12 @@ https://chatgpt.com/c/67c60929-7658-8008-8824-4e885f95ab8c
 
 sync
 https://chatgpt.com/c/67c43d5a-4cec-8010-9fcd-d2295f4017a0
+
+recipetag sie tworza bez basemodel
+nie robia sie delete po updacie, byc moze tez nie basemodel
+sprawdzic rozne formy edycji czy updatuja sie przez basemodel
+sprawdzic settings
+
+nie wyslaly sie: ingredient, recipetag
+prawdopodobnie nie zmieniaja sie statusy po wyslaniu
+update lastsync from candidate

@@ -10,6 +10,7 @@ import { asyncStorageService } from '../../app/services/storage'
 import { switchMap } from 'rxjs/operators'
 import { Model } from '@nozbe/watermelondb'
 import { SyncItemType, RecipeSync } from '../../app/api/sync'
+import { v4 as uuidv4 } from 'uuid'
 
 interface RecipeData {
   name: string;
@@ -102,8 +103,7 @@ export default class Recipe extends BaseModel {
         }
       } else {
         // Create new recipe
-        const activeUser = await asyncStorageService.getActiveUser();
-        recipe = await recipesCollection.create(record => {
+        recipe = await Recipe.createRecipe(database, record => {
           record.name = data.name;
           record.description = data.description || null;
           record.prepTime = parseInt(data.prepTime || '0') || 0;
@@ -116,14 +116,13 @@ export default class Recipe extends BaseModel {
           record.source = data.source || null;
           record.rating = 0;
           record.isApproved = true;
-          record.owner = activeUser;
         });
 
         // Create tag relationships for new recipe
         if (data.selectedTags) {
           operations.push(
             ...data.selectedTags.map(tag => 
-              recipeTagsCollection.prepareCreate(rt => {
+              RecipeTag.prepareCreateRecipeTag(database, rt => {
                 rt.recipeId = recipe.id;
                 rt.tagId = tag.id;
               })
@@ -149,6 +148,37 @@ export default class Recipe extends BaseModel {
     });
   }
 
+  static async createRecipe(
+    database: Database,
+    recordUpdater: (record: Recipe) => void
+  ): Promise<Recipe> {
+    try {
+      const collection = database.get<Recipe>('recipes');
+      const activeUser = await asyncStorageService.getActiveUser();
+      
+      const record = await collection.create((record: any) => {
+        console.log(`[DB ${this.table}] Creating new recipe`);
+        
+        // Initialize base fields first
+        record.synchStatus = 'pending';
+        record.lastUpdate = new Date().toISOString();
+        record.isLocal = true;
+        record.isDeleted = false;
+        record.syncId = uuidv4();
+        record.owner = activeUser;
+        
+        // Then apply user's updates
+        recordUpdater(record as Recipe);
+        console.log(`[DB ${this.table}] New recipe created with:`, record._raw);
+      });
+
+      return record;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error creating recipe: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
   @text('name') name!: string
   @text('description') description!: string | null
   @text('image') image!: string | null
@@ -166,6 +196,27 @@ export default class Recipe extends BaseModel {
   // Children relations
   @children('recipe_tags') recipeTags!: Observable<RecipeTag[]>
   @children('ingredients') ingredients!: Observable<Ingredient[]>
+
+  serialize(): RecipeSync {
+    const base = super.serialize();
+    return {
+      ...base,
+      object_type: 'recipe',
+      name: this.name,
+      description: this.description,
+      image: this.image,
+      rating: this.rating,
+      is_approved: this.isApproved,
+      prep_time: this.prepTime,
+      total_time: this.totalTime,
+      servings: this.servings,
+      instructions: this.instructions,
+      notes: this.notes,
+      nutrition: this.nutrition,
+      video: this.video,
+      source: this.source
+    };
+  }
 
   // Override markAsDeleted to also delete related recipe_tags and ingredients
   async markAsDeleted(cascade: boolean = true): Promise<void> {

@@ -26,6 +26,16 @@ export default class BaseModel extends Model {
     };
   }
 
+  serialize(): BaseSyncItem {
+    return {
+      sync_id: this.syncId,
+      sync_status: this.synchStatus,
+      last_update: this.lastUpdate || new Date().toISOString(),
+      is_deleted: this.isDeleted,
+      owner: this.owner
+    };
+  }
+
   // Helper methods for sync status
   get isPending(): boolean {
     return this.synchStatus === 'pending'
@@ -104,7 +114,7 @@ export default class BaseModel extends Model {
         // Then set sync and owner fields
         record.owner = activeUser;
         record.synchStatus = 'pending';
-        record.lastUpdate = null;
+        record.lastUpdate = new Date().toISOString();
         record.isLocal = true;
         record.syncId = uuidv4(); // Używamy wbudowanej funkcji uuidv4()
 

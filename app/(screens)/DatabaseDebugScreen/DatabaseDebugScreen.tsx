@@ -13,7 +13,7 @@ export default function DatabaseDebugScreen() {
 
   const loadAllData = async () => {
     try {
-      const tableNames = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items'];
+      const tableNames = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings'];
       const tablesData: { [key: string]: any[] } = {};
 
       for (const tableName of tableNames) {

@@ -12,12 +12,26 @@ import { SyncItemType, ShoppingItemSync } from '../../app/api/sync'
 export default class ShoppingItem extends BaseModel {
   static table = 'shopping_items'
 
-  @field('amount') amount!: number | null
+  @field('amount') amount!: number
   @text('unit') unit!: string | null
   @text('name') name!: string
   @text('type') type!: string | null
   @field('order') order!: number
-  @field('is_checked') isChecked!: boolean
+  @field('is_checked', { default: false }) isChecked!: boolean
+  
+  serialize(): ShoppingItemSync {
+    const base = super.serialize();
+    return {
+      ...base,
+      object_type: 'shopping_item',
+      name: this.name,
+      amount: this.amount,
+      unit: this.unit,
+      type: this.type,
+      order: this.order,
+      is_checked: this.isChecked
+    };
+  }
 
   // Query methods
   static observeAll(database: Database): Observable<ShoppingItem[]> {

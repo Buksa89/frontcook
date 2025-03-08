@@ -10,9 +10,20 @@ import { SyncItemType, UserSettingsSync } from '../../app/api/sync'
 export default class UserSettings extends BaseModel {
   static table = 'user_settings'
 
-  @text('language') language!: string
+  @field('language') language!: string
   @field('auto_translate_recipes') autoTranslateRecipes!: boolean
   @field('allow_friends_views_recipes') allowFriendsViewsRecipes!: boolean
+
+  serialize(): UserSettingsSync {
+    const base = super.serialize();
+    return {
+      ...base,
+      object_type: 'user_settings',
+      language: this.language,
+      auto_translate_recipes: this.autoTranslateRecipes,
+      allow_friends_views_recipes: this.allowFriendsViewsRecipes
+    };
+  }
 
   static async deserialize(item: SyncItemType) {
     const baseFields = await BaseModel.deserialize(item);
@@ -81,11 +92,10 @@ export default class UserSettings extends BaseModel {
       }
 
       const newSettings = await database.write(async () => {
-        return await database.get<UserSettings>('user_settings').create(settings => {
+        return await super.create(database, (settings: UserSettings) => {
           settings.language = 'pl'
           settings.autoTranslateRecipes = true
           settings.allowFriendsViewsRecipes = true
-          settings.owner = activeUser
         });
       });
 
