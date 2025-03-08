@@ -95,8 +95,11 @@ export const logout = async (refreshToken: string, accessToken: string): Promise
  * @returns Nowy token dostępu
  */
 export const refreshToken = async (refreshToken: string): Promise<RefreshTokenResponse> => {
-  const data: RefreshTokenRequest = { refresh: refreshToken };
-  return api.post<RefreshTokenResponse>('/api/auth/token/refresh/', data);
+  const data = {
+    refresh: refreshToken
+  };
+
+  return api.post<RefreshTokenResponse>('/api/auth/refresh-token/', data);
 };
 
 export default {

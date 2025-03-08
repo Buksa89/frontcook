@@ -7,6 +7,7 @@ import Recipe from './Recipe'
 import { parseIngredient } from '../../app/utils/ingredientParser'
 import { Observable, from } from 'rxjs'
 import { switchMap } from 'rxjs/operators'
+import { SyncItemType, IngredientSync } from '../../app/api/sync'
 
 export default class Ingredient extends BaseModel {
   static table = 'ingredients'
@@ -69,7 +70,7 @@ export default class Ingredient extends BaseModel {
         ingredient.prepareUpdate(record => {
           record.isDeleted = true;
           record.synchStatus = 'pending';
-          record.lastSync = new Date().toISOString();
+          record.lastUpdate = new Date().toISOString();
         })
       ),
       // Create new ingredients
@@ -94,10 +95,23 @@ export default class Ingredient extends BaseModel {
   @text('unit') unit!: string | null
   @text('name') name!: string
   @text('type') type!: string | null
-  @field('recipe_id') recipeId!: string
+  @text('recipe_id') recipeId!: string
   @field('order') order!: number
   @text('original_str') originalStr!: string
 
   // Relation to access the related Recipe
   @relation('recipes', 'recipe_id') recipe!: Recipe
+
+  serializeFromApi(item: SyncItemType): void {
+    super.serializeFromApi(item);
+    const ingredientItem = item as IngredientSync;
+    
+    this.amount = ingredientItem.amount;
+    this.unit = ingredientItem.unit;
+    this.name = ingredientItem.name;
+    this.type = ingredientItem.type;
+    this.recipeId = ingredientItem.recipe_id;
+    this.order = ingredientItem.order;
+    this.originalStr = ingredientItem.original_str;
+  }
 } 

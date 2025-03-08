@@ -6,16 +6,18 @@ import BaseModel from './BaseModel'
 import { asyncStorageService } from '../../app/services/storage'
 import { map } from 'rxjs/operators'
 import { parseIngredient } from '../../app/utils/ingredientParser'
+import { Model } from '@nozbe/watermelondb'
+import { SyncItemType, ShoppingItemSync } from '../../app/api/sync'
 
 export default class ShoppingItem extends BaseModel {
   static table = 'shopping_items'
 
-  @field('amount') amount!: number
+  @field('amount') amount!: number | null
   @text('unit') unit!: string | null
   @text('name') name!: string
   @text('type') type!: string | null
   @field('order') order!: number
-  @field('is_checked', { default: false }) isChecked!: boolean
+  @field('is_checked') isChecked!: boolean
 
   // Query methods
   static observeAll(database: Database): Observable<ShoppingItem[]> {
@@ -254,5 +256,17 @@ export default class ShoppingItem extends BaseModel {
       console.error(`[DB ShoppingItem] Error updating with parsed text: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
+  }
+
+  serializeFromApi(item: SyncItemType): void {
+    super.serializeFromApi(item);
+    const shoppingItem = item as ShoppingItemSync;
+    
+    this.amount = typeof shoppingItem.amount === 'string' ? parseFloat(shoppingItem.amount) : shoppingItem.amount;
+    this.unit = shoppingItem.unit;
+    this.name = shoppingItem.name;
+    this.type = shoppingItem.type;
+    this.order = shoppingItem.order;
+    this.isChecked = shoppingItem.is_checked;
   }
 } 

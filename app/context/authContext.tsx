@@ -4,6 +4,7 @@ import authService from '../services/auth';
 import { asyncStorageService } from '../services/storage';
 import database from '../../database';
 import { Q } from '@nozbe/watermelondb';
+import syncService from '../services/sync/syncService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -96,6 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isAuth) {
           const username = await asyncStorageService.getActiveUser();
           setActiveUser(username);
+          // Uruchom synchronizację w tle dla zalogowanego użytkownika
+          syncService.startBackgroundSync(username);
         }
       } catch (error) {
         console.error('Błąd podczas sprawdzania statusu uwierzytelnienia:', error);
@@ -105,6 +108,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     checkAuthStatus();
+
+    // Cleanup przy odmontowaniu komponentu
+    return () => {
+      syncService.stopBackgroundSync();
+    };
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -120,6 +128,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Sprawdź i przypisz lokalne dane do użytkownika
         await checkAndAssignLocalDataToUser(activeUsername);
+        
+        // Uruchom synchronizację w tle
+        syncService.startBackgroundSync(activeUsername);
         
         setReloadKey(prev => prev + 1);
       }
@@ -137,6 +148,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await authService.logout();
       if (result.success) {
+        // Zatrzymaj synchronizację w tle
+        syncService.stopBackgroundSync();
+        
         setIsAuthenticated(false);
         setActiveUser(null);
         setReloadKey(prev => prev + 1);

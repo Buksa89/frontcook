@@ -96,7 +96,7 @@ async function populateDefaultTags(): Promise<void> {
             record.order = tag.order
             record.owner = null
             record.synchStatus = 'pending'
-            record.lastSync = new Date().toISOString()
+            record.lastUpdate = new Date().toISOString()
             record.isLocal = true
           })
         )

@@ -3,15 +3,25 @@ import { Database } from '@nozbe/watermelondb'
 import BaseModel from './BaseModel'
 import { Q } from '@nozbe/watermelondb'
 import { asyncStorageService } from '../../app/services/storage'
+import { Model } from '@nozbe/watermelondb'
+import { text } from '@nozbe/watermelondb/decorators'
+import { SyncItemType, UserSettingsSync } from '../../app/api/sync'
 
 export default class UserSettings extends BaseModel {
   static table = 'user_settings'
 
-  @field('language') language!: string
+  @text('language') language!: string
   @field('auto_translate_recipes') autoTranslateRecipes!: boolean
   @field('allow_friends_views_recipes') allowFriendsViewsRecipes!: boolean
 
-
+  serializeFromApi(item: SyncItemType): void {
+    super.serializeFromApi(item);
+    const settingsItem = item as UserSettingsSync;
+    
+    this.language = settingsItem.language;
+    this.autoTranslateRecipes = settingsItem.auto_translate_recipes;
+    this.allowFriendsViewsRecipes = settingsItem.allow_friends_views_recipes;
+  }
 
   @writer async updateLanguage(newLanguage: 'pl' | 'en') {
     try {

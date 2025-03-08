@@ -6,6 +6,8 @@ import { map, switchMap } from 'rxjs/operators'
 import BaseModel from './BaseModel'
 import RecipeTag from './RecipeTag'
 import { asyncStorageService } from '../../app/services/storage'
+import { Model } from '@nozbe/watermelondb'
+import { SyncItemType, TagSync } from '../../app/api/sync'
 
 export default class Tag extends BaseModel {
   static table = 'tags'
@@ -108,5 +110,13 @@ export default class Tag extends BaseModel {
   // Derived fields
   get displayName() {
     return this.name.charAt(0).toUpperCase() + this.name.slice(1).toLowerCase()
+  }
+
+  serializeFromApi(item: SyncItemType): void {
+    super.serializeFromApi(item);
+    const tagItem = item as TagSync;
+    
+    this.name = tagItem.name;
+    this.order = tagItem.order;
   }
 }

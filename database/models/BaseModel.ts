@@ -1,16 +1,28 @@
+import 'react-native-get-random-values'
 import { Model } from '@nozbe/watermelondb'
 import { field, text } from '@nozbe/watermelondb/decorators'
 import { SyncStatus } from '@nozbe/watermelondb/Model'
 import { Q } from '@nozbe/watermelondb'
 import { Database } from '@nozbe/watermelondb'
 import { asyncStorageService } from '../../app/services/storage'
+import { v4 as uuidv4 } from 'uuid'
+import { SyncItemType } from '../../app/api/sync'
 
 export default class BaseModel extends Model {
+  @field('sync_id') syncId!: string
   @field('sync_status') synchStatus!: SyncStatus
-  @field('last_sync') lastSync!: string
-  @field('is_local') isLocal!: boolean
+  @field('last_update') lastUpdate!: string | null
+  @field('is_local') isLocal!: boolean | null
   @text('owner') owner!: string | null
   @field('is_deleted') isDeleted!: boolean
+
+  serializeFromApi(item: SyncItemType): void {
+    this.syncId = item.sync_id;
+    this.synchStatus = 'synced';
+    this.lastUpdate = item.last_update;
+    this.isDeleted = item.is_deleted;
+    this.isLocal = false;
+  }
 
   // Helper methods for sync status
   get isPending(): boolean {
@@ -26,8 +38,8 @@ export default class BaseModel extends Model {
   }
 
   // Helper method to format last sync date
-  get lastSyncDate(): Date | null {
-    return this.lastSync ? new Date(this.lastSync) : null
+  get lastUpdateDate(): Date | null {
+    return this.lastUpdate ? new Date(this.lastUpdate) : null
   }
 
   // Override update method to automatically update sync fields
@@ -44,7 +56,7 @@ export default class BaseModel extends Model {
         
         // Then update sync fields
         record._raw.sync_status = 'pending';
-        record._raw.last_sync = new Date().toISOString();
+        record._raw.last_update = new Date().toISOString();
         record._raw.is_local = true;
       });
 
@@ -90,8 +102,9 @@ export default class BaseModel extends Model {
         // Then set sync and owner fields
         record.owner = activeUser;
         record.synchStatus = 'pending';
-        record.lastSync = new Date().toISOString();
+        record.lastUpdate = null;
         record.isLocal = true;
+        record.syncId = uuidv4(); // Używamy wbudowanej funkcji uuidv4()
 
         console.log(`[DB ${this.table}] New record created with:`, record._raw);
       });

@@ -9,6 +9,7 @@ import Ingredient from './Ingredient'
 import { asyncStorageService } from '../../app/services/storage'
 import { switchMap } from 'rxjs/operators'
 import { Model } from '@nozbe/watermelondb'
+import { SyncItemType, RecipeSync } from '../../app/api/sync'
 
 interface RecipeData {
   name: string;
@@ -219,4 +220,22 @@ export default class Recipe extends BaseModel {
     })
   }
 
+  serializeFromApi(item: SyncItemType): void {
+    super.serializeFromApi(item);
+    const recipeItem = item as RecipeSync;
+    
+    this.name = recipeItem.name;
+    this.description = recipeItem.description;
+    this.image = recipeItem.image;
+    this.rating = recipeItem.rating;
+    this.isApproved = recipeItem.is_approved;
+    this.prepTime = recipeItem.prep_time;
+    this.totalTime = recipeItem.total_time;
+    this.servings = recipeItem.servings;
+    this.instructions = recipeItem.instructions;
+    this.notes = recipeItem.notes;
+    this.nutrition = recipeItem.nutrition;
+    this.video = recipeItem.video;
+    this.source = recipeItem.source;
+  }
 } 

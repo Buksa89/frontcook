@@ -3,9 +3,10 @@ import { TableSchema, ColumnSchema, AppSchema } from '@nozbe/watermelondb'
 
 // Wspólne kolumny synchronizacji
 const syncColumns: ColumnSchema[] = [
+  { name: 'sync_id', type: 'string' as const },
   { name: 'sync_status', type: 'string' as const },
-  { name: 'last_sync', type: 'string' as const },
-  { name: 'is_local', type: 'boolean' as const },
+  { name: 'last_update', type: 'string' as const, isOptional: true },
+  { name: 'is_local', type: 'boolean' as const, isOptional: true },
   { name: 'owner', type: 'string' as const, isOptional: true },
   { name: 'is_deleted', type: 'boolean' as const, isOptional: false }
 ]
@@ -14,7 +15,6 @@ const tagsSchema: TableSchema = tableSchema({
   name: 'tags',
   columns: [
     // Note: local_id is automatically handled by WatermelonDB as 'id'
-    { name: 'remote_id', type: 'string', isOptional: true }, // Using string for bigint to avoid JS number limitations
     { name: 'order', type: 'number' }, // For integers we use number type
     { name: 'name', type: 'string' }, // WatermelonDB doesn't have max length constraints at schema level
     ...syncColumns
@@ -25,7 +25,6 @@ const recipesSchema: TableSchema = tableSchema({
   name: 'recipes',
   columns: [
     // Note: local_id is automatically handled by WatermelonDB as 'id'
-    { name: 'remote_id', type: 'string', isOptional: true }, // Using string for bigint
     { name: 'name', type: 'string' },
     { name: 'description', type: 'string', isOptional: true },
     { name: 'image', type: 'string', isOptional: true }, // We'll store the image path/url
@@ -55,7 +54,6 @@ const recipeTagsSchema: TableSchema = tableSchema({
 const ingredientsSchema: TableSchema = tableSchema({
   name: 'ingredients',
   columns: [
-    { name: 'remote_id', type: 'string', isOptional: true },
     { name: 'amount', type: 'number', isOptional: true },
     { name: 'unit', type: 'string', isOptional: true },
     { name: 'name', type: 'string' },
@@ -74,7 +72,6 @@ const ingredientsSchema: TableSchema = tableSchema({
 const shoppingItemsSchema: TableSchema = tableSchema({
   name: 'shopping_items',
   columns: [
-    { name: 'remote_id', type: 'string', isOptional: true },
     { name: 'amount', type: 'number', isOptional: true },
     { name: 'unit', type: 'string', isOptional: true },
     { name: 'name', type: 'string', isIndexed: true },
