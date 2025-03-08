@@ -1,6 +1,14 @@
-spytaj usera przy logowaniu o synchronizacje
-sync id po obu stronach, automatyczne tworzenie
-synchro listy zakupow
+
+recipetag sie tworza bez basemodel
+nie robia sie delete po updacie, byc moze tez nie basemodel
+sprawdzic rozne formy edycji czy updatuja sie przez basemodel
+sprawdzic settings
+
+nie wyslaly sie: ingredient, recipetag
+prawdopodobnie nie zmieniaja sie statusy po wyslaniu
+update lastsync from candidate
+sprawdz czy push jest na pewno per user
+obsluga response z konfliktami
 
 
 
@@ -40,13 +48,12 @@ dodawanie recipes web
 dodawanie recipes foto
 foto przepisow
 ikonka prep time w sortowaniu
-bug: przepis po dodaniu nie pojawia sie na liscie, trzeba odswiezyc
 poprawa wizualna alertow
 dodanie opcji pro
 dodanie reklam
 dodanie resetu hasla
 dodanie logwania do settingsow
-przenoszenie tagow i shopping items
+kolejnosc tagow i shopping items
 dodanie parsowania pdf
 przy tworzeniu elementu, sprawdzaj czy juz nie istnieje
 
@@ -57,14 +64,3 @@ checkAndAssignLocalDataToUser - edge cases, obsluz duplikaty z manytomany
 zarzadzanie tokenem:
 https://chatgpt.com/c/67c60929-7658-8008-8824-4e885f95ab8c
 
-sync
-https://chatgpt.com/c/67c43d5a-4cec-8010-9fcd-d2295f4017a0
-
-recipetag sie tworza bez basemodel
-nie robia sie delete po updacie, byc moze tez nie basemodel
-sprawdzic rozne formy edycji czy updatuja sie przez basemodel
-sprawdzic settings
-
-nie wyslaly sie: ingredient, recipetag
-prawdopodobnie nie zmieniaja sie statusy po wyslaniu
-update lastsync from candidate
