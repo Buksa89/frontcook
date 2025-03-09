@@ -18,6 +18,7 @@ import { ServingsAdjuster } from './ServingsAdjuster';
 import { ScaledIngredient } from './ScaledIngredient';
 import { asyncStorageService } from '../../../app/services/storage';
 import { InstructionStep } from './InstructionStep';
+import { formatTime } from '../../../app/utils/timeFormat';
 
 interface RecipeDetailsScreenProps {
   recipe: Recipe | null;
@@ -92,13 +93,13 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
             {recipe.prepTime !== null && recipe.prepTime > 0 && (
               <View style={styles.infoItem}>
                 <MaterialIcons name="timer" size={24} color="#666" />
-                <Text style={styles.infoText}>Przygotowanie: {recipe.prepTime} min</Text>
+                <Text style={styles.infoText}>Przygotowanie: {formatTime(recipe.prepTime)}</Text>
               </View>
             )}
             {recipe.totalTime !== null && recipe.totalTime > 0 && (
               <View style={styles.infoItem}>
                 <MaterialIcons name="schedule" size={24} color="#666" />
-                <Text style={styles.infoText}>Całkowity czas: {recipe.totalTime} min</Text>
+                <Text style={styles.infoText}>Całkowity czas: {formatTime(recipe.totalTime)}</Text>
               </View>
             )}
           </View>

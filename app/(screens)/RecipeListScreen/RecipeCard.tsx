@@ -14,6 +14,7 @@ import { Q } from '@nozbe/watermelondb';
 import { AddShopingItemMenu } from '../../../app/components/AddShopingItemMenu';
 import { ServingsProvider, useServings } from '../../(screens)/RecipeDetailScreen/ServingsContext';
 import { asyncStorageService } from '../../../app/services/storage';
+import { formatTime } from '../../../app/utils/timeFormat';
 
 // Komponent opakowujący ServingsProvider, który ustawia początkowe wartości
 const ServingsProviderWithInitialValue = ({ children, servings }: { children: React.ReactNode, servings: number | null }) => {
@@ -97,12 +98,12 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
             </View>
             {recipe.prepTime > 0 && (
               <Text style={styles.timeInfo}>
-                <MaterialIcons name="timer" size={14} color="#666" /> {recipe.prepTime} min
+                <MaterialIcons name="timer" size={14} color="#666" /> {formatTime(recipe.prepTime)}
               </Text>
             )}
             {recipe.totalTime > 0 && (
               <Text style={styles.timeInfo}>
-                <MaterialIcons name="schedule" size={14} color="#666" /> {recipe.totalTime} min
+                <MaterialIcons name="schedule" size={14} color="#666" /> {formatTime(recipe.totalTime)}
               </Text>
             )}
           </View>

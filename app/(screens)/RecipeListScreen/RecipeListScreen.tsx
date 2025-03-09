@@ -80,10 +80,20 @@ const enhance = withObservables(['sortBy', 'filters'], ({ sortBy, filters }: Enh
                 sortedRecipes.sort((a, b) => (b.rating || 0) - (a.rating || 0));
                 break;
               case 'prepTime':
-                sortedRecipes.sort((a, b) => (a.prepTime || 0) - (b.prepTime || 0));
+                sortedRecipes.sort((a, b) => {
+                  if (a.prepTime === 0 && b.prepTime === 0) return 0;
+                  if (a.prepTime === 0) return 1;
+                  if (b.prepTime === 0) return -1;
+                  return (a.prepTime || 0) - (b.prepTime || 0);
+                });
                 break;
               case 'totalTime':
-                sortedRecipes.sort((a, b) => (a.totalTime || 0) - (b.totalTime || 0));
+                sortedRecipes.sort((a, b) => {
+                  if (a.totalTime === 0 && b.totalTime === 0) return 0;
+                  if (a.totalTime === 0) return 1;
+                  if (b.totalTime === 0) return -1;
+                  return (a.totalTime || 0) - (b.totalTime || 0);
+                });
                 break;
               default:
                 break;
