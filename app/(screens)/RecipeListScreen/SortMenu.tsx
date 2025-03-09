@@ -50,7 +50,7 @@ export const SortMenu = ({ visible, onClose, currentSort, onSortChange, sortOpti
                 <MaterialIcons 
                   name={option.icon} 
                   size={24} 
-                  color={currentSort === option.key ? "#fff" : "#2196F3"} 
+                  color={currentSort === option.key ? "#fff" : "#666"} 
                 />
               </View>
               <Text style={[

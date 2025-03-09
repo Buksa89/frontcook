@@ -29,7 +29,7 @@ interface EnhanceRecipeListProps {
 const sortOptions: SortOption[] = [
   { key: 'name', label: 'Nazwa (A-Z)', icon: 'sort-by-alpha' },
   { key: 'rating', label: 'Ocena (najwyższa)', icon: 'grade' },
-  { key: 'prepTime', label: 'Czas przygotowania', icon: 'schedule' },
+  { key: 'prepTime', label: 'Czas przygotowania', icon: 'timer' },
   { key: 'totalTime', label: 'Czas całkowity', icon: 'schedule' },
 ];
 
