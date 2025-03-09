@@ -12,11 +12,6 @@ obsluga response z konfliktami
 
 
 
-prep time przy sortowaniu, na koniec jesli 0
-ikonke czasu zmien  wjednym miejscu
-
-
-
 synchronizacja:
     settings
     tags
@@ -47,7 +42,6 @@ stalking
 dodawanie recipes web
 dodawanie recipes foto
 foto przepisow
-ikonka prep time w sortowaniu
 poprawa wizualna alertow
 dodanie opcji pro
 dodanie reklam
