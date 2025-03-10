@@ -51,12 +51,6 @@ interface PullResponseItem {
   [key: string]: any;
 }
 
-// Helper function to normalize URL
-const normalizeUrl = (baseUrl: string, path: string): string => {
-  const base = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${cleanPath}`;
-};
 
 const BATCH_SIZE = 20;
 const SYNC_INTERVAL = 30000//5 * 60 * 1000; // 5 minut
@@ -165,115 +159,7 @@ class SyncService {
 
     return true;
   }
-
-  // Konwertuje model do formatu synchronizacji
-  private modelToSyncItem(model: Model & { _raw: ExtendedRawRecord }, table: TableName): SyncItemType {
-    const raw = model._raw;
-    
-    const baseFields = {
-      sync_status: raw.sync_status,
-      last_update: raw.last_update,
-      is_deleted: raw.is_deleted,
-      sync_id: raw.sync_id,
-      owner: raw.owner
-    };
-
-    switch (table) {
-      case 'shopping_items':
-        return {
-          ...baseFields,
-          name: raw.name!,
-          amount: raw.amount!,
-          unit: raw.unit ?? null,
-          type: raw.type ?? null,
-          order: raw.order!,
-          is_checked: raw.is_checked ?? false
-        } as ShoppingItemSync;
-
-      case 'recipes':
-        return {
-          ...baseFields,
-          name: raw.name!,
-          description: raw.description ?? null,
-          image: raw.image ?? null,
-          rating: raw.rating ?? null,
-          is_approved: raw.is_approved ?? false,
-          prep_time: raw.prep_time ?? null,
-          total_time: raw.total_time ?? null,
-          servings: raw.servings ?? null,
-          instructions: raw.instructions!,
-          notes: raw.notes ?? null,
-          nutrition: raw.nutrition ?? null,
-          video: raw.video ?? null,
-          source: raw.source ?? null
-        } as RecipeSync;
-
-      case 'ingredients':
-        return {
-          ...baseFields,
-          name: raw.name!,
-          amount: raw.amount as number | null ?? null,
-          unit: raw.unit ?? null,
-          type: raw.type ?? null,
-          order: raw.order!,
-          recipe_id: raw.recipe_id!,
-          original_str: raw.original_str!
-        } as IngredientSync;
-
-      case 'tags':
-        return {
-          ...baseFields,
-          name: raw.name!,
-          order: raw.order!
-        } as TagSync;
-
-      case 'user_settings':
-        return {
-          ...baseFields,
-          language: raw.language!,
-          auto_translate_recipes: raw.auto_translate_recipes!,
-          allow_friends_views_recipes: raw.allow_friends_views_recipes!
-        } as UserSettingsSync;
-
-      default:
-        throw new Error(`Unsupported table: ${table}`);
-    }
-  }
-
-  // Pobiera pending rekordy z danej tabeli
-  private async getPendingRecords(table: TableName, owner: string, lastSync: string): Promise<(Model & { _raw: ExtendedRawRecord })[]> {
-    return await database.get(table).query(
-      Q.and(
-        Q.where('owner', owner),
-        Q.or(
-          Q.where('sync_status', 'pending'),
-          Q.where('last_update', Q.gt(lastSync))
-        )
-      )
-    ).fetch() as (Model & { _raw: ExtendedRawRecord })[];
-  }
-
-  // Aktualizuje rekordy po synchronizacji
-  private async updateSyncedRecords(table: TableName, syncedItems: SyncItemType[]): Promise<void> {
-    await database.write(async () => {
-      for (const item of syncedItems) {
-        const records = await database.get(table).query(
-          Q.where('sync_id', item.sync_id)
-        ).fetch();
-        
-        if (records.length > 0) {
-          const record = records[0] as (Model & { _raw: ExtendedRawRecord });
-          await record.update(rec => {
-            const rawRecord = (rec as any)._raw;
-            Object.entries(item).forEach(([key, value]) => {
-              rawRecord[key] = value;
-            });
-          });
-        }
-      }
-    });
-  }
-
+  
   // Główna funkcja synchronizacji
   private async syncPendingRecords(owner: string): Promise<void> {
     if (this.isSyncing) return;
@@ -475,8 +361,17 @@ class SyncService {
   }
 
   private async getPendingRecordsForPush(table: TableName): Promise<(Model & { _raw: ExtendedRawRecord, serialize: () => any })[]> {
+    const activeUser = await asyncStorageService.getActiveUser();
+    if (!activeUser) {
+      console.error('[Sync Service] No active user found');
+      return [];
+    }
+
     return await database.get(table).query(
-      Q.where('sync_status', 'pending'),
+      Q.and(
+        Q.where('sync_status', 'pending'),
+        Q.where('owner', activeUser)
+      ),
       Q.sortBy('last_update', Q.asc)
     ).fetch() as (Model & { _raw: ExtendedRawRecord, serialize: () => any })[];
   }
