@@ -21,10 +21,18 @@ export class ApiError extends Error {
  */
 class ApiClient {
   private baseUrl: string;
+  private isRefreshing: boolean = false;
 
   constructor(baseUrl: string) {
     // Upewnij się, że baseUrl kończy się pojedynczym ukośnikiem
     this.baseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  }
+
+  /**
+   * Sprawdza, czy endpoint jest endpointem odświeżania tokena
+   */
+  private isRefreshTokenEndpoint(endpoint: string): boolean {
+    return endpoint.endsWith('/api/auth/refresh-token/');
   }
 
   /**
@@ -189,84 +197,110 @@ class ApiClient {
       
       // Sprawdź, czy odpowiedź jest OK (status 200-299)
       if (!response.ok) {
-        // Jeśli status to 401 (Unauthorized), spróbuj odświeżyć token
-        if (response.status === 401) {
+        // Specjalna obsługa błędu 401 dla endpointu refresh-token
+        if (response.status === 401 && this.isRefreshTokenEndpoint(endpoint)) {
+          if (DEBUG) {
+            console.log('❌ Refresh token wygasł lub jest nieprawidłowy');
+          }
+          // Wyrzuć specjalny błąd dla nieważnego refresh tokena
+          throw new ApiError('Refresh token expired', 401);
+        }
+
+        // Standardowa obsługa błędu 401 dla innych endpointów
+        if (response.status === 401 && !this.isRefreshTokenEndpoint(endpoint) && !this.isRefreshing) {
           if (DEBUG) {
             console.log(`🔄 Token expired, attempting to refresh...`);
           }
           
-          const newToken = await refreshAccessToken();
-          
-          if (newToken) {
-            if (DEBUG) {
-              console.log(`🔑 Token refreshed successfully, retrying request...`);
-            }
+          this.isRefreshing = true;
+          try {
+            const newToken = await refreshAccessToken();
+            this.isRefreshing = false;
             
-            // Powtórz zapytanie z nowym tokenem
-            const newHeaders = {
-              ...headers,
-              'Authorization': `Bearer ${newToken}`,
-            };
-            
-            const newConfig = {
-              ...config,
-              headers: newHeaders,
-            };
-            
-            const newResponse = await fetch(url, newConfig);
-            
-            if (!newResponse.ok) {
-              const error = await this.parseErrorResponse(newResponse);
+            if (newToken) {
+              if (DEBUG) {
+                console.log(`🔑 Token refreshed successfully, retrying request...`);
+              }
               
-              // Loguj pełny URL i payload (bez haseł) w przypadku błędu
-              let payload = null;
-              if (options.body && typeof options.body === 'string') {
-                try {
-                  payload = JSON.parse(options.body);
-                  payload = this.sanitizePayloadForLogging(payload);
-                } catch (e) {
-                  payload = 'Nieprawidłowy format JSON';
+              // Powtórz zapytanie z nowym tokenem
+              const newHeaders = {
+                ...headers,
+                'Authorization': `Bearer ${newToken}`,
+              };
+              
+              const newConfig = {
+                ...config,
+                headers: newHeaders,
+              };
+              
+              const newResponse = await fetch(url, newConfig);
+              
+              if (!newResponse.ok) {
+                const error = await this.parseErrorResponse(newResponse);
+                
+                // Loguj pełny URL i payload (bez haseł) w przypadku błędu
+                let payload = null;
+                if (options.body && typeof options.body === 'string') {
+                  try {
+                    payload = JSON.parse(options.body);
+                    payload = this.sanitizePayloadForLogging(payload);
+                  } catch (e) {
+                    payload = 'Nieprawidłowy format JSON';
+                  }
                 }
+                
+                console.error(`API ERROR: ${newResponse.status} ${newResponse.statusText}`);
+                console.error(`URL: ${url}`);
+                console.error(`Method: ${options.method}`);
+                console.error(`Payload:`, payload);
+                
+                throw error;
               }
               
-              console.error(`API ERROR: ${newResponse.status} ${newResponse.statusText}`);
-              console.error(`URL: ${url}`);
-              console.error(`Method: ${options.method}`);
-              console.error(`Payload:`, payload);
+              // Jeśli odpowiedź jest pusta, zwróć pusty obiekt
+              if (newResponse.status === 204) {
+                if (DEBUG) {
+                  console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} No Content`);
+                }
+                return {} as T;
+              }
               
-              throw error;
-            }
-            
-            // Jeśli odpowiedź jest pusta, zwróć pusty obiekt
-            if (newResponse.status === 204) {
-              if (DEBUG) {
-                console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} No Content`);
+              // Obsługa kodu 205 (Reset Content) lub pustej odpowiedzi
+              if (newResponse.status === 205 || newResponse.headers.get('content-length') === '0') {
+                if (DEBUG) {
+                  console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} ${newResponse.status === 205 ? 'Reset Content' : 'Empty Response'}`);
+                }
+                return {} as T;
               }
-              return {} as T;
-            }
-            
-            // Obsługa kodu 205 (Reset Content) lub pustej odpowiedzi
-            if (newResponse.status === 205 || newResponse.headers.get('content-length') === '0') {
+              
+              // Parsuj odpowiedź jako JSON
+              const newResponseData = await newResponse.json();
+              
+              // Loguj odpowiedź, jeśli DEBUG jest włączony
               if (DEBUG) {
-                console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} ${newResponse.status === 205 ? 'Reset Content' : 'Empty Response'}`);
+                console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} ${newResponse.statusText}`);
+                console.log('📦 Response Data:', this.sanitizeResponseForLogging(newResponseData));
               }
-              return {} as T;
+              
+              return newResponseData;
             }
             
-            // Parsuj odpowiedź jako JSON
-            const newResponseData = await newResponse.json();
-            
-            // Loguj odpowiedź, jeśli DEBUG jest włączony
             if (DEBUG) {
-              console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} ${newResponse.statusText}`);
-              console.log('📦 Response Data:', this.sanitizeResponseForLogging(newResponseData));
+              console.log(`❌ Token refresh failed, proceeding with error handling...`);
+            }
+          } catch (e) {
+            if (e instanceof ApiError) {
+              throw e;
             }
             
-            return newResponseData;
-          }
-          
-          if (DEBUG) {
-            console.log(`❌ Token refresh failed, proceeding with error handling...`);
+            // Loguj pełny URL w przypadku innych błędów
+            console.error(`API request failed: ${url}`);
+            console.error('Error details:', e);
+            
+            throw new ApiError(
+              e instanceof Error ? e.message : 'Unknown API error',
+              0
+            );
           }
         }
         

@@ -38,6 +38,7 @@ export interface RefreshTokenRequest {
 
 export interface RefreshTokenResponse {
   access: string;
+  refresh: string;
 }
 
 export interface LogoutRequest {

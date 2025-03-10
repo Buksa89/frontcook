@@ -58,6 +58,9 @@ checkAndAssignLocalDataToUser - edge cases, obsluz duplikaty z manytomany
 zarzadzanie tokenem:
 https://chatgpt.com/c/67c60929-7658-8008-8824-4e885f95ab8c
 
+testy:
+https://chatgpt.com/c/67cf2401-07e0-8010-b0d9-94f2a294a95a
+
 
 refresh token: 
 zmiana czasow

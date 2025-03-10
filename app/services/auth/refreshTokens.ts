@@ -1,10 +1,11 @@
-import { storeTokens, getTokens } from './authStorage';
+import { storeTokens, getTokens, removeTokens } from './authStorage';
 import { authApi } from '../../api';
 import { ApiError } from '../../api/api';
+import { Alert } from 'react-native';
 
 /**
- * Odświeża token dostępu przy użyciu refresh tokena
- * @returns Nowy token dostępu
+ * Odświeża tokeny dostępu i odświeżania
+ * @returns Nowy token dostępu lub null w przypadku błędu
  */
 export const refreshAccessToken = async (): Promise<string | null> => {
   try {
@@ -16,12 +17,12 @@ export const refreshAccessToken = async (): Promise<string | null> => {
       return null;
     }
     
-    // Wywołaj API, aby odświeżyć token
+    // Wywołaj API, aby odświeżyć tokeny
     const response = await authApi.refreshToken(refreshToken);
     
-    if (response && response.access) {
-      // Zapisz nowy token dostępu (zachowując istniejący refresh token)
-      await storeTokens(response.access, refreshToken);
+    if (response && response.access && response.refresh) {
+      // Zapisz nowe tokeny (access i refresh)
+      await storeTokens(response.access, response.refresh);
       
       return response.access;
     }
@@ -29,8 +30,18 @@ export const refreshAccessToken = async (): Promise<string | null> => {
     return null;
   } catch (error) {
     if (error instanceof ApiError) {
-      // Obsługa konkretnych kodów błędów
+      // Jeśli refresh token jest nieważny
       if (error.status === 401) {
+        // Usuń tokeny
+        await removeTokens();
+        
+        // Wyświetl alert o wygaśnięciu sesji
+        Alert.alert(
+          'Sesja wygasła',
+          'Twoja sesja wygasła. Zaloguj się ponownie, aby kontynuować.',
+          [{ text: 'OK' }]
+        );
+        
         console.error('Refresh token wygasł lub jest nieprawidłowy. Wymagane ponowne logowanie.');
       } else {
         console.error(`Błąd podczas odświeżania tokenu: ${error.message}`);
