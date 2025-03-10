@@ -1,4 +1,4 @@
-import { storeTokens, getTokens, removeTokens } from './authStorage';
+import { storeTokens, removeTokens, getRefreshToken } from './authStorage';
 import { authApi } from '../../api';
 import { ApiError } from '../../api/api';
 import { Alert } from 'react-native';
@@ -10,7 +10,7 @@ import { Alert } from 'react-native';
 export const refreshAccessToken = async (): Promise<string | null> => {
   try {
     // Pobierz aktualny refresh token
-    const { refreshToken } = await getTokens();
+    const refreshToken = await getRefreshToken();
     
     if (!refreshToken) {
       console.error('Brak refresh tokena do odświeżenia tokenu dostępu');

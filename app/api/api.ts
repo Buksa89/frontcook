@@ -1,5 +1,5 @@
 import { API_URL, DEBUG } from '../constants/env';
-import { getTokens, refreshAccessToken } from '../services/auth';
+import { getAccessToken, refreshAccessToken } from '../services/auth';
 
 /**
  * Niestandardowy błąd API z dodatkowymi informacjami
@@ -380,7 +380,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const { accessToken } = await getTokens();
+      const accessToken = await getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
@@ -415,7 +415,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const { accessToken } = await getTokens();
+      const accessToken = await getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
@@ -444,7 +444,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const { accessToken } = await getTokens();
+      const accessToken = await getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
@@ -472,7 +472,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const { accessToken } = await getTokens();
+      const accessToken = await getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
@@ -498,7 +498,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const { accessToken } = await getTokens();
+      const accessToken = await getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);

@@ -1,4 +1,4 @@
-import { storeTokens, getTokens, removeTokens, isAuthenticated } from './authStorage';
+import { storeTokens, removeTokens, isAuthenticated, getAccessToken, getRefreshToken } from './authStorage';
 import { refreshAccessToken } from './refreshTokens';
 import { authApi } from '../../api';
 import { ApiError } from '../../api/api';
@@ -65,7 +65,10 @@ export const login = async (
 export const logout = async (): Promise<{ success: boolean; message?: string; }> => {
   try {
     // Pobierz tokeny
-    const { accessToken, refreshToken } = await getTokens();
+    const [accessToken, refreshToken] = await Promise.all([
+      getAccessToken(),
+      getRefreshToken()
+    ]);
     
     // Wywołaj API do wylogowania, jeśli mamy oba tokeny
     if (refreshToken && accessToken) {
@@ -74,23 +77,24 @@ export const logout = async (): Promise<{ success: boolean; message?: string; }>
         // Ignorujemy ewentualne błędy z API - zawsze wylogowujemy lokalnie
       } catch (error) {
         console.warn('Błąd podczas wylogowywania na serwerze:', error);
-        // Kontynuujemy wylogowanie lokalne nawet jeśli API zwróciło błąd
       }
     }
-    
+
     // Usuń tokeny lokalnie
     await removeTokens();
     
-    // Usuń nazwę aktywnego użytkownika
+    // Usuń aktywnego użytkownika
     await asyncStorageService.removeActiveUser();
     
-    // Zawsze zwracamy sukces, niezależnie od odpowiedzi API
-    return { success: true };
+    return {
+      success: true,
+      message: 'Wylogowano pomyślnie'
+    };
   } catch (error) {
-    console.error('Błąd podczas wylogowywania lokalnie:', error);
-    return { 
-      success: false, 
-      message: error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas wylogowywania' 
+    console.error('Błąd podczas wylogowywania:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas wylogowywania'
     };
   }
 };
@@ -246,6 +250,5 @@ export default {
   register,
   resetPassword,
   refreshAccessToken,
-  isAuthenticated,
-  getTokens
+  isAuthenticated
 }; 

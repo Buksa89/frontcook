@@ -13,8 +13,9 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import { asyncStorageService } from '../storage';
-import { getTokens } from '../auth/authStorage';
+import { getRefreshToken } from '../auth/authStorage';
 import api from '../../api/api';
+import { ApiError } from '../../api/api';
 
 // Interface for the pull response items
 interface PullResponseItem {
@@ -60,7 +61,7 @@ const normalizeUrl = (baseUrl: string, path: string): string => {
 const BATCH_SIZE = 20;
 const SYNC_INTERVAL = 30000//5 * 60 * 1000; // 5 minut
 const MIN_SYNC_INTERVAL = 30 * 1000; // 30 sekund - minimalny czas między synchronizacjami
-const IS_DEBUG = __DEV__; // Sprawdzenie czy aplikacja jest w trybie debug
+const IS_DEBUG = Constants.expoConfig?.extra?.isDebug || false;
 
 type TableName = 'shopping_items' | 'recipes' | 'ingredients' | 'tags' | 'user_settings' | 'recipe_tags';
 
@@ -103,6 +104,7 @@ class SyncService {
   private pendingSync: boolean = false;
   private appStateSubscription: any = null;
   private netInfoSubscription: any = null;
+  private IS_DEBUG = Constants.expoConfig?.extra?.isDebug || false;
 
   constructor() {
     // Nasłuchuj zmian stanu aplikacji
@@ -306,6 +308,8 @@ class SyncService {
   private async syncPull(initialLastSync: string): Promise<void> {
     let lastSync = initialLastSync;
     let hasMoreData = true;
+    let consecutiveEmptyResponses = 0;
+    const MAX_EMPTY_RESPONSES = 3;
 
     // Get active user
     const activeUser = await asyncStorageService.getActiveUser();
@@ -313,6 +317,16 @@ class SyncService {
       console.error('[Sync Service] No active user found');
       return;
     }
+
+    // Kolekcja obiektów, które nie udało się zsynchronizować
+    const failedItems: { [key: string]: PullResponseItem[] } = {
+      recipe: [],
+      tag: [],
+      ingredient: [],
+      recipe_tag: [],
+      shopping_item: [],
+      user_settings: []
+    };
 
     while (hasMoreData) {
       try {
@@ -324,14 +338,211 @@ class SyncService {
         console.log('[Sync Service] Making sync request with payload:', payload);
         const data = await api.post<PullResponseItem[]>('/api/sync/pull/', payload, true);
 
-        if (data.length === 0) {
+        if (!Array.isArray(data)) {
+          console.error('[Sync Service] Invalid response format:', data);
           hasMoreData = false;
+          break;
+        }
+
+        if (data.length === 0) {
+          consecutiveEmptyResponses++;
+          if (consecutiveEmptyResponses >= MAX_EMPTY_RESPONSES) {
+            console.log('[Sync Service] Received multiple empty responses, stopping sync');
+            hasMoreData = false;
+            break;
+          }
           continue;
         }
+
+        // Reset counter when we get data
+        consecutiveEmptyResponses = 0;
 
         // Process each received item
         await database.write(async () => {
           for (const item of data) {
+            try {
+              const table = this.getTableName(item.object_type);
+              const collection = database.get(table);
+              
+              // Try to find existing record
+              const existingRecords = await collection.query(
+                Q.where('sync_id', item.sync_id)
+              ).fetch();
+
+              // Deserialize data before creating/updating record
+              const deserializedData = await collection.modelClass.deserialize(item);
+
+              if (existingRecords.length === 0) {
+                // Record doesn't exist - create new one
+                await collection.create(record => {
+                  Object.assign(record._raw, deserializedData);
+                  record._raw.owner = activeUser;
+                });
+              } else {
+                // Record exists - check if update needed
+                const existingRecord = existingRecords[0];
+                if (new Date(item.last_update) > new Date(existingRecord._raw.last_update)) {
+                  await existingRecord.update(record => {
+                    Object.assign(record._raw, deserializedData);
+                    record._raw.owner = activeUser;
+                  });
+                }
+              }
+            } catch (itemError) {
+              console.error('[Sync Service] Failed to process item:', item, itemError);
+              failedItems[item.object_type].push(item);
+            }
+          }
+        });
+
+        // Update lastSync for next iteration
+        const mostRecentUpdate = data.reduce((latest, item) => {
+          const itemDate = new Date(item.last_update).getTime();
+          const latestDate = new Date(latest).getTime();
+          return itemDate > latestDate ? item.last_update : latest;
+        }, lastSync);
+
+        if (mostRecentUpdate === lastSync) {
+          console.log('[Sync Service] No new updates found, stopping sync');
+          hasMoreData = false;
+          break;
+        }
+
+        lastSync = mostRecentUpdate;
+        // Store the last sync time
+        await asyncStorageService.storeLastSync(lastSync);
+
+      } catch (error) {
+        console.error('[Sync Service] Error during sync:', error);
+        // If it's a 401 error, try to refresh the token
+        if (error instanceof ApiError && error.status === 401) {
+          const refreshed = await this.handleTokenRefresh();
+          if (!refreshed) {
+            // If token refresh failed, stop syncing
+            hasMoreData = false;
+            break;
+          }
+          // If token refresh succeeded, continue with the next iteration
+          continue;
+        }
+        
+        // For other errors, stop the sync to prevent infinite loops
+        hasMoreData = false;
+        break;
+      }
+    }
+
+    // Próba ponownej synchronizacji nieudanych obiektów w odpowiedniej kolejności
+    const retryOrder: (keyof typeof failedItems)[] = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
+    
+    for (const objectType of retryOrder) {
+      const items = failedItems[objectType];
+      if (items.length === 0) continue;
+
+      await database.write(async () => {
+        for (const item of items) {
+          try {
+            const table = this.getTableName(item.object_type);
+            const collection = database.get(table);
+            
+            const existingRecords = await collection.query(
+              Q.where('sync_id', item.sync_id)
+            ).fetch();
+
+            const deserializedData = await collection.modelClass.deserialize(item);
+
+            if (existingRecords.length === 0) {
+              await collection.create(record => {
+                Object.assign(record._raw, deserializedData);
+                record._raw.owner = activeUser;
+              });
+            } else {
+              const existingRecord = existingRecords[0];
+              if (new Date(item.last_update) > new Date(existingRecord._raw.last_update)) {
+                await existingRecord.update(record => {
+                  Object.assign(record._raw, deserializedData);
+                  record._raw.owner = activeUser;
+                });
+              }
+            }
+          } catch (retryError) {
+            // Loguj błąd tylko jeśli druga próba się nie powiedzie
+            console.error(`[Sync Service] Failed to sync ${item.object_type} with sync_id ${item.sync_id} after retry:`, retryError);
+          }
+        }
+      });
+    }
+  }
+
+  private async getPendingRecordsForPush(table: TableName): Promise<(Model & { _raw: ExtendedRawRecord, serialize: () => any })[]> {
+    return await database.get(table).query(
+      Q.where('sync_status', 'pending'),
+      Q.sortBy('last_update', Q.asc)
+    ).fetch() as (Model & { _raw: ExtendedRawRecord, serialize: () => any })[];
+  }
+
+  private async syncPush(): Promise<void> {
+    try {
+      // Kolejność synchronizacji
+      const pushOrder: TableName[] = ['recipes', 'tags', 'ingredients', 'recipe_tags', 'shopping_items', 'user_settings'];
+      
+      // Kolekcja obiektów do wysłania
+      const recordsToSync: (Model & { _raw: ExtendedRawRecord, serialize: () => any })[] = [];
+
+      // Pobierz rekordy w odpowiedniej kolejności
+      for (const table of pushOrder) {
+        const records = await this.getPendingRecordsForPush(table);
+        if (records.length > 0) {
+          recordsToSync.push(...records.slice(0, BATCH_SIZE));
+        }
+      }
+
+      // Jeśli nie ma rekordów do synchronizacji, zakończ
+      if (recordsToSync.length === 0) {
+        return;
+      }
+
+      // Sortuj rekordy po last_update w ramach każdego typu
+      recordsToSync.sort((a, b) => {
+        // Najpierw porównaj typ (kolejność z pushOrder)
+        const typeA = this.getObjectType(a._raw);
+        const typeB = this.getObjectType(b._raw);
+        const orderDiff = pushOrder.indexOf(this.getTableName(typeA)) - pushOrder.indexOf(this.getTableName(typeB));
+        if (orderDiff !== 0) return orderDiff;
+        
+        // Jeśli ten sam typ, sortuj po last_update
+        return new Date(a._raw.last_update).getTime() - new Date(b._raw.last_update).getTime();
+      });
+
+      // Serializuj rekordy
+      const serializedRecords = recordsToSync.map(record => record.serialize());
+
+      console.log('[Sync Service] Pushing changes to server:', serializedRecords);
+      
+      // Wyślij zmiany na serwer i odbierz zaktualizowane obiekty
+      const response = await api.post<PullResponseItem[]>('/api/sync/push/', serializedRecords, true);
+
+      // Get active user
+      const activeUser = await asyncStorageService.getActiveUser();
+      if (!activeUser) {
+        console.error('[Sync Service] No active user found');
+        return;
+      }
+
+      // Kolekcja obiektów, które nie udało się zsynchronizować
+      const failedItems: { [key: string]: PullResponseItem[] } = {
+        recipe: [],
+        tag: [],
+        ingredient: [],
+        recipe_tag: [],
+        shopping_item: [],
+        user_settings: []
+      };
+
+      // Zapisz zaktualizowane obiekty z odpowiedzi serwera
+      await database.write(async () => {
+        for (const item of response) {
+          try {
             const table = this.getTableName(item.object_type);
             const collection = database.get(table);
             
@@ -345,88 +556,95 @@ class SyncService {
 
             if (existingRecords.length === 0) {
               // Record doesn't exist - create new one
-              console.log(`[Sync Service] Creating new ${item.object_type} with sync_id: ${item.sync_id}`);
               await collection.create(record => {
                 Object.assign(record._raw, deserializedData);
                 record._raw.owner = activeUser;
+                record._raw.sync_status = 'synced';
               });
             } else {
-              // Record exists - check if update needed
+              // Record exists - update it
               const existingRecord = existingRecords[0];
-              if (new Date(item.last_update) > new Date(existingRecord._raw.last_update)) {
-                console.log(`[Sync Service] Updating ${item.object_type} with sync_id: ${item.sync_id}`);
+              await existingRecord.update(record => {
+                Object.assign(record._raw, deserializedData);
+                record._raw.owner = activeUser;
+                record._raw.sync_status = 'synced';
+              });
+            }
+          } catch (itemError) {
+            // Dodaj obiekt do kolekcji nieudanych synchronizacji
+            failedItems[item.object_type].push(item);
+          }
+        }
+      });
+
+      // Próba ponownej synchronizacji nieudanych obiektów w odpowiedniej kolejności
+      const retryOrder: (keyof typeof failedItems)[] = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
+      
+      for (const objectType of retryOrder) {
+        const items = failedItems[objectType];
+        if (items.length === 0) continue;
+
+        await database.write(async () => {
+          for (const item of items) {
+            try {
+              const table = this.getTableName(item.object_type);
+              const collection = database.get(table);
+              
+              const existingRecords = await collection.query(
+                Q.where('sync_id', item.sync_id)
+              ).fetch();
+
+              const deserializedData = await collection.modelClass.deserialize(item);
+
+              if (existingRecords.length === 0) {
+                await collection.create(record => {
+                  Object.assign(record._raw, deserializedData);
+                  record._raw.owner = activeUser;
+                  record._raw.sync_status = 'synced';
+                });
+              } else {
+                const existingRecord = existingRecords[0];
                 await existingRecord.update(record => {
                   Object.assign(record._raw, deserializedData);
                   record._raw.owner = activeUser;
+                  record._raw.sync_status = 'synced';
                 });
               }
+            } catch (retryError) {
+              // Loguj błąd tylko jeśli druga próba się nie powiedzie
+              console.error(`[Sync Service] Failed to sync ${item.object_type} with sync_id ${item.sync_id} after retry:`, retryError);
             }
           }
         });
-
-        // Update lastSync for next iteration
-        const mostRecentUpdate = data.reduce((latest, item) => {
-          return item.last_update > latest ? item.last_update : latest;
-        }, lastSync);
-        lastSync = mostRecentUpdate;
-
-      } catch (error) {
-        console.error('[Sync Service] Pull sync failed:', error);
-        hasMoreData = false;
       }
-    }
-  }
-
-  private async getPendingRecordsForPush(table: TableName): Promise<(Model & { _raw: ExtendedRawRecord, serialize: () => any })[]> {
-    return await database.get(table).query(
-      Q.where('sync_status', 'pending'),
-      Q.sortBy('last_update', Q.asc)
-    ).fetch() as (Model & { _raw: ExtendedRawRecord, serialize: () => any })[];
-  }
-
-  private async syncPush(): Promise<void> {
-    try {
-      // Get oldest pending records from all tables at once
-      const tables: TableName[] = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings'];
-      const allRecords = [];
-      
-      for (const table of tables) {
-        const records = await this.getPendingRecordsForPush(table);
-        allRecords.push(...records.slice(0, BATCH_SIZE));
-      }
-
-      // Sort all records by last_update
-      allRecords.sort((a, b) => new Date(a._raw.last_update).getTime() - new Date(b._raw.last_update).getTime());
-
-      // Serialize records
-      const serializedRecords = allRecords.map(record => record.serialize());
-
-      // If there are no pending records, return
-      if (serializedRecords.length === 0) {
-        return;
-      }
-
-      console.log('[Sync Service] Pushing changes to server:', serializedRecords);
-      
-      // Send changes to server
-      await api.post('/api/sync/push/', serializedRecords, true);
-
-      // Update status of sent records to 'synced' while preserving their last_update
-      await database.write(async () => {
-        for (const record of allRecords) {
-          const originalLastUpdate = record._raw.last_update;
-          await record.update(rec => {
-            rec._raw.sync_status = 'synced';
-            rec._raw.last_update = originalLastUpdate;
-          });
-        }
-      });
 
       console.log('[Sync Service] Successfully pushed changes to server');
     } catch (error) {
       console.error('[Sync Service] Push sync failed:', error);
       throw error;
     }
+  }
+
+  // Helper method to get object type from raw record
+  private getObjectType(raw: ExtendedRawRecord): string {
+    const tableToType: { [key in TableName]: string } = {
+      'recipes': 'recipe',
+      'tags': 'tag',
+      'ingredients': 'ingredient',
+      'shopping_items': 'shopping_item',
+      'user_settings': 'user_settings',
+      'recipe_tags': 'recipe_tag'
+    };
+
+    // Próbuj odgadnąć typ na podstawie dostępnych pól
+    for (const [table, type] of Object.entries(tableToType)) {
+      if (raw.sync_id && raw.sync_id.startsWith(type)) {
+        return type;
+      }
+    }
+
+    // Jeśli nie można odgadnąć, rzuć błąd
+    throw new Error(`Cannot determine object type for record: ${raw.sync_id}`);
   }
 
   // Helper method to get table name from object type
@@ -449,8 +667,26 @@ class SyncService {
     }
   }
 
+  // Sprawdź czy mamy ważne tokeny przed synchronizacją
+  private async hasValidTokens(): Promise<boolean> {
+    try {
+      const refreshToken = await getRefreshToken();
+      return !!refreshToken;
+    } catch (error) {
+      console.error('[Sync Service] Error checking tokens:', error);
+      return false;
+    }
+  }
+
   // Rozpoczyna proces synchronizacji w tle
-  startBackgroundSync(owner: string): void {
+  async startBackgroundSync(owner: string): Promise<void> {
+    // Sprawdź czy mamy ważne tokeny
+    const hasTokens = await this.hasValidTokens();
+    if (!hasTokens) {
+      console.log('[Sync Service] No valid tokens found, skipping sync');
+      return;
+    }
+
     if (this.syncInterval) {
       this.stopBackgroundSync();
     }

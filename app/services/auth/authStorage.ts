@@ -10,7 +10,7 @@ interface StorageInterface {
 }
 
 // Wybór odpowiedniego mechanizmu przechowywania w zależności od środowiska
-const storage: StorageInterface = DEBUG ? AsyncStorage : EncryptedStorage;
+const secureStorage: StorageInterface = DEBUG ? AsyncStorage : EncryptedStorage;
 
 // Klucze używane do przechowywania tokenów
 const ACCESS_TOKEN_KEY = 'access_token';
@@ -29,8 +29,10 @@ const maskToken = (token: string): string => {
  */
 export const storeTokens = async (accessToken: string, refreshToken: string): Promise<void> => {
   try {
-    await storage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    await storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    // Access token zawsze w AsyncStorage
+    await AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    // Refresh token w secure storage
+    await secureStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     console.log('[Auth Storage] Zapisano tokeny:', {
       accessToken: maskToken(accessToken),
       refreshToken: maskToken(refreshToken),
@@ -46,29 +48,44 @@ export const storeTokens = async (accessToken: string, refreshToken: string): Pr
 };
 
 /**
- * Pobiera tokeny uwierzytelniania z magazynu
- * @returns Obiekt zawierający tokeny lub null jeśli nie istnieją
+ * Pobiera tylko access token z magazynu
+ * @returns Access token lub null jeśli nie istnieje
  */
-export const getTokens = async (): Promise<{ accessToken: string | null; refreshToken: string | null }> => {
+export const getAccessToken = async (): Promise<string | null> => {
   try {
-    const [accessToken, refreshToken] = await Promise.all([
-      storage.getItem(ACCESS_TOKEN_KEY),
-      storage.getItem(REFRESH_TOKEN_KEY)
-    ]);
-    
-    console.log('[Auth Storage] Odczytano tokeny:', {
+    const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+    console.log('[Auth Storage] Pobrano access token:', {
       accessToken: accessToken ? maskToken(accessToken) : null,
-      refreshToken: refreshToken ? maskToken(refreshToken) : null,
       timestamp: new Date().toISOString()
     });
-    
-    return { accessToken, refreshToken };
+    return accessToken;
   } catch (e) {
-    console.error('[Auth Storage] Błąd podczas odczytywania tokenów:', {
+    console.error('[Auth Storage] Błąd podczas pobierania access tokenu:', {
       error: e instanceof Error ? e.message : 'Unknown error',
       timestamp: new Date().toISOString()
     });
-    throw e;
+    return null;
+  }
+};
+
+/**
+ * Pobiera tylko token odświeżania z magazynu
+ * @returns Token odświeżania lub null jeśli nie istnieje
+ */
+export const getRefreshToken = async (): Promise<string | null> => {
+  try {
+    const refreshToken = await secureStorage.getItem(REFRESH_TOKEN_KEY);
+    console.log('[Auth Storage] Pobrano refresh token:', {
+      refreshToken: refreshToken ? maskToken(refreshToken) : null,
+      timestamp: new Date().toISOString()
+    });
+    return refreshToken;
+  } catch (e) {
+    console.error('[Auth Storage] Błąd podczas pobierania refresh tokenu:', {
+      error: e instanceof Error ? e.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
+    return null;
   }
 };
 
@@ -77,8 +94,8 @@ export const getTokens = async (): Promise<{ accessToken: string | null; refresh
  */
 export const removeTokens = async (): Promise<void> => {
   try {
-    await storage.removeItem(ACCESS_TOKEN_KEY);
-    await storage.removeItem(REFRESH_TOKEN_KEY);
+    await AsyncStorage.removeItem(ACCESS_TOKEN_KEY);
+    await secureStorage.removeItem(REFRESH_TOKEN_KEY);
     console.log('[Auth Storage] Usunięto tokeny:', {
       timestamp: new Date().toISOString()
     });
@@ -97,7 +114,7 @@ export const removeTokens = async (): Promise<void> => {
  */
 export const isAuthenticated = async (): Promise<boolean> => {
   try {
-    const accessToken = await storage.getItem(ACCESS_TOKEN_KEY);
+    const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
     console.log('[Auth Storage] Sprawdzono stan uwierzytelnienia:', {
       isAuthenticated: accessToken !== null,
       timestamp: new Date().toISOString()
@@ -114,7 +131,8 @@ export const isAuthenticated = async (): Promise<boolean> => {
 
 export default {
   storeTokens,
-  getTokens,
   removeTokens,
-  isAuthenticated
+  isAuthenticated,
+  getAccessToken,
+  getRefreshToken
 };

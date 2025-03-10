@@ -64,7 +64,4 @@ https://chatgpt.com/c/67cf2401-07e0-8010-b0d9-94f2a294a95a
 
 refresh token: 
 zmiana czasow
-refresh token w api refresh
-czyszczenie tokenow po wygasnieciu
 sprawdzenie tokenow przed synchronizacją
-powiadomienie o potrzebnym przelogowaniu
