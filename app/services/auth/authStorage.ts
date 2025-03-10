@@ -2,137 +2,168 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import EncryptedStorage from 'react-native-secure-storage';
 import { DEBUG } from '../../constants/env';
 
-// Interfejs dla magazynu przechowywania
-interface StorageInterface {
-  setItem: (key: string, value: string) => Promise<void>;
-  getItem: (key: string) => Promise<string | null>;
-  removeItem: (key: string) => Promise<void>;
-}
-
-// Wybór odpowiedniego mechanizmu przechowywania w zależności od środowiska
-const secureStorage: StorageInterface = DEBUG ? AsyncStorage : EncryptedStorage;
-
-// Klucze używane do przechowywania tokenów
-const ACCESS_TOKEN_KEY = 'access_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
-
-const maskToken = (token: string): string => {
-  if (!token) return '';
-  if (token.length <= 8) return '*'.repeat(token.length);
-  return token.substring(0, 4) + '*'.repeat(token.length - 8) + token.substring(token.length - 4);
+// Storage keys
+const KEYS = {
+  ACCESS_TOKEN: '@auth/access_token',
+  REFRESH_TOKEN: '@auth/refresh_token',
+  ACTIVE_USER: '@auth/active_user'
 };
 
 /**
- * Przechowuje tokeny uwierzytelniania w magazynie
- * @param accessToken Token dostępu
- * @param refreshToken Token odświeżania
+ * Maskuje wrażliwe dane
  */
-export const storeTokens = async (accessToken: string, refreshToken: string): Promise<void> => {
+const maskSensitiveData = (data: string): string => {
+  if (!data) return '';
+  if (data.length <= 8) return '*'.repeat(data.length);
+  return data.substring(0, 4) + '*'.repeat(data.length - 8) + data.substring(data.length - 4);
+};
+
+/**
+ * Zapisuje access token w AsyncStorage
+ */
+export const saveAccessToken = async (token: string): Promise<void> => {
   try {
-    // Access token zawsze w AsyncStorage
-    await AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    // Refresh token w secure storage
-    await secureStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    console.log('[Auth Storage] Zapisano tokeny:', {
-      accessToken: maskToken(accessToken),
-      refreshToken: maskToken(refreshToken),
+    await AsyncStorage.setItem(KEYS.ACCESS_TOKEN, token);
+    console.log('[Auth Storage] Access token saved:', {
+      token: maskSensitiveData(token),
       timestamp: new Date().toISOString()
     });
-  } catch (e) {
-    console.error('[Auth Storage] Błąd podczas zapisywania tokenów:', {
-      error: e instanceof Error ? e.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
-    throw e;
+  } catch (error) {
+    console.error('[Auth Storage] Error saving access token:', error);
+    throw error;
   }
 };
 
 /**
- * Pobiera tylko access token z magazynu
- * @returns Access token lub null jeśli nie istnieje
+ * Pobiera access token z AsyncStorage
  */
 export const getAccessToken = async (): Promise<string | null> => {
   try {
-    const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
-    console.log('[Auth Storage] Pobrano access token:', {
-      accessToken: accessToken ? maskToken(accessToken) : null,
+    const token = await AsyncStorage.getItem(KEYS.ACCESS_TOKEN);
+    console.log('[Auth Storage] Access token retrieved:', {
+      token: token ? maskSensitiveData(token) : null,
       timestamp: new Date().toISOString()
     });
-    return accessToken;
-  } catch (e) {
-    console.error('[Auth Storage] Błąd podczas pobierania access tokenu:', {
-      error: e instanceof Error ? e.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
-    return null;
+    return token;
+  } catch (error) {
+    console.error('[Auth Storage] Error getting access token:', error);
+    throw error;
   }
 };
 
 /**
- * Pobiera tylko token odświeżania z magazynu
- * @returns Token odświeżania lub null jeśli nie istnieje
+ * Zapisuje refresh token w EncryptedStorage (lub AsyncStorage w trybie debug)
+ */
+export const saveRefreshToken = async (token: string): Promise<void> => {
+  try {
+    if (DEBUG) {
+      await AsyncStorage.setItem(KEYS.REFRESH_TOKEN, token);
+    } else {
+      await EncryptedStorage.setItem(KEYS.REFRESH_TOKEN, token);
+    }
+    console.log('[Auth Storage] Refresh token saved:', {
+      token: maskSensitiveData(token),
+      storage: DEBUG ? 'AsyncStorage' : 'EncryptedStorage',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Auth Storage] Error saving refresh token:', error);
+    throw error;
+  }
+};
+
+/**
+ * Pobiera refresh token z EncryptedStorage (lub AsyncStorage w trybie debug)
  */
 export const getRefreshToken = async (): Promise<string | null> => {
   try {
-    const refreshToken = await secureStorage.getItem(REFRESH_TOKEN_KEY);
-    console.log('[Auth Storage] Pobrano refresh token:', {
-      refreshToken: refreshToken ? maskToken(refreshToken) : null,
+    const token = DEBUG 
+      ? await AsyncStorage.getItem(KEYS.REFRESH_TOKEN)
+      : await EncryptedStorage.getItem(KEYS.REFRESH_TOKEN);
+    
+    console.log('[Auth Storage] Refresh token retrieved:', {
+      token: token ? maskSensitiveData(token) : null,
+      storage: DEBUG ? 'AsyncStorage' : 'EncryptedStorage',
       timestamp: new Date().toISOString()
     });
-    return refreshToken;
-  } catch (e) {
-    console.error('[Auth Storage] Błąd podczas pobierania refresh tokenu:', {
-      error: e instanceof Error ? e.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
-    return null;
+    return token;
+  } catch (error) {
+    console.error('[Auth Storage] Error getting refresh token:', error);
+    throw error;
   }
 };
 
 /**
- * Usuwa tokeny uwierzytelniania z magazynu (np. przy wylogowaniu)
+ * Zapisuje dane użytkownika w AsyncStorage
  */
-export const removeTokens = async (): Promise<void> => {
+export const saveActiveUser = async (user: object): Promise<void> => {
   try {
-    await AsyncStorage.removeItem(ACCESS_TOKEN_KEY);
-    await secureStorage.removeItem(REFRESH_TOKEN_KEY);
-    console.log('[Auth Storage] Usunięto tokeny:', {
+    const userData = JSON.stringify(user);
+    await AsyncStorage.setItem(KEYS.ACTIVE_USER, userData);
+    console.log('[Auth Storage] Active user saved:', {
+      user: { ...user, id: user['id'] ? maskSensitiveData(user['id'].toString()) : null },
       timestamp: new Date().toISOString()
     });
-  } catch (e) {
-    console.error('[Auth Storage] Błąd podczas usuwania tokenów:', {
-      error: e instanceof Error ? e.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
-    throw e;
+  } catch (error) {
+    console.error('[Auth Storage] Error saving active user:', error);
+    throw error;
   }
 };
 
 /**
- * Sprawdza, czy użytkownik jest zalogowany (czy istnieje accessToken)
- * @returns true jeśli użytkownik jest zalogowany, false w przeciwnym razie
+ * Pobiera dane użytkownika z AsyncStorage
  */
-export const isAuthenticated = async (): Promise<boolean> => {
+export const getActiveUser = async (): Promise<object | null> => {
   try {
-    const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
-    console.log('[Auth Storage] Sprawdzono stan uwierzytelnienia:', {
-      isAuthenticated: accessToken !== null,
+    const userData = await AsyncStorage.getItem(KEYS.ACTIVE_USER);
+    const parsedUser = userData ? JSON.parse(userData) : null;
+    console.log('[Auth Storage] Active user retrieved:', {
+      user: parsedUser ? { 
+        ...parsedUser, 
+        id: parsedUser.id ? maskSensitiveData(parsedUser.id.toString()) : null 
+      } : null,
       timestamp: new Date().toISOString()
     });
-    return accessToken !== null;
-  } catch (e) {
-    console.error('[Auth Storage] Błąd podczas sprawdzania uwierzytelnienia:', {
-      error: e instanceof Error ? e.message : 'Unknown error',
+    return parsedUser;
+  } catch (error) {
+    console.error('[Auth Storage] Error getting active user:', error);
+    throw error;
+  }
+};
+
+/**
+ * Czyści wszystkie dane uwierzytelniania
+ */
+export const clearAuthData = async (): Promise<void> => {
+  try {
+    const promises = [
+      AsyncStorage.removeItem(KEYS.ACCESS_TOKEN),
+      AsyncStorage.removeItem(KEYS.ACTIVE_USER)
+    ];
+
+    if (DEBUG) {
+      promises.push(AsyncStorage.removeItem(KEYS.REFRESH_TOKEN));
+    } else {
+      promises.push(EncryptedStorage.removeItem(KEYS.REFRESH_TOKEN));
+    }
+
+    await Promise.all(promises);
+    console.log('[Auth Storage] Auth data cleared:', {
+      clearedKeys: [KEYS.ACCESS_TOKEN, KEYS.REFRESH_TOKEN, KEYS.ACTIVE_USER],
       timestamp: new Date().toISOString()
     });
-    return false;
+  } catch (error) {
+    console.error('[Auth Storage] Error clearing auth data:', error);
+    throw error;
   }
 };
 
 export default {
-  storeTokens,
-  removeTokens,
-  isAuthenticated,
+  saveAccessToken,
   getAccessToken,
-  getRefreshToken
+  saveRefreshToken,
+  getRefreshToken,
+  saveActiveUser,
+  getActiveUser,
+  clearAuthData
 };

@@ -1,8 +1,8 @@
-import { storeTokens, removeTokens, isAuthenticated, getAccessToken, getRefreshToken } from './authStorage';
-import { refreshAccessToken } from './refreshTokens';
 import { authApi } from '../../api';
 import { ApiError } from '../../api/api';
-import { asyncStorageService } from '../storage';
+import { LoginResponse } from '../../api/auth';
+import { saveAccessToken, saveRefreshToken, getAccessToken, getRefreshToken, saveActiveUser, clearAuthData } from './authStorage';
+import { refreshAccessToken } from './refreshTokens';
 
 /**
  * Loguje użytkownika i zapisuje tokeny
@@ -17,14 +17,15 @@ export const login = async (
   try {
     const response = await authApi.login({ username, password });
     
-    if (response && response.access && response.refresh) {
+    if (response?.access && response?.refresh) {
       // Zapisz tokeny
-      await storeTokens(response.access, response.refresh);
+      await Promise.all([
+        saveAccessToken(response.access),
+        saveRefreshToken(response.refresh)
+      ]);
       
-      // Zapisz nazwę aktywnego użytkownika
-      if (response.username) {
-        await asyncStorageService.storeActiveUser(response.username);
-      }
+      // Zapisz dane użytkownika
+      await saveActiveUser({ username: response.username });
       
       return { success: true };
     }
@@ -37,7 +38,6 @@ export const login = async (
     console.error('Błąd podczas logowania:', error);
     
     if (error instanceof ApiError) {
-      // Obsługa konkretnych kodów błędów
       if (error.status === 401) {
         return { 
           success: false, 
@@ -74,17 +74,14 @@ export const logout = async (): Promise<{ success: boolean; message?: string; }>
     if (refreshToken && accessToken) {
       try {
         await authApi.logout(refreshToken, accessToken);
-        // Ignorujemy ewentualne błędy z API - zawsze wylogowujemy lokalnie
       } catch (error) {
         console.warn('Błąd podczas wylogowywania na serwerze:', error);
+        // Ignorujemy błędy z API - zawsze wylogowujemy lokalnie
       }
     }
 
-    // Usuń tokeny lokalnie
-    await removeTokens();
-    
-    // Usuń aktywnego użytkownika
-    await asyncStorageService.removeActiveUser();
+    // Wyczyść wszystkie dane uwierzytelniania
+    await clearAuthData();
     
     return {
       success: true,
@@ -116,10 +113,10 @@ export const register = async (
       username,
       email,
       password,
-      password2: password // Potwierdzenie hasła
+      password2: password
     });
     
-    if (response && response.username && response.email) {
+    if (response?.username && response?.email) {
       return { 
         success: true, 
         message: 'Rejestracja zakończona sukcesem. Możesz się teraz zalogować.' 
@@ -134,13 +131,10 @@ export const register = async (
     console.error('Błąd podczas rejestracji:', error);
     
     if (error instanceof ApiError) {
-      // Obsługa konkretnych kodów błędów
       if (error.status === 400) {
-        // Próba wyodrębnienia błędów pól formularza
         const fieldErrors: Record<string, string[]> = {};
         
         if (error.data) {
-          // Sprawdź typowe pola błędów rejestracji
           ['username', 'email', 'password', 'password2', 'non_field_errors'].forEach(field => {
             if (error.data[field] && Array.isArray(error.data[field])) {
               fieldErrors[field] = error.data[field];
@@ -179,7 +173,7 @@ export const resetPassword = async (
   try {
     const response = await authApi.resetPassword({ email });
     
-    if (response && response.detail) {
+    if (response?.detail) {
       return { 
         success: true, 
         message: response.detail 
@@ -194,12 +188,10 @@ export const resetPassword = async (
     console.error('Błąd podczas wysyłania linku resetującego hasło:', error);
     
     if (error instanceof ApiError) {
-      // Obsługa konkretnych kodów błędów
       if (error.status === 404) {
         const fieldErrors: Record<string, string[]> = {};
         
-        // Sprawdź, czy błąd dotyczy nieznalezionego użytkownika
-        if (error.data && error.data.email && Array.isArray(error.data.email)) {
+        if (error.data?.email && Array.isArray(error.data.email)) {
           fieldErrors.email = error.data.email;
           return { 
             success: false, 
@@ -214,7 +206,6 @@ export const resetPassword = async (
         };
       }
       
-      // Sprawdź, czy są błędy pól formularza
       if (error.status === 400 && error.data) {
         const fieldErrors: Record<string, string[]> = {};
         
@@ -249,6 +240,5 @@ export default {
   logout,
   register,
   resetPassword,
-  refreshAccessToken,
-  isAuthenticated
+  refreshAccessToken
 }; 

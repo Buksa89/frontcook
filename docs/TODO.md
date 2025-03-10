@@ -1,3 +1,28 @@
+auth context niech korzysta z auth service, wyrzuc z niego checkAndAssignLocalDataToUser
+
+wszystko co korzystalo z auth storage export default {
+  storeTokens,
+  removeTokens,
+  isAuthenticated,
+  getAccessToken,
+  getRefreshToken
+};
+lub auth serviceL
+export default {
+  login,
+  logout,
+  register,
+  resetPassword,
+  refreshAccessToken,
+  isAuthenticated
+}; 
+lub asyncstorageservice
+  storeActiveUser,
+  getActiveUser,
+  removeActiveUser,
+  hasActiveUser,
+niech korzysta z auth context
+
 
 recipetag sie tworza bez basemodel
 nie robia sie delete po updacie, byc moze tez nie basemodel
