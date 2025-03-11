@@ -5,25 +5,23 @@ import database from '../../../database';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import Tag from '../../../database/models/Tag';
 import Recipe from '../../../database/models/Recipe';
-import RecipeTag from '../../../database/models/RecipeTag';
 import { Q } from '@nozbe/watermelondb';
-import { Observable, from } from 'rxjs';
+import { of } from 'rxjs';
 import { router } from 'expo-router';
 import { switchMap, map } from 'rxjs/operators';
 import { ResetFiltersContext } from '../../_layout';
-import { of } from 'rxjs';
 import { EnhancedTagList } from './TagList';
-import { FilterState, SortOption, MaterialIconName } from './types';
+import { FilterState, SortOption } from './types';
 import { AddRecipeMenu } from './AddRecipeMenu';
 import { SortMenu } from './SortMenu';
 import { EnhancedFilterMenu } from './FilterMenu';
 import { EnhancedRecipeCard } from './RecipeCard';
-import { useAuth } from '../../../app/context';
-import { asyncStorageService } from '../../../app/services/storage';
+import { useAuth } from '../../context';
 
 interface EnhanceRecipeListProps {
   sortBy: SortOption['key'] | null;
   filters: FilterState;
+  username: string | null;
 }
 
 const sortOptions: SortOption[] = [
@@ -51,14 +49,14 @@ const RecipeList = ({ recipes }: { recipes: Recipe[] }) => (
   </>
 );
 
-const enhance = withObservables(['sortBy', 'filters'], ({ sortBy, filters }: EnhanceRecipeListProps) => ({
-  recipes: from(asyncStorageService.getActiveUser()).pipe(
-    switchMap(activeUser => 
+const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, filters, username }: EnhanceRecipeListProps) => ({
+  recipes: of(username).pipe(
+    switchMap(username => 
       database.get<Recipe>('recipes')
         .query(
           Q.experimentalJoinTables(['recipe_tags']),
           Q.and(
-            activeUser ? Q.where('owner', activeUser) : Q.where('owner', null),
+            username ? Q.where('owner', username) : Q.where('owner', null),
             Q.where('is_deleted', false),
             filters.searchPhrase ? Q.where('name', Q.like(`%${filters.searchPhrase}%`)) : Q.where('id', Q.notEq(null)),
             filters.minRating ? Q.where('rating', Q.gte(filters.minRating)) : Q.where('id', Q.notEq(null)),
@@ -108,7 +106,7 @@ const enhance = withObservables(['sortBy', 'filters'], ({ sortBy, filters }: Enh
 const EnhancedRecipeList = enhance(RecipeList);
 
 export default function RecipeListScreen() {
-  const { reloadKey } = useAuth();
+  const { username } = useAuth();
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -214,7 +212,7 @@ export default function RecipeListScreen() {
       <EnhancedRecipeList 
         sortBy={sortBy}
         filters={filters}
-        reloadKey={reloadKey}
+        username={username}
       />
       
       <View style={styles.fabContainer}>

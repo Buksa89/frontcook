@@ -4,9 +4,9 @@ import { field, text } from '@nozbe/watermelondb/decorators'
 import { SyncStatus } from '@nozbe/watermelondb/Model'
 import { Q } from '@nozbe/watermelondb'
 import { Database } from '@nozbe/watermelondb'
-import { asyncStorageService } from '../../app/services/storage'
 import { v4 as uuidv4 } from 'uuid'
 import { SyncItemType } from '../../app/api/sync'
+import AuthService from '../../app/services/auth/authService'
 
 export default class BaseModel extends Model {
   @field('sync_id') syncId!: string
@@ -105,7 +105,7 @@ export default class BaseModel extends Model {
     recordUpdater: (record: T) => void
   ): Promise<T> {
     try {
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       
       const record = await database.get(this.table).create((record: T) => {
         // First apply the user's updates

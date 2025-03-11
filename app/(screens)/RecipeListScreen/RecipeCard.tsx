@@ -8,12 +8,10 @@ import { Observable, from } from 'rxjs';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
 import Recipe from '../../../database/models/Recipe';
-import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
 import { Q } from '@nozbe/watermelondb';
 import { AddShopingItemMenu } from '../../../app/components/AddShopingItemMenu';
 import { ServingsProvider, useServings } from '../../(screens)/RecipeDetailScreen/ServingsContext';
-import { asyncStorageService } from '../../../app/services/storage';
 import { formatTime } from '../../../app/utils/timeFormat';
 
 // Komponent opakowujący ServingsProvider, który ustawia początkowe wartości

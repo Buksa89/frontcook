@@ -5,14 +5,10 @@ import database from '../../../database';
 import { withObservables } from '@nozbe/watermelondb/react';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
-import { Q } from '@nozbe/watermelondb';
-import { Observable, of, from } from 'rxjs';
-import { switchMap, map } from 'rxjs/operators';
-import RecipeTag from '../../../database/models/RecipeTag';
-import Ingredient from '../../../database/models/Ingredient';
-import { Model } from '@nozbe/watermelondb';
+import { of } from 'rxjs';
+import { map } from 'rxjs/operators';
+import Ingredient from '../../../database/models/Ingredient'
 import { RecipeForm } from './RecipeForm';
-import { asyncStorageService } from '../../../app/services/storage';
 
 interface EditRecipeScreenProps {
   existingRecipe: Recipe | null;

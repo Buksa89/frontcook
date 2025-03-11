@@ -3,7 +3,7 @@ import { Q } from '@nozbe/watermelondb'
 import { Database } from '@nozbe/watermelondb'
 import { Observable } from 'rxjs'
 import BaseModel from './BaseModel'
-import { asyncStorageService } from '../../app/services/storage'
+import AuthService from '../../app/services/auth/authService'
 import { map } from 'rxjs/operators'
 import { parseIngredient } from '../../app/utils/ingredientParser'
 import { Model } from '@nozbe/watermelondb'
@@ -38,7 +38,7 @@ export default class ShoppingItem extends BaseModel {
     return new Observable<ShoppingItem[]>(subscriber => {
       let subscription: any;
       
-      asyncStorageService.getActiveUser().then(activeUser => {
+      AuthService.getActiveUser().then(activeUser => {
         subscription = database
           .get<ShoppingItem>('shopping_items')
           .query(
@@ -64,7 +64,7 @@ export default class ShoppingItem extends BaseModel {
     return new Observable<ShoppingItem[]>(subscriber => {
       let subscription: any;
       
-      asyncStorageService.getActiveUser().then(activeUser => {
+      AuthService.getActiveUser().then(activeUser => {
         subscription = database
           .get<ShoppingItem>('shopping_items')
           .query(
@@ -91,7 +91,7 @@ export default class ShoppingItem extends BaseModel {
     return new Observable<ShoppingItem[]>(subscriber => {
       let subscription: any;
       
-      asyncStorageService.getActiveUser().then(activeUser => {
+      AuthService.getActiveUser().then(activeUser => {
         subscription = database
           .get<ShoppingItem>('shopping_items')
           .query(
@@ -122,7 +122,7 @@ export default class ShoppingItem extends BaseModel {
     isChecked: boolean
   ): Promise<ShoppingItem | null> {
     try {
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       console.log(`[DB ShoppingItem] Searching for existing item: name=${name}, unit=${unit}, isChecked=${isChecked}, owner=${activeUser}`)
       
       const items = await database

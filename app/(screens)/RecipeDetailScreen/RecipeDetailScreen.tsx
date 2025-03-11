@@ -1,22 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Share } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
-import { AntDesign, MaterialIcons, Feather } from '@expo/vector-icons';
+import { MaterialIcons, Feather } from '@expo/vector-icons';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
-import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
-import { Q } from '@nozbe/watermelondb';
-import { Observable, from } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
 import { RecipeHeader } from './RecipeHeader';
 import { RecipeRating } from './RecipeRating';
 import { ServingsProvider } from './ServingsContext';
 import { ServingsAdjuster } from './ServingsAdjuster';
 import { ScaledIngredient } from './ScaledIngredient';
-import { asyncStorageService } from '../../../app/services/storage';
 import { InstructionStep } from './InstructionStep';
 import { formatTime } from '../../../app/utils/timeFormat';
 

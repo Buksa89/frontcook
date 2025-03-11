@@ -5,7 +5,7 @@ import { Database } from '@nozbe/watermelondb'
 import { map, switchMap } from 'rxjs/operators'
 import BaseModel from './BaseModel'
 import RecipeTag from './RecipeTag'
-import { asyncStorageService } from '../../app/services/storage'
+import AuthService from '../../app/services/auth/authService'
 import { Model } from '@nozbe/watermelondb'
 import { SyncItemType, TagSync } from '../../app/api/sync'
 
@@ -36,7 +36,7 @@ export default class Tag extends BaseModel {
     return new Observable<Tag[]>(subscriber => {
       let subscription: any;
       
-      asyncStorageService.getActiveUser().then(activeUser => {
+      AuthService.getActiveUser().then(activeUser => {
         subscription = database
           .get<Tag>('tags')
           .query(
@@ -60,7 +60,7 @@ export default class Tag extends BaseModel {
 
   // Static method to observe tags for a recipe
   static observeForRecipe(database: Database, recipeId: string): Observable<Tag[]> {
-    return from(asyncStorageService.getActiveUser()).pipe(
+    return from(AuthService.getActiveUser()).pipe(
       switchMap(activeUser => 
         database.get<Tag>('tags')
           .query(

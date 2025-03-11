@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import database from '../../../database';
 import { UserSettings } from '../../../database';
-import { useAuth } from '../../../app/context/authContext';
+import { useAuth } from '../../context/authContext';
 import { LoginPrompt } from './LoginPrompt';
 import { PasswordChange } from './PasswordChange';
 
@@ -15,7 +14,7 @@ export default function SettingsScreen() {
   const [autoTranslate, setAutoTranslate] = useState(true);
   const [allowFriendsViews, setAllowFriendsViews] = useState(true);
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
-  const { activeUser } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Load settings when component mounts
   useEffect(() => {
@@ -146,7 +145,7 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {activeUser ? <PasswordChange /> : <LoginPrompt />}
+      {isAuthenticated ? <PasswordChange /> : <LoginPrompt />}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Przepisy</Text>

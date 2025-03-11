@@ -2,15 +2,15 @@ import React, { useEffect } from 'react';
 import { StatusBar, View } from 'expo-status-bar';
 import RecipeListScreen from './app/(screens)/RecipeListScreen/RecipeListScreen';
 import { AuthProvider } from './app/context';
-import { asyncStorageService } from './app/services/storage';
 import syncService from './app/services/sync/syncService';
+import AuthService from './app/services/auth/authService';
 
 export default function App() {
   useEffect(() => {
     // Sprawdź czy jest zalogowany użytkownik i rozpocznij synchronizację
     const initSync = async () => {
       try {
-        const activeUser = await asyncStorageService.getActiveUser();
+        const activeUser = await AuthService.getActiveUser();
         if (activeUser) {
           console.log('[App] Starting initial sync for user:', activeUser);
           syncService.startBackgroundSync(activeUser);

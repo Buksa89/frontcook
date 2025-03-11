@@ -4,7 +4,7 @@ import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs'
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
 import { Q } from '@nozbe/watermelondb'
 import { DEBUG } from '../app/constants/env'
-import { asyncStorageService } from '../app/services/storage'
+import AuthService from '../app/services/auth/authService'
 
 import schema from './schema'
 import migrations from './migrations'
@@ -77,7 +77,8 @@ const defaultTags: DefaultTag[] = [
 // Function to populate default tags
 async function populateDefaultTags(): Promise<void> {
   try {
-    const activeUser = await asyncStorageService.getActiveUser();
+    const activeUser = await AuthService.getActiveUser();
+
     if (activeUser) {
       console.log('Active user exists, skipping default tags creation');
       return;

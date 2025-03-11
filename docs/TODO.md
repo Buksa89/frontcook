@@ -1,13 +1,7 @@
-auth context niech korzysta z auth service, wyrzuc z niego checkAndAssignLocalDataToUser
+merge userow przy logowaniu
+sync
 
-wszystko co korzystalo z auth storage export default {
-  storeTokens,
-  removeTokens,
-  isAuthenticated,
-  getAccessToken,
-  getRefreshToken
-};
-lub auth serviceL
+lub auth service
 export default {
   login,
   logout,
@@ -23,7 +17,7 @@ lub asyncstorageservice
   hasActiveUser,
 niech korzysta z auth context
 
-
+react-toastify - moze pomoc z wygladem alertow
 recipetag sie tworza bez basemodel
 nie robia sie delete po updacie, byc moze tez nie basemodel
 sprawdzic rozne formy edycji czy updatuja sie przez basemodel

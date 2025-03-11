@@ -2,10 +2,10 @@ import { field, writer } from '@nozbe/watermelondb/decorators'
 import { Database } from '@nozbe/watermelondb'
 import BaseModel from './BaseModel'
 import { Q } from '@nozbe/watermelondb'
-import { asyncStorageService } from '../../app/services/storage'
 import { Model } from '@nozbe/watermelondb'
 import { text } from '@nozbe/watermelondb/decorators'
 import { SyncItemType, UserSettingsSync } from '../../app/api/sync'
+import AuthService from '../../app/services/auth/authService'
 
 export default class UserSettings extends BaseModel {
   static table = 'user_settings'
@@ -79,7 +79,7 @@ export default class UserSettings extends BaseModel {
   // Static method to get or create settings
   static async getOrCreate(database: Database): Promise<UserSettings> {
     try {
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       
       // Query settings for specific owner
       const settings = await database.get<UserSettings>('user_settings')

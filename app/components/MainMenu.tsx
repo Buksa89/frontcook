@@ -3,7 +3,6 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, Pressable,
 import { MaterialIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../context';
-import type { RootStackParamList } from '../_layout';
 
 interface MainMenuProps {
   visible: boolean;
@@ -49,18 +48,14 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
         break;
       case 'logout':
         try {
-          const result = await logout();
-          if (result.success) {
-            Alert.alert("Wylogowano", "Zostałeś pomyślnie wylogowany");
-            // Najpierw przekieruj do ekranu logowania
-            navigate('/(screens)/AuthScreen/AuthScreen');
-            // A następnie po krótkim opóźnieniu wróć do listy przepisów
-            setTimeout(() => {
-              navigate('/(screens)/RecipeListScreen/RecipeListScreen');
-            }, 100);
-          } else {
-            Alert.alert("Błąd", result.message || "Wystąpił błąd podczas wylogowywania");
-          }
+          await logout();
+          Alert.alert("Wylogowano", "Zostałeś pomyślnie wylogowany");
+          // Najpierw przekieruj do ekranu logowania
+          navigate('/(screens)/AuthScreen/AuthScreen');
+          // A następnie po krótkim opóźnieniu wróć do listy przepisów
+          setTimeout(() => {
+            navigate('/(screens)/RecipeListScreen/RecipeListScreen');
+          }, 100);
         } catch (error) {
           Alert.alert("Błąd", "Wystąpił nieoczekiwany błąd podczas wylogowywania");
           console.error("Logout error:", error);

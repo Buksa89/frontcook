@@ -4,9 +4,6 @@ import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
 import { Observable, from } from 'rxjs';
-import { mergeMap } from 'rxjs/operators';
-import { Q } from '@nozbe/watermelondb';
-import { asyncStorageService } from '../../../app/services/storage';
 
 interface TagListProps {
   tags: Tag[];

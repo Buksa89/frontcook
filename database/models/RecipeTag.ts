@@ -7,7 +7,7 @@ import { SyncItemType, RecipeTagSync } from '../../app/api/sync'
 import { Q } from '@nozbe/watermelondb'
 import database from '../../database'
 import { v4 as uuidv4 } from 'uuid'
-import { asyncStorageService } from '../../app/services/storage'
+import AuthService from '../../app/services/auth/authService'
 import { Database } from '@nozbe/watermelondb'
 import { Model } from '@nozbe/watermelondb'
 
@@ -31,7 +31,7 @@ export default class RecipeTag extends BaseModel {
   ): Promise<RecipeTag> {
     try {
       const collection = database.get<RecipeTag>('recipe_tags');
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       
       const record = await collection.create((record: any) => {
         console.log(`[DB ${this.table}] Creating new recipe tag`);
@@ -72,7 +72,7 @@ export default class RecipeTag extends BaseModel {
         record.isLocal = true;
         record.isDeleted = false;
         record.syncId = uuidv4();
-        record.owner = await asyncStorageService.getActiveUser();
+        record.owner = await AuthService.getActiveUser();
         
         // Then apply user's updates
         recordUpdater(record as RecipeTag);

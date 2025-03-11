@@ -6,11 +6,11 @@ import { Database } from '@nozbe/watermelondb'
 import BaseModel from './BaseModel'
 import RecipeTag from './RecipeTag'
 import Ingredient from './Ingredient'
-import { asyncStorageService } from '../../app/services/storage'
 import { switchMap } from 'rxjs/operators'
 import { Model } from '@nozbe/watermelondb'
 import { SyncItemType, RecipeSync } from '../../app/api/sync'
 import { v4 as uuidv4 } from 'uuid'
+import AuthService from '../../app/services/auth/authService'
 
 interface RecipeData {
   name: string;
@@ -36,7 +36,7 @@ export default class Recipe extends BaseModel {
 
   // Query methods
   static observeAll(database: Database): Observable<Recipe[]> {
-    return from(asyncStorageService.getActiveUser()).pipe(
+    return from(AuthService.getActiveUser()).pipe(
       switchMap(activeUser => 
         database
           .get<Recipe>('recipes')
@@ -154,7 +154,7 @@ export default class Recipe extends BaseModel {
   ): Promise<Recipe> {
     try {
       const collection = database.get<Recipe>('recipes');
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       
       const record = await collection.create((record: any) => {
         console.log(`[DB ${this.table}] Creating new recipe`);

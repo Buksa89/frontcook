@@ -47,52 +47,52 @@ export default function ResetPasswordModal({ visible, onClose }: ResetPasswordMo
     setEmailError('');
 
     try {
-      const result = await resetPassword(email);
+      await resetPassword(email);
+      setIsSent(true);
+    } catch (error: any) {
+      console.error("Reset password error:", error);
       
-      if (result.success) {
-        setIsSent(true);
-      } else {
-        // Obsługa błędów pól formularza
-        if (result.fieldErrors && result.fieldErrors.email) {
-          const errorMessage = result.fieldErrors.email.join(', ');
+      // Obsługa błędów walidacji z API
+      if (error.response?.data) {
+        const apiErrors = error.response.data;
+        
+        if (apiErrors.email) {
+          const errorMessage = Array.isArray(apiErrors.email) 
+            ? apiErrors.email.join(', ') 
+            : apiErrors.email;
           setEmailError(errorMessage);
-          
-          // Wyświetl alert z błędem
           Alert.alert(
             "Błąd resetowania hasła",
             errorMessage,
             [{ text: "OK" }]
           );
-        } else if (result.message) {
-          setEmailError(result.message);
-          
-          // Wyświetl alert z błędem
+        } else if (apiErrors.non_field_errors) {
+          const errorMessage = Array.isArray(apiErrors.non_field_errors)
+            ? apiErrors.non_field_errors.join(', ')
+            : apiErrors.non_field_errors;
+          setEmailError(errorMessage);
           Alert.alert(
             "Błąd resetowania hasła",
-            result.message,
+            errorMessage,
             [{ text: "OK" }]
           );
         } else {
           setEmailError('Nie udało się wysłać linku resetującego. Spróbuj ponownie.');
-          
-          // Wyświetl alert z błędem
           Alert.alert(
             "Błąd resetowania hasła",
             'Nie udało się wysłać linku resetującego. Spróbuj ponownie.',
             [{ text: "OK" }]
           );
         }
+      } else {
+        const errorMessage = error.message || 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.';
+        setEmailError(errorMessage);
+        Alert.alert(
+          "Błąd resetowania hasła",
+          errorMessage,
+          [{ text: "OK" }]
+        );
       }
-    } catch (error) {
-      console.error("Reset password error:", error);
-      setEmailError('Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.');
-      
-      // Wyświetl alert z błędem
-      Alert.alert(
-        "Błąd",
-        'Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.',
-        [{ text: "OK" }]
-      );
     } finally {
       setIsLoading(false);
     }

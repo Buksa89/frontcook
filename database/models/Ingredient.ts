@@ -10,7 +10,7 @@ import { switchMap } from 'rxjs/operators'
 import { SyncItemType, IngredientSync } from '../../app/api/sync'
 import database from '../../database'
 import { v4 as uuidv4 } from 'uuid'
-import { asyncStorageService } from '../../app/services/storage'
+import AuthService from '../../app/services/auth/authService'
 
 export default class Ingredient extends BaseModel {
   static table = 'ingredients'
@@ -168,7 +168,7 @@ export default class Ingredient extends BaseModel {
   ): Promise<Ingredient> {
     try {
       const collection = database.get<Ingredient>('ingredients');
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       
       const record = await collection.create((record: any) => {
         console.log(`[DB ${this.table}] Creating new ingredient`);

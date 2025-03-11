@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
 import { withObservables } from '@nozbe/watermelondb/react';
-import { Q } from '@nozbe/watermelondb';
 import { MaterialIcons, AntDesign, Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import database from '../../../database';
 import ShoppingItem from '../../../database/models/ShoppingItem';
-import { of as observableOf, Observable } from 'rxjs';
 
 // Base component that receives shopping items as props
 const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: { 

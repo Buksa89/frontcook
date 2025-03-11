@@ -106,84 +106,76 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
     });
 
     try {
-      const result = await register(username, email, password);
+      await register(username, email, password, confirmPassword);
+      // Jeśli nie było błędu, rejestracja się powiodła
+      onClose();
+    } catch (error: any) {
+      console.error('Błąd rejestracji:', error);
       
-      if (result.success) {
-        Alert.alert(
-          "Rejestracja pomyślna",
-          "Twoje konto zostało utworzone. Możesz się teraz zalogować.",
-          [{ text: "OK", onPress: () => onClose() }]
-        );
-      } else {
-        // Obsługa błędów pól formularza
-        if (result.fieldErrors) {
-          const newErrors = { ...errors };
-          const alertMessages: string[] = [];
-          
-          // Mapowanie błędów z API na pola formularza
-          if (result.fieldErrors.username) {
-            newErrors.username = result.fieldErrors.username.join(', ');
-            alertMessages.push(`Nazwa użytkownika: ${result.fieldErrors.username.join(', ')}`);
-          }
-          
-          if (result.fieldErrors.email) {
-            newErrors.email = result.fieldErrors.email.join(', ');
-            alertMessages.push(`Email: ${result.fieldErrors.email.join(', ')}`);
-          }
-          
-          if (result.fieldErrors.password) {
-            newErrors.password = result.fieldErrors.password.join(', ');
-            alertMessages.push(`Hasło: ${result.fieldErrors.password.join(', ')}`);
-          }
-          
-          if (result.fieldErrors.password2) {
-            newErrors.confirmPassword = result.fieldErrors.password2.join(', ');
-            alertMessages.push(`Potwierdzenie hasła: ${result.fieldErrors.password2.join(', ')}`);
-          }
-          
-          // Błędy niezwiązane z konkretnym polem
-          if (result.fieldErrors.non_field_errors) {
-            setErrorMessage(result.fieldErrors.non_field_errors.join(', '));
-            alertMessages.push(result.fieldErrors.non_field_errors.join(', '));
-          } else if (result.message) {
-            setErrorMessage(result.message);
-            alertMessages.push(result.message);
-          }
-          
-          setErrors(newErrors);
-          
-          // Wyświetl alert z błędami
-          if (alertMessages.length > 0) {
-            Alert.alert(
-              "Błąd rejestracji",
-              alertMessages.join('\n\n'),
-              [{ text: "OK" }]
-            );
-          }
-        } else if (result.message) {
-          setErrorMessage(result.message);
+      // Obsługa błędów walidacji z API
+      if (error.response?.data) {
+        const apiErrors = error.response.data;
+        const newErrors = { ...errors };
+        const alertMessages: string[] = [];
+
+        // Mapowanie błędów z API na pola formularza
+        if (apiErrors.username) {
+          newErrors.username = Array.isArray(apiErrors.username) 
+            ? apiErrors.username.join(', ') 
+            : apiErrors.username;
+          alertMessages.push(`Nazwa użytkownika: ${newErrors.username}`);
+        }
+
+        if (apiErrors.email) {
+          newErrors.email = Array.isArray(apiErrors.email) 
+            ? apiErrors.email.join(', ') 
+            : apiErrors.email;
+          alertMessages.push(`Email: ${newErrors.email}`);
+        }
+
+        if (apiErrors.password) {
+          newErrors.password = Array.isArray(apiErrors.password) 
+            ? apiErrors.password.join(', ') 
+            : apiErrors.password;
+          alertMessages.push(`Hasło: ${newErrors.password}`);
+        }
+
+        if (apiErrors.password2) {
+          newErrors.confirmPassword = Array.isArray(apiErrors.password2) 
+            ? apiErrors.password2.join(', ') 
+            : apiErrors.password2;
+          alertMessages.push(`Potwierdzenie hasła: ${newErrors.confirmPassword}`);
+        }
+
+        // Błędy niezwiązane z konkretnym polem
+        if (apiErrors.non_field_errors) {
+          const nonFieldError = Array.isArray(apiErrors.non_field_errors) 
+            ? apiErrors.non_field_errors.join(', ') 
+            : apiErrors.non_field_errors;
+          setErrorMessage(nonFieldError);
+          alertMessages.push(nonFieldError);
+        }
+
+        setErrors(newErrors);
+
+        // Wyświetl alert z błędami
+        if (alertMessages.length > 0) {
           Alert.alert(
             "Błąd rejestracji",
-            result.message,
-            [{ text: "OK" }]
-          );
-        } else {
-          setErrorMessage('Wystąpił błąd podczas rejestracji');
-          Alert.alert(
-            "Błąd rejestracji",
-            'Wystąpił błąd podczas rejestracji',
+            alertMessages.join('\n\n'),
             [{ text: "OK" }]
           );
         }
+      } else {
+        // Ogólny błąd
+        const errorMessage = error.message || 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.';
+        setErrorMessage(errorMessage);
+        Alert.alert(
+          "Błąd rejestracji",
+          errorMessage,
+          [{ text: "OK" }]
+        );
       }
-    } catch (error) {
-      console.error('Błąd rejestracji:', error);
-      setErrorMessage('Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.');
-      Alert.alert(
-        "Błąd",
-        'Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.',
-        [{ text: "OK" }]
-      );
     } finally {
       setIsLoading(false);
     }

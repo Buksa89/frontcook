@@ -62,21 +62,19 @@ export default function AuthScreen() {
     setErrorMessage('');
 
     try {
-      const result = await login(identifier, password);
+      await login(identifier, password);
       
-      if (result.success) {
-        Alert.alert('Success', 'Login successful!');
-        router.push({
-          pathname: "/(screens)/RecipeListScreen/RecipeListScreen"
-        });
-      } else {
-        setErrorMessage(result.message || 'Wystąpił błąd podczas logowania');
-        Alert.alert('Error', result.message || 'An error occurred during login');
-      }
-    } catch (error) {
+      // Jeśli login nie rzucił błędu, znaczy że się udało
+      router.push({
+        pathname: "/(screens)/RecipeListScreen/RecipeListScreen"
+      });
+    } catch (error: any) {
       console.error('Login error:', error);
-      setErrorMessage('Wystąpił nieoczekiwany błąd');
-      Alert.alert('Error', 'An unexpected error occurred. Please try again later.');
+      setErrorMessage('Nieprawidłowe dane logowania');
+      Alert.alert(
+        'Błąd logowania',
+        error?.message || 'Nieprawidłowa nazwa użytkownika lub hasło'
+      );
     } finally {
       setIsLoading(false);
     }

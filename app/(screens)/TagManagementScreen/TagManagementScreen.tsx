@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
 import { withObservables } from '@nozbe/watermelondb/react';
-import { Q } from '@nozbe/watermelondb';
 import { MaterialIcons, AntDesign, Feather } from '@expo/vector-icons';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
-import RecipeTag from '../../../database/models/RecipeTag';
 
 // Base component that receives tags as props
 const TagManagementScreenComponent = ({ tags }: { tags: Tag[] }) => {

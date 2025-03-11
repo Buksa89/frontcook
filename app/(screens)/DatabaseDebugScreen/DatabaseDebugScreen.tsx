@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import database from '../../../database';
 import { Q } from '@nozbe/watermelondb';
 
@@ -30,6 +30,37 @@ export default function DatabaseDebugScreen() {
     }
   };
 
+  const deleteRecord = async (tableName: string, recordId: string) => {
+    try {
+      const collection = database.get(tableName);
+      const record = await collection.find(recordId);
+      
+      Alert.alert(
+        'Potwierdzenie',
+        `Czy na pewno chcesz usunąć ten rekord z tabeli ${tableName}?`,
+        [
+          {
+            text: 'Anuluj',
+            style: 'cancel'
+          },
+          {
+            text: 'Usuń',
+            style: 'destructive',
+            onPress: async () => {
+              await database.write(async () => {
+                await record.destroyPermanently();
+              });
+              await loadAllData(); // Odśwież dane po usunięciu
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      Alert.alert('Błąd', 'Nie udało się usunąć rekordu');
+    }
+  };
+
   const renderTableButton = (tableName: string) => (
     <TouchableOpacity
       key={tableName}
@@ -50,7 +81,15 @@ export default function DatabaseDebugScreen() {
 
   const renderRecordDetails = (record: any) => (
     <View key={record.id} style={styles.recordContainer}>
-      <Text style={styles.recordId}>ID: {record.id}</Text>
+      <View style={styles.recordHeader}>
+        <Text style={styles.recordId}>ID: {record.id}</Text>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => selectedTable && deleteRecord(selectedTable, record.id)}
+        >
+          <Text style={styles.deleteButtonText}>Usuń</Text>
+        </TouchableOpacity>
+      </View>
       {Object.entries(record)
         .filter(([key]) => key !== 'id')
         .map(([key, value]) => (
@@ -98,16 +137,16 @@ const styles = StyleSheet.create({
   tableButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
     marginRight: 8,
   },
   tableButtonSelected: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#007AFF',
   },
   tableButtonText: {
+    color: '#333',
     fontSize: 14,
-    color: '#666',
   },
   tableButtonTextSelected: {
     color: '#fff',
@@ -117,45 +156,55 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   recordContainer: {
+    backgroundColor: '#f8f8f8',
     padding: 16,
-    backgroundColor: '#f9f9f9',
     borderRadius: 8,
+    marginBottom: 16,
+  },
+  recordHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   recordId: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2196F3',
+    fontSize: 16,
+    fontWeight: 'bold',
     marginBottom: 8,
   },
   recordField: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 4,
   },
+  deleteButton: {
+    backgroundColor: '#ff3b30',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   emptyText: {
-    fontSize: 16,
-    color: '#999',
     textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
     marginTop: 32,
   },
   refreshButton: {
     position: 'absolute',
     right: 16,
     bottom: 16,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#007AFF',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 24,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    borderRadius: 8,
   },
   refreshButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 }); 

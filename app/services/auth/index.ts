@@ -1,14 +1,11 @@
-import authService from './authService';
-import { storeTokens, removeTokens, isAuthenticated, getRefreshToken, getAccessToken } from './authStorage';
-import { refreshAccessToken } from './refreshTokens';
+import AuthService from './authService';
 
-export {
-  storeTokens,
-  removeTokens,
-  isAuthenticated,
+
+export const {
+  login,
+  logout,
   refreshAccessToken,
-  getRefreshToken,
-  getAccessToken
-};
+  getAuthData
+} = AuthService;
 
-export default authService; 
+export default AuthService; 

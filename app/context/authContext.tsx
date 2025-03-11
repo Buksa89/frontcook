@@ -1,185 +1,181 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { saveAccessToken, saveRefreshToken, getAccessToken, getRefreshToken, saveActiveUser, getActiveUser, clearAuthData } from '../services/auth/authStorage';
-import { authApi } from '../api';
-import { refreshAccessToken } from '../services/auth/refreshTokens';
-import { ApiError } from '../api/api';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import AuthService from '../services/auth/authService';
+import { AuthApi } from '../api/auth';
+import AuthStorage from '../services/auth/authStorage';
+import api from '../api';
 
 interface AuthContextType {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  activeUser: string | null;
+  active_user: string | null;
   accessToken: string | null;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  signOut: () => Promise<{ success: boolean; message?: string }>;
+  isAuthenticated: boolean;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
   refreshToken: () => Promise<string | null>;
-  getUser: () => Promise<void>;
+  register: (username: string, email: string, password: string, password2: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [activeUser, setActiveUser] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  // Inicjalizacja kontekstu
+  // Ustawienie handlera refreshToken w API podczas inicjalizacji
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const [token, username] = await Promise.all([
-          getAccessToken(),
-          getActiveUser()
-        ]);
-
-        if (token && username) {
-          setAccessToken(token);
-          setActiveUser(username.username);
-          setIsAuthenticated(true);
-        }
-      } catch (error) {
-        console.error('Błąd podczas inicjalizacji auth:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeAuth();
+    api.setRefreshTokenHandler(refreshToken);
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const response = await authApi.login({ username: email, password });
-      
-      if (response?.access && response?.refresh) {
-        // Zapisz tokeny
-        await Promise.all([
-          saveAccessToken(response.access),
-          saveRefreshToken(response.refresh)
-        ]);
-
-        // Zapisz dane użytkownika
-        await saveActiveUser({ username: response.username });
-
-        // Zaktualizuj stan kontekstu
-        setAccessToken(response.access);
-        setActiveUser(response.username);
-        setIsAuthenticated(true);
-
-        return { success: true };
-      }
-      
-      return { 
-        success: false, 
-        message: 'Nieprawidłowa odpowiedź z serwera' 
-      };
-    } catch (error) {
-      console.error('Błąd podczas logowania:', error);
-      
-      if (error instanceof ApiError) {
-        if (error.status === 401) {
-          return { 
-            success: false, 
-            message: 'Nieprawidłowa nazwa użytkownika lub hasło' 
-          };
+  // Pobieranie danych autoryzacyjnych z storage przy starcie aplikacji
+  useEffect(() => {
+    const fetchAuthData = async () => {
+      try {
+        const { accessToken, activeUser } = await AuthService.getAuthData();
+        if (accessToken && activeUser) {
+          setAccessToken(accessToken);
+          setActiveUser(activeUser);
         }
-        
-        return { 
-          success: false, 
-          message: error.message 
-        };
+      } catch (error) {
+        console.error('[AuthContext] Błąd podczas pobierania danych logowania:', error);
       }
+    };
+    fetchAuthData();
+  }, []);
+
+  const login = async (username: string, password: string) => {
+    try {
+      // Wywołanie API logowania
+      const response = await AuthApi.login({ username, password });
       
-      return { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas logowania' 
-      };
+      // Zapisanie danych logowania w storage
+      await AuthService.login(response.access, response.refresh, response.username);
+      
+      // Zapisanie danych w kontekście
+      setAccessToken(response.access);
+      setActiveUser(response.username);
+    } catch (error) {
+      console.error('[AuthContext] Błąd podczas logowania:', error);
+      throw error; // Przekazujemy błąd dalej, aby komponent mógł go obsłużyć
     }
   };
 
-  const signOut = async () => {
+  const register = async (username: string, email: string, password: string, password2: string) => {
     try {
-      // Pobierz tokeny
-      const [currentAccessToken, refreshToken] = await Promise.all([
-        getAccessToken(),
-        getRefreshToken()
-      ]);
-      
-      // Wywołaj API do wylogowania, jeśli mamy oba tokeny
-      if (refreshToken && currentAccessToken) {
-        try {
-          await authApi.logout(refreshToken, currentAccessToken);
-        } catch (error) {
-          console.warn('Błąd podczas wylogowywania na serwerze:', error);
-          // Ignorujemy błędy z API - zawsze wylogowujemy lokalnie
-        }
+      // Sprawdzenie czy hasła się zgadzają
+      if (password !== password2) {
+        throw new Error('Hasła nie są identyczne');
       }
 
-      // Wyczyść wszystkie dane uwierzytelniania
-      await clearAuthData();
+      // Wywołanie API rejestracji
+      await AuthApi.register({
+        username,
+        email,
+        password,
+        password2
+      });
+
+      // Zwracamy informację o konieczności aktywacji konta
+      alert('Rejestracja przebiegła pomyślnie. Na podany adres email został wysłany link aktywacyjny. Aktywuj konto, aby się zalogować.');
+    } catch (error) {
+      console.error('[AuthContext] Błąd podczas rejestracji:', error);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Pobierz tokeny przed wyczyszczeniem
+      const refreshToken = await AuthStorage.retrieveRefreshToken();
+      const currentAccessToken = accessToken;
+
+      if (refreshToken && currentAccessToken) {
+        // Wywołaj API wylogowania
+        await AuthApi.logout(refreshToken, currentAccessToken);
+      }
+
+      // Wyczyść dane w storage
+      await AuthService.logout();
       
-      // Wyczyść stan kontekstu
+      // Wyczyść stan w kontekście
       setAccessToken(null);
       setActiveUser(null);
-      setIsAuthenticated(false);
-
-      return {
-        success: true,
-        message: 'Wylogowano pomyślnie'
-      };
     } catch (error) {
-      console.error('Błąd podczas wylogowywania:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Wystąpił nieznany błąd podczas wylogowywania'
-      };
+      console.error('[AuthContext] Błąd podczas wylogowywania:', error);
+      // Nawet jeśli API wylogowania nie powiedzie się, i tak czyścimy lokalne dane
+      await AuthService.logout();
+      setAccessToken(null);
+      setActiveUser(null);
+      throw error;
     }
   };
 
-  const refreshToken = async () => {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      setAccessToken(newToken);
-      return newToken;
-    }
-    return null;
-  };
-
-  const getUser = async () => {
+  const refreshToken = async (): Promise<string | null> => {
     try {
-      const userData = await getActiveUser();
-      if (userData?.username) {
-        setActiveUser(userData.username);
+      const refreshToken = await AuthStorage.retrieveRefreshToken();
+      
+      if (!refreshToken) {
+        console.warn('[AuthContext] Brak refresh tokena, wymagane ponowne logowanie');
+        return null;
       }
+
+      // Wywołaj API odświeżania tokenu
+      const response = await AuthApi.refreshToken(refreshToken);
+      
+      // Zapisz nowe tokeny
+      await AuthStorage.storeAccessToken(response.access);
+      await AuthStorage.storeRefreshToken(response.refresh);
+      
+      // Zaktualizuj stan w kontekście
+      setAccessToken(response.access);
+      
+      return response.access;
     } catch (error) {
-      console.error('Błąd podczas pobierania danych użytkownika:', error);
+      console.error('[AuthContext] Błąd podczas odświeżania tokenu:', error);
+      // Wyczyść tylko tokeny, bez pełnego wylogowania
+      await AuthStorage.clearAccessToken();
+      await AuthStorage.clearRefreshToken();
+      setAccessToken(null);
+      
+      alert('Twoja sesja wygasła. Zaloguj się ponownie.');
+      return null;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      await AuthApi.resetPassword({ email });
+      alert('Link do resetowania hasła został wysłany na podany adres email.');
+    } catch (error) {
+      console.error('[AuthContext] Błąd podczas resetowania hasła:', error);
+      throw error;
     }
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        isLoading,
-        activeUser,
-        accessToken,
-        signIn,
-        signOut,
-        refreshToken,
-        getUser
-      }}
-    >
+    <AuthContext.Provider value={{ 
+      active_user: activeUser, 
+      accessToken,
+      isAuthenticated: !!accessToken, 
+      login, 
+      logout, 
+      refreshToken,
+      register,
+      resetPassword 
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
+// Hook do używania kontekstu w komponentach
 export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
+  const context = React.useContext(AuthContext);
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
-
-export default AuthContext; 

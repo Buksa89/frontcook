@@ -16,6 +16,7 @@ import { asyncStorageService } from '../storage';
 import { getRefreshToken } from '../auth/authStorage';
 import api from '../../api/api';
 import { ApiError } from '../../api/api';
+import AuthService from '../auth/authService';
 
 // Interface for the pull response items
 interface PullResponseItem {
@@ -112,7 +113,7 @@ class SyncService {
 
   private handleAppStateChange = async (nextAppState: AppStateStatus) => {
     if (nextAppState === 'active' && this.pendingSync) {
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       if (activeUser) {
         this.syncPendingRecords(activeUser);
       }
@@ -125,7 +126,7 @@ class SyncService {
     if (IS_DEBUG) return;
 
     if (state.isConnected && this.pendingSync) {
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       if (activeUser) {
         this.syncPendingRecords(activeUser);
       }
@@ -198,7 +199,7 @@ class SyncService {
     const MAX_EMPTY_RESPONSES = 3;
 
     // Get active user
-    const activeUser = await asyncStorageService.getActiveUser();
+    const activeUser = await AuthService.getActiveUser();
     if (!activeUser) {
       console.error('[Sync Service] No active user found');
       return;
@@ -361,7 +362,7 @@ class SyncService {
   }
 
   private async getPendingRecordsForPush(table: TableName): Promise<(Model & { _raw: ExtendedRawRecord, serialize: () => any })[]> {
-    const activeUser = await asyncStorageService.getActiveUser();
+    const activeUser = await AuthService.getActiveUser();
     if (!activeUser) {
       console.error('[Sync Service] No active user found');
       return [];
@@ -418,7 +419,7 @@ class SyncService {
       const response = await api.post<PullResponseItem[]>('/api/sync/push/', serializedRecords, true);
 
       // Get active user
-      const activeUser = await asyncStorageService.getActiveUser();
+      const activeUser = await AuthService.getActiveUser();
       if (!activeUser) {
         console.error('[Sync Service] No active user found');
         return;

@@ -12,8 +12,7 @@ interface AddRecipeMenuProps {
 }
 
 export const AddRecipeMenu = ({ visible, onClose }: AddRecipeMenuProps) => {
-  const { activeUser } = useAuth();
-  const isAuthenticated = !!activeUser;
+  const { isAuthenticated } = useAuth();
   const [showWebImportModal, setShowWebImportModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
 
