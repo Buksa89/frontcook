@@ -92,14 +92,13 @@ export default class Recipe extends BaseModel {
             !existingTagIds.includes(tag.id)
           );
 
-          operations.push(
-            ...newTags.map(tag => 
-              recipeTagsCollection.prepareCreate(rt => {
-                rt.recipeId = recipe.id;
-                rt.tagId = tag.id;
-              })
-            )
-          );
+          // Używamy createRecipeTag dla każdego nowego tagu
+          for (const tag of newTags) {
+            await RecipeTag.createRecipeTag(database, rt => {
+              rt.recipeId = recipe.id;
+              rt.tagId = tag.id;
+            });
+          }
         }
       } else {
         // Create new recipe
@@ -120,14 +119,13 @@ export default class Recipe extends BaseModel {
 
         // Create tag relationships for new recipe
         if (data.selectedTags) {
-          operations.push(
-            ...data.selectedTags.map(tag => 
-              RecipeTag.prepareCreateRecipeTag(database, rt => {
-                rt.recipeId = recipe.id;
-                rt.tagId = tag.id;
-              })
-            )
-          );
+          // Używamy createRecipeTag dla każdego tagu
+          for (const tag of data.selectedTags) {
+            await RecipeTag.createRecipeTag(database, rt => {
+              rt.recipeId = recipe.id;
+              rt.tagId = tag.id;
+            });
+          }
         }
       }
 

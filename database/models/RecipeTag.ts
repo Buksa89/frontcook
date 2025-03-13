@@ -29,13 +29,13 @@ export default class RecipeTag extends BaseModel {
     recordUpdater: (record: RecipeTag) => void
   ): Promise<RecipeTag> {
     try {
+      console.log(`[DB ${this.table}] Creating new recipe tag`);
       const collection = database.get<RecipeTag>('recipe_tags');
       const activeUser = await AuthService.getActiveUser();
       
+      // Używamy podejścia podobnego do BaseModel.create
       const record = await collection.create((record: any) => {
-        console.log(`[DB ${this.table}] Creating new recipe tag`);
-        
-        // Initialize base fields first
+        // Inicjalizacja pól bazowych
         record.synchStatus = 'pending';
         record.lastUpdate = new Date().toISOString();
         record.isLocal = true;
@@ -43,7 +43,7 @@ export default class RecipeTag extends BaseModel {
         record.syncId = uuidv4();
         record.owner = activeUser;
         
-        // Then apply user's updates
+        // Zastosowanie aktualizacji użytkownika
         recordUpdater(record as RecipeTag);
         console.log(`[DB ${this.table}] New recipe tag created with:`, record._raw);
       });
@@ -51,23 +51,6 @@ export default class RecipeTag extends BaseModel {
       return record;
     } catch (error) {
       console.error(`[DB ${this.table}] Error creating recipe tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  static prepareCreateRecipeTag(
-    database: Database,
-    recordUpdater: (record: RecipeTag) => void
-  ): Model {
-    try {
-      console.log(`[DB ${this.table}] Preparing to create recipe tag`);
-      const collection = database.get<RecipeTag>('recipe_tags');
-      return collection.prepareCreate((record: RecipeTag) => {
-        // BaseModel fields will be initialized automatically
-        recordUpdater(record);
-      });
-    } catch (error) {
-      console.error(`[DB ${this.table}] Error preparing recipe tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }

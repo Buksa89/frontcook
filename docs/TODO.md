@@ -1,6 +1,4 @@
-merge userow przy logowaniu
 sync
-recipetag -missing basemodel fields when create
 
 
 dodaj dodawanie tagow w trakcie tworzeni/edycji przpeisu
