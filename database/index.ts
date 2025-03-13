@@ -14,7 +14,7 @@ import RecipeTag from './models/RecipeTag'
 import Ingredient from './models/Ingredient'
 import ShoppingItem from './models/ShoppingItem'
 import UserSettings from './models/UserSettings'
-
+import { v4 as uuidv4 } from 'uuid'
 interface DefaultTag {
   name: string
   order: number
@@ -97,6 +97,7 @@ async function populateDefaultTags(): Promise<void> {
             record.order = tag.order
             record.owner = null
             record.synchStatus = 'pending'
+            record.syncId = uuidv4()
             record.lastUpdate = new Date().toISOString()
             record.isLocal = true
           })
