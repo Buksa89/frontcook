@@ -3,6 +3,8 @@ import AuthService from '../services/auth/authService';
 import { AuthApi } from '../api/auth';
 import AuthStorage from '../services/auth/authStorage';
 import api from '../api';
+import LocalSyncService from '../services/sync/LocalSyncService';
+import { Alert } from 'react-native';
 
 interface AuthContextType {
   active_user: string | null;
@@ -57,6 +59,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Zapisanie danych w kontekście
       setAccessToken(response.access);
       setActiveUser(response.username);
+
+      // Sprawdzenie, czy istnieją lokalne dane do synchronizacji
+      const hasLocalData = await LocalSyncService.isLocalDataToSync();
+      
+      if (hasLocalData) {
+        // Wyświetlenie zapytania użytkownikowi
+        Alert.alert(
+          'Lokalne dane',
+          'Wykryto lokalne dane bez przypisanego użytkownika. Czy chcesz przypisać je do swojego konta?',
+          [
+            {
+              text: 'Nie',
+              style: 'cancel'
+            },
+            {
+              text: 'Tak',
+              onPress: async () => {
+                try {
+                  await LocalSyncService.assignLocalDataToUser(response.username);
+                  Alert.alert('Sukces', 'Lokalne dane zostały przypisane do Twojego konta.');
+                } catch (error) {
+                  console.error('[AuthContext] Błąd podczas przypisywania lokalnych danych:', error);
+                  Alert.alert('Błąd', 'Nie udało się przypisać lokalnych danych do Twojego konta.');
+                }
+              }
+            }
+          ]
+        );
+      }
     } catch (error) {
       console.error('[AuthContext] Błąd podczas logowania:', error);
       throw error; // Przekazujemy błąd dalej, aby komponent mógł go obsłużyć

@@ -40,7 +40,7 @@ class LocalSyncService {
           ).fetch();
 
           for (const record of localData) {
-            await record.update(item => {
+            await record.update((item: any) => {
               item.owner = username;
             });
           }
