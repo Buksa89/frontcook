@@ -8,7 +8,6 @@ import { parseIngredient } from '../../app/utils/ingredientParser'
 import { Observable, from } from 'rxjs'
 import { switchMap } from 'rxjs/operators'
 import { SyncItemType, IngredientSync } from '../../app/api/sync'
-import database from '../../database'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 
@@ -127,7 +126,7 @@ export default class Ingredient extends BaseModel {
     };
   }
 
-  static async deserialize(item: SyncItemType) {
+  static async deserialize(item: SyncItemType, database: Database) {
     if (item.object_type !== 'ingredient') {
       throw new Error(`Invalid object type for Ingredient: ${item.object_type}`);
     }

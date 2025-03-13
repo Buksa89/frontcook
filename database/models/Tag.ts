@@ -122,7 +122,7 @@ export default class Tag extends BaseModel {
     return this.name.charAt(0).toUpperCase() + this.name.slice(1).toLowerCase()
   }
 
-  static async deserialize(item: SyncItemType) {
+  static async deserialize(item: SyncItemType, database: Database) {
     const baseFields = await BaseModel.deserialize(item);
     const tagItem = item as TagSync;
     

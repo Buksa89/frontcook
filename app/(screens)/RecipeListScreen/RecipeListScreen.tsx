@@ -49,57 +49,59 @@ const RecipeList = ({ recipes }: { recipes: Recipe[] }) => (
   </>
 );
 
-const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, filters, username }: EnhanceRecipeListProps) => ({
-  recipes: of(username).pipe(
-    switchMap(username => 
-      database.get<Recipe>('recipes')
-        .query(
-          Q.experimentalJoinTables(['recipe_tags']),
-          Q.and(
-            username ? Q.where('owner', username) : Q.where('owner', null),
-            Q.where('is_deleted', false),
-            filters.searchPhrase ? Q.where('name', Q.like(`%${filters.searchPhrase}%`)) : Q.where('id', Q.notEq(null)),
-            filters.minRating ? Q.where('rating', Q.gte(filters.minRating)) : Q.where('id', Q.notEq(null)),
-            filters.maxPrepTime ? Q.where('prep_time', Q.lte(filters.maxPrepTime)) : Q.where('id', Q.notEq(null)),
-            filters.selectedTags.length > 0
-              ? Q.on('recipe_tags', 'tag_id', Q.oneOf(filters.selectedTags.map((tag: Tag) => tag.id)))
-              : Q.where('id', Q.notEq(null))
-          )
-        )
-        .observe()
-        .pipe(
-          map(recipes => {
-            let sortedRecipes = [...recipes];
-            switch (sortBy) {
-              case 'name':
-                sortedRecipes.sort((a, b) => a.name.localeCompare(b.name));
-                break;
-              case 'rating':
-                sortedRecipes.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-                break;
-              case 'prepTime':
-                sortedRecipes.sort((a, b) => {
-                  if (a.prepTime === 0 && b.prepTime === 0) return 0;
-                  if (a.prepTime === 0) return 1;
-                  if (b.prepTime === 0) return -1;
-                  return (a.prepTime || 0) - (b.prepTime || 0);
-                });
-                break;
-              case 'totalTime':
-                sortedRecipes.sort((a, b) => {
-                  if (a.totalTime === 0 && b.totalTime === 0) return 0;
-                  if (a.totalTime === 0) return 1;
-                  if (b.totalTime === 0) return -1;
-                  return (a.totalTime || 0) - (b.totalTime || 0);
-                });
-                break;
-              default:
-                break;
-            }
-            return sortedRecipes;
-          })
-        )
-    )
+const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, filters }: EnhanceRecipeListProps) => ({
+  recipes: Recipe.observeAll(database).pipe(
+    map(recipes => {
+      // Najpierw filtrujemy
+      let filteredRecipes = recipes.filter(recipe => {
+        const matchesSearch = !filters.searchPhrase || 
+          recipe.name.toLowerCase().includes(filters.searchPhrase.toLowerCase());
+        const matchesRating = !filters.minRating || 
+          (recipe.rating || 0) >= filters.minRating;
+        const matchesPrepTime = !filters.maxPrepTime || 
+          recipe.prepTime <= filters.maxPrepTime;
+        
+        // Jeśli nie ma wybranych tagów, przepis przechodzi filtr
+        if (filters.selectedTags.length === 0) {
+          return matchesSearch && matchesRating && matchesPrepTime;
+        }
+
+        // Sprawdź czy przepis ma którykolwiek z wybranych tagów
+        const hasSelectedTag = filters.selectedTags.some(selectedTag => 
+          recipe.recipeTags.find(rt => rt.tagId === selectedTag.id)
+        );
+
+        return matchesSearch && matchesRating && matchesPrepTime && hasSelectedTag;
+      });
+
+      // Następnie sortujemy
+      switch (sortBy) {
+        case 'name':
+          filteredRecipes.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case 'rating':
+          filteredRecipes.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+          break;
+        case 'prepTime':
+          filteredRecipes.sort((a, b) => {
+            if (a.prepTime === 0 && b.prepTime === 0) return 0;
+            if (a.prepTime === 0) return 1;
+            if (b.prepTime === 0) return -1;
+            return (a.prepTime || 0) - (b.prepTime || 0);
+          });
+          break;
+        case 'totalTime':
+          filteredRecipes.sort((a, b) => {
+            if (a.totalTime === 0 && b.totalTime === 0) return 0;
+            if (a.totalTime === 0) return 1;
+            if (b.totalTime === 0) return -1;
+            return (a.totalTime || 0) - (b.totalTime || 0);
+          });
+          break;
+      }
+
+      return filteredRecipes;
+    })
   )
 }));
 

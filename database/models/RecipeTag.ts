@@ -5,7 +5,6 @@ import Tag from './Tag'
 import BaseModel from './BaseModel'
 import { SyncItemType, RecipeTagSync } from '../../app/api/sync'
 import { Q } from '@nozbe/watermelondb'
-import database from '../../database'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 import { Database } from '@nozbe/watermelondb'
@@ -61,22 +60,11 @@ export default class RecipeTag extends BaseModel {
     recordUpdater: (record: RecipeTag) => void
   ): Model {
     try {
+      console.log(`[DB ${this.table}] Preparing to create recipe tag`);
       const collection = database.get<RecipeTag>('recipe_tags');
-      
-      return collection.prepareCreate(async (record: any) => {
-        console.log(`[DB ${this.table}] Preparing to create recipe tag`);
-        
-        // Initialize base fields first
-        record.synchStatus = 'pending';
-        record.lastUpdate = new Date().toISOString();
-        record.isLocal = true;
-        record.isDeleted = false;
-        record.syncId = uuidv4();
-        record.owner = await AuthService.getActiveUser();
-        
-        // Then apply user's updates
-        recordUpdater(record as RecipeTag);
-        console.log(`[DB ${this.table}] Recipe tag prepared with:`, record._raw);
+      return collection.prepareCreate((record: RecipeTag) => {
+        // BaseModel fields will be initialized automatically
+        recordUpdater(record);
       });
     } catch (error) {
       console.error(`[DB ${this.table}] Error preparing recipe tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -94,7 +82,7 @@ export default class RecipeTag extends BaseModel {
     };
   }
 
-  static async deserialize(item: SyncItemType) {
+  static async deserialize(item: SyncItemType, database: Database) {
     if (item.object_type !== 'recipe_tag') {
       throw new Error(`Invalid object type for RecipeTag: ${item.object_type}`);
     }

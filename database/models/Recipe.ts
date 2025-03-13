@@ -271,7 +271,7 @@ export default class Recipe extends BaseModel {
     })
   }
 
-  static async deserialize(item: SyncItemType) {
+  static async deserialize(item: SyncItemType, database: Database) {
     const baseFields = await BaseModel.deserialize(item);
     const recipeItem = item as RecipeSync;
     

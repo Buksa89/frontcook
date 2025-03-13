@@ -1,22 +1,9 @@
 merge userow przy logowaniu
 sync
+recipetag -missing basemodel fields when create
 
-lub auth service
-export default {
-  login,
-  logout,
-  register,
-  resetPassword,
-  refreshAccessToken,
-  isAuthenticated
-}; 
-lub asyncstorageservice
-  storeActiveUser,
-  getActiveUser,
-  removeActiveUser,
-  hasActiveUser,
-niech korzysta z auth context
 
+dodaj dodawanie tagow w trakcie tworzeni/edycji przpeisu
 react-toastify - moze pomoc z wygladem alertow
 recipetag sie tworza bez basemodel
 nie robia sie delete po updacie, byc moze tez nie basemodel

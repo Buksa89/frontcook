@@ -66,9 +66,13 @@ export default class BaseModel extends Model {
           console.log(`[DB ${this.table}] Record ${this.id} updated with:`, record._raw);
         }
         
-        // Then update sync fields
-        record._raw.sync_status = 'pending';
-        record._raw.last_update = new Date().toISOString();
+        // Then update sync fields only if they weren't set
+        if (!record._raw.sync_status) {
+          record._raw.sync_status = 'pending';
+        }
+        if (!record._raw.last_update) {
+          record._raw.last_update = new Date().toISOString();
+        }
         record._raw.is_local = true;
       });
 
@@ -111,12 +115,16 @@ export default class BaseModel extends Model {
         // First apply the user's updates
         recordUpdater(record);
         
-        // Then set sync and owner fields
+        // Then set sync and owner fields, but only if they weren't set
         record.owner = activeUser;
-        record.synchStatus = 'pending';
-        record.lastUpdate = new Date().toISOString();
+        if (!record.synchStatus) {
+          record.synchStatus = 'pending';
+        }
+        if (!record.lastUpdate) {
+          record.lastUpdate = new Date().toISOString();
+        }
         record.isLocal = true;
-        record.syncId = uuidv4(); // Używamy wbudowanej funkcji uuidv4()
+        record.syncId = record.syncId || uuidv4(); // Use existing syncId if provided
 
         console.log(`[DB ${this.table}] New record created with:`, record._raw);
       });
