@@ -1,5 +1,4 @@
 import AuthStorage from './authStorage';
-import api from '../../api';
 
 class AuthService {
   /**

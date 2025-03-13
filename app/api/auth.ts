@@ -88,7 +88,7 @@ export class AuthApi {
     const headers = {
       Authorization: `Bearer ${accessToken}`
     };
-    return api.post<LogoutResponse>('/api/auth/logout/', data, true, headers);
+    return api.post<LogoutResponse>('/api/auth/logout/', data, false, headers);
   }
 
   /**

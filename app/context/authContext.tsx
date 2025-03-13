@@ -27,10 +27,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [activeUser, setActiveUser] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  // Ustawienie handlera refreshToken w API podczas inicjalizacji
+  // Ustawienie handlera refreshToken i gettera accessToken w API podczas inicjalizacji
   useEffect(() => {
     api.setRefreshTokenHandler(refreshToken);
-  }, []);
+    api.setAccessTokenGetter(async () => accessToken);
+  }, [accessToken]);
 
   // Pobieranie danych autoryzacyjnych z storage przy starcie aplikacji
   useEffect(() => {

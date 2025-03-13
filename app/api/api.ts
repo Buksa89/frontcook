@@ -17,6 +17,7 @@ export class ApiError extends Error {
 }
 
 type RefreshTokenHandler = () => Promise<string | null>;
+type AccessTokenGetter = () => Promise<string | null>;
 
 /**
  * Klasa obsługująca zapytania do API
@@ -25,6 +26,7 @@ class ApiClient {
   private baseUrl: string;
   private isRefreshing: boolean = false;
   private refreshTokenHandler: RefreshTokenHandler | null = null;
+  private accessTokenGetter: AccessTokenGetter | null = null;
 
   constructor(baseUrl: string) {
     // Upewnij się, że baseUrl kończy się pojedynczym ukośnikiem
@@ -33,6 +35,10 @@ class ApiClient {
 
   setRefreshTokenHandler(handler: RefreshTokenHandler) {
     this.refreshTokenHandler = handler;
+  }
+
+  setAccessTokenGetter(getter: AccessTokenGetter) {
+    this.accessTokenGetter = getter;
   }
 
   /**
@@ -156,6 +162,18 @@ class ApiClient {
         response.status
       );
     }
+  }
+
+  /**
+   * Pobiera access token używając gettera lub z authService
+   */
+  private async getAccessToken(): Promise<string | null> {
+    if (this.accessTokenGetter) {
+      return this.accessTokenGetter();
+    }
+    
+    // No fallback available
+    return null;
   }
 
   /**
@@ -386,7 +404,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const accessToken = await authService.getAccessToken();
+      const accessToken = await this.getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
@@ -421,7 +439,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const accessToken = await authService.getAccessToken();
+      const accessToken = await this.getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
@@ -450,7 +468,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const accessToken = await authService.getAccessToken();
+      const accessToken = await this.getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
@@ -478,7 +496,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const accessToken = await authService.getAccessToken();
+      const accessToken = await this.getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
@@ -504,7 +522,7 @@ class ApiClient {
     };
     
     if (authenticated) {
-      const accessToken = await authService.getAccessToken();
+      const accessToken = await this.getAccessToken();
       
       if (!accessToken) {
         throw new ApiError('No access token available', 401);
