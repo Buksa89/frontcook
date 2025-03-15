@@ -6,7 +6,6 @@ import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import { asyncStorageService } from '../storage';
 import api from '../../api/api';
-import { ApiError } from '../../api/api';
 
 // Interface for the pull response items
 interface PullResponseItem {
@@ -208,7 +207,7 @@ class SyncService {
   private async syncPull(initialLastSync: string): Promise<string | null> {
     let lastSync = initialLastSync;
     let hasMoreData = true;
-    let mostRecentUpdate = null;
+    let mostRecentUpdate: string | null = null;
 
     // Get active user
     const activeUser = await this.activeUserGetter?.();
@@ -261,27 +260,36 @@ class SyncService {
               const table = this.getTableName(item.object_type);
               const collection = database.get(table);
               
+              // Special handling for user_settings
+              if (item.object_type === 'user_settings') {
+                const LocalUserSettings = collection.modelClass as any;
+                await LocalUserSettings.handleSync(database, item, activeUser);
+                continue; // Skip the standard processing
+              }
+              
               // Try to find existing record
               const existingRecords = await collection.query(
                 Q.where('sync_id', item.sync_id)
               ).fetch();
 
               // Deserialize data before creating/updating record
-              const deserializedData = await collection.modelClass.deserialize(item, database);
+              const deserializedData = await (collection.modelClass as any).deserialize(item, database);
 
               if (existingRecords.length === 0) {
                 // Record doesn't exist - create new one
                 await collection.create(record => {
                   Object.assign(record._raw, deserializedData);
-                  record._raw.owner = activeUser;
+                  (record._raw as any).owner = activeUser;
+                  (record._raw as any).sync_status = 'synced';
                 });
               } else {
                 // Record exists - check if update needed
                 const existingRecord = existingRecords[0];
-                if (new Date(item.last_update) > new Date(existingRecord._raw.last_update)) {
+                if (new Date(item.last_update) > new Date((existingRecord._raw as any).last_update)) {
                   await existingRecord.update(record => {
                     Object.assign(record._raw, deserializedData);
-                    record._raw.owner = activeUser;
+                    (record._raw as any).owner = activeUser;
+                    (record._raw as any).sync_status = 'synced';
                   });
                 }
               }
@@ -327,23 +335,32 @@ class SyncService {
             const table = this.getTableName(item.object_type);
             const collection = database.get(table);
             
+            // Special handling for user_settings
+            if (item.object_type === 'user_settings') {
+              const LocalUserSettings = collection.modelClass as any;
+              await LocalUserSettings.handleSync(database, item, activeUser);
+              continue; // Skip the standard processing
+            }
+            
             const existingRecords = await collection.query(
               Q.where('sync_id', item.sync_id)
             ).fetch();
 
-            const deserializedData = await collection.modelClass.deserialize(item, database);
+            const deserializedData = await (collection.modelClass as any).deserialize(item, database);
 
             if (existingRecords.length === 0) {
               await collection.create(record => {
                 Object.assign(record._raw, deserializedData);
-                record._raw.owner = activeUser;
+                (record._raw as any).owner = activeUser;
+                (record._raw as any).sync_status = 'synced';
               });
             } else {
               const existingRecord = existingRecords[0];
-              if (new Date(item.last_update) > new Date(existingRecord._raw.last_update)) {
+              if (new Date(item.last_update) > new Date((existingRecord._raw as any).last_update)) {
                 await existingRecord.update(record => {
                   Object.assign(record._raw, deserializedData);
-                  record._raw.owner = activeUser;
+                  (record._raw as any).owner = activeUser;
+                  (record._raw as any).sync_status = 'synced';
                 });
               }
             }
@@ -461,28 +478,35 @@ class SyncService {
             const table = this.getTableName(item.object_type);
             const collection = database.get(table);
             
+            // Special handling for user_settings
+            if (item.object_type === 'user_settings') {
+              const LocalUserSettings = collection.modelClass as any;
+              await LocalUserSettings.handleSync(database, item, activeUser);
+              continue; // Skip the standard processing
+            }
+            
             // Try to find existing record
             const existingRecords = await collection.query(
               Q.where('sync_id', item.sync_id)
             ).fetch();
 
             // Deserialize data before creating/updating record
-            const deserializedData = await collection.modelClass.deserialize(item, database);
+            const deserializedData = await (collection.modelClass as any).deserialize(item, database);
 
             if (existingRecords.length === 0) {
               // Record doesn't exist - create new one
               await collection.create(record => {
                 Object.assign(record._raw, deserializedData);
-                record._raw.owner = activeUser;
-                record._raw.sync_status = 'synced';
+                (record._raw as any).owner = activeUser;
+                (record._raw as any).sync_status = 'synced';
               });
             } else {
               // Record exists - update it
               const existingRecord = existingRecords[0];
               await existingRecord.update(record => {
                 Object.assign(record._raw, deserializedData);
-                record._raw.owner = activeUser;
-                record._raw.sync_status = 'synced';
+                (record._raw as any).owner = activeUser;
+                (record._raw as any).sync_status = 'synced';
               });
             }
           } catch (itemError) {
@@ -505,24 +529,31 @@ class SyncService {
               const table = this.getTableName(item.object_type);
               const collection = database.get(table);
               
+              // Special handling for user_settings
+              if (item.object_type === 'user_settings') {
+                const LocalUserSettings = collection.modelClass as any;
+                await LocalUserSettings.handleSync(database, item, activeUser);
+                continue; // Skip the standard processing
+              }
+              
               const existingRecords = await collection.query(
                 Q.where('sync_id', item.sync_id)
               ).fetch();
 
-              const deserializedData = await collection.modelClass.deserialize(item, database);
+              const deserializedData = await (collection.modelClass as any).deserialize(item, database);
 
               if (existingRecords.length === 0) {
                 await collection.create(record => {
                   Object.assign(record._raw, deserializedData);
-                  record._raw.owner = activeUser;
-                  record._raw.sync_status = 'synced';
+                  (record._raw as any).owner = activeUser;
+                  (record._raw as any).sync_status = 'synced';
                 });
               } else {
                 const existingRecord = existingRecords[0];
                 await existingRecord.update(record => {
                   Object.assign(record._raw, deserializedData);
-                  record._raw.owner = activeUser;
-                  record._raw.sync_status = 'synced';
+                  (record._raw as any).owner = activeUser;
+                  (record._raw as any).sync_status = 'synced';
                 });
               }
             } catch (retryError) {

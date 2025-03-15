@@ -31,6 +31,40 @@ export default class LocalUserSettings extends BaseModel {
     };
   }
 
+  // Special method for handling settings sync by owner
+  static async handleSync(database: Database, item: UserSettingsSync, activeUser: string) {
+    try {
+      // Always look up settings by owner, not by sync_id
+      const existingSettings = await database.get<LocalUserSettings>('user_settings')
+        .query(Q.where('owner', activeUser))
+        .fetch();
+
+      const deserializedData = await this.deserialize(item);
+
+      if (existingSettings.length === 0) {
+        // Create new settings if none exist for this owner
+        return await database.get<LocalUserSettings>('user_settings').create(record => {
+          Object.assign(record._raw, deserializedData);
+          // Use type assertion to avoid TypeScript errors
+          (record._raw as any).owner = activeUser;
+          (record._raw as any).sync_status = 'synced';
+        });
+      } else {
+        // Update existing settings
+        const existingRecord = existingSettings[0];
+        return await existingRecord.update(record => {
+          Object.assign(record._raw, deserializedData);
+          // Use type assertion to avoid TypeScript errors
+          (record._raw as any).owner = activeUser;
+          (record._raw as any).sync_status = 'synced';
+        });
+      }
+    } catch (error) {
+      console.error(`[DB Settings] Error handling settings sync: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
   @writer async updateLanguage(newLanguage: 'pl' | 'en') {
     try {
       await this.update(settings => {

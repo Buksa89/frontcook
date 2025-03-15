@@ -59,6 +59,10 @@ export default class BaseModel extends Model {
     try {
       console.log(`[DB ${this.table}] Updating record ${this.id}`);
       
+      // Zapamiętaj początkowe wartości
+      const initialSyncStatus = this._raw.sync_status;
+      const initialLastUpdate = this._raw.last_update;
+      
       const result = await super.update(record => {
         // First apply the user's updates if provided
         if (recordUpdater) {
@@ -66,13 +70,22 @@ export default class BaseModel extends Model {
           console.log(`[DB ${this.table}] Record ${this.id} updated with:`, record._raw);
         }
         
-        // Then update sync fields only if they weren't set
-        if (!record._raw.sync_status) {
+        // Sprawdź, czy sync_status został jawnie zmieniony
+        const syncStatusChanged = record._raw.sync_status !== initialSyncStatus;
+        
+        // Jeśli sync_status nie został jawnie zmieniony, ustaw go na 'pending'
+        if (!syncStatusChanged) {
           record._raw.sync_status = 'pending';
         }
-        if (!record._raw.last_update) {
+        
+        // Sprawdź, czy last_update został jawnie zmieniony
+        const lastUpdateChanged = record._raw.last_update !== initialLastUpdate;
+        
+        // Jeśli last_update nie został jawnie zmieniony, zaktualizuj go
+        if (!lastUpdateChanged) {
           record._raw.last_update = new Date().toISOString();
         }
+        
         record._raw.is_local = true;
       });
 
