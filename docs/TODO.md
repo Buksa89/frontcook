@@ -1,5 +1,7 @@
 sync
 
+ (NOBRIDGE) ERROR  [Sync Service] Push sync failed: [ApiError: {'user': ['User settings with this User already exists.']}]
+ (NOBRIDGE) ERROR  [Sync Service] Sync failed: [ApiError: {'user': ['User settings with this User already exists.']}]
 
 dodaj dodawanie tagow w trakcie tworzeni/edycji przpeisu
 react-toastify - moze pomoc z wygladem alertow

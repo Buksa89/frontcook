@@ -5,6 +5,7 @@ import AuthStorage from '../services/auth/authStorage';
 import api from '../api';
 import LocalSyncService from '../services/sync/LocalSyncService';
 import { Alert } from 'react-native';
+import syncService from '../services/sync/syncService';
 
 interface AuthContextType {
   active_user: string | null;
@@ -30,8 +31,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Ustawienie handlera refreshToken i gettera accessToken w API podczas inicjalizacji
   useEffect(() => {
     api.setRefreshTokenHandler(refreshToken);
-    api.setAccessTokenGetter(async () => accessToken);
-  }, [accessToken]);
+    const tokenGetter = async () => accessToken;
+    const userGetter = async () => activeUser;
+    api.setAccessTokenGetter(tokenGetter);
+    syncService.setAccessTokenGetter(tokenGetter);
+    syncService.setActiveUserGetter(userGetter);
+
+    // Start sync if we have both token and user
+    if (accessToken && activeUser) {
+      syncService.startBackgroundSync(activeUser);
+    }
+  }, [accessToken, activeUser]);
 
   // Pobieranie danych autoryzacyjnych z storage przy starcie aplikacji
   useEffect(() => {
@@ -120,6 +130,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
+      // Stop background sync before logout
+      syncService.stopBackgroundSync();
+      
       // Pobierz tokeny przed wyczyszczeniem
       const refreshToken = await AuthStorage.retrieveRefreshToken();
       const currentAccessToken = accessToken;

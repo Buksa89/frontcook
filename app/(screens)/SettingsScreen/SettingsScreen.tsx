@@ -97,6 +97,8 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      {isAuthenticated ? <PasswordChange /> : <LoginPrompt />}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Język</Text>
         
@@ -145,43 +147,37 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {isAuthenticated ? <PasswordChange /> : <LoginPrompt />}
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Przepisy</Text>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <MaterialIcons name="translate" size={24} color="#666" />
-            <Text style={styles.settingText}>Automatycznie tłumacz przepisy</Text>
+      {isAuthenticated && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Przepisy</Text>
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <MaterialIcons name="translate" size={24} color="#666" />
+              <Text style={styles.settingText}>Automatycznie tłumacz przepisy</Text>
+            </View>
+            <Switch
+              value={autoTranslate}
+              onValueChange={updateAutoTranslate}
+              trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
+              thumbColor={autoTranslate ? '#2196F3' : '#f4f3f4'}
+            />
           </View>
-          <Switch
-            value={autoTranslate}
-            onValueChange={updateAutoTranslate}
-            trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
-            thumbColor={autoTranslate ? '#2196F3' : '#f4f3f4'}
-          />
-        </View>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <MaterialIcons name="people" size={24} color="#666" />
-            <Text style={styles.settingText}>Pozwól znajomym przeglądać moje przepisy</Text>
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <MaterialIcons name="people" size={24} color="#666" />
+              <Text style={styles.settingText}>Pozwól znajomym przeglądać moje przepisy</Text>
+            </View>
+            <Switch
+              value={allowFriendsViews}
+              onValueChange={updateAllowFriendsViews}
+              trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
+              thumbColor={allowFriendsViews ? '#2196F3' : '#f4f3f4'}
+            />
           </View>
-          <Switch
-            value={allowFriendsViews}
-            onValueChange={updateAllowFriendsViews}
-            trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
-            thumbColor={allowFriendsViews ? '#2196F3' : '#f4f3f4'}
-          />
         </View>
-      </View>
-
-      <View style={styles.infoSection}>
-        <Text style={styles.infoText}>
-          Zmiany są zapisywane automatycznie po każdej modyfikacji.
-        </Text>
-      </View>
+      )}
     </ScrollView>
   );
 }

@@ -20,6 +20,10 @@ export const LoginPrompt: React.FC = () => {
             <MaterialIcons name="people" size={20} color="#2196F3" />
             <Text style={styles.loginPromptFeatureText}>Funkcje społecznościowe</Text>
           </View>
+          <View style={styles.loginPromptFeature}>
+            <MaterialIcons name="camera-alt" size={20} color="#2196F3" />
+            <Text style={styles.loginPromptFeatureText}>Dodawanie przepisów ze zdjęć i stron internetowych</Text>
+          </View>
         </View>
         <TouchableOpacity 
           style={styles.loginButton}
