@@ -3,12 +3,10 @@ import { associations } from '@nozbe/watermelondb'
 import Recipe from './Recipe'
 import Tag from './Tag'
 import BaseModel from './BaseModel'
-import { SyncItemType, RecipeTagSync } from '../../app/api/sync'
 import { Q } from '@nozbe/watermelondb'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 import { Database } from '@nozbe/watermelondb'
-import { Model } from '@nozbe/watermelondb'
 
 export default class RecipeTag extends BaseModel {
   static table = 'recipe_tags'
@@ -17,6 +15,7 @@ export default class RecipeTag extends BaseModel {
     tags: { type: 'belongs_to' as const, key: 'tag_id' }
   }
 
+  // Fields specific to RecipeTag
   @field('recipe_id') recipeId!: string
   @field('tag_id') tagId!: string
 
@@ -24,6 +23,18 @@ export default class RecipeTag extends BaseModel {
   @relation('recipes', 'recipe_id') recipe!: Recipe
   @relation('tags', 'tag_id') tag!: Tag
 
+  // Helper method to get sync data for this recipe tag
+  getSyncData(): Record<string, any> {
+    const baseData = super.getSyncData();
+    return {
+      ...baseData,
+      object_type: 'recipe_tag',
+      recipe: this.recipe?.syncId,
+      tag: this.tag?.syncId
+    };
+  }
+
+  // Helper method to create a recipe tag
   static async createRecipeTag(
     database: Database,
     recordUpdater: (record: RecipeTag) => void
@@ -33,72 +44,51 @@ export default class RecipeTag extends BaseModel {
       const collection = database.get<RecipeTag>('recipe_tags');
       const activeUser = await AuthService.getActiveUser();
       
-      // Używamy podejścia podobnego do BaseModel.create
-      const record = await collection.create((record: any) => {
-        // Inicjalizacja pól bazowych
-        record.synchStatus = 'pending';
-        record.lastUpdate = new Date().toISOString();
-        record.isLocal = true;
-        record.isDeleted = false;
-        record.syncId = uuidv4();
-        record.owner = activeUser;
-        
-        // Zastosowanie aktualizacji użytkownika
-        recordUpdater(record as RecipeTag);
-        console.log(`[DB ${this.table}] New recipe tag created with:`, record._raw);
-      });
+      return await database.write(async () => {
+        const record = await collection.create((newRecord: RecipeTag) => {
+          // Initialize base fields
+          newRecord.syncStatus = 'pending';
+          newRecord.lastUpdate = new Date().toISOString();
+          newRecord.isDeleted = false;
+          newRecord.syncId = uuidv4();
+          newRecord.owner = activeUser;
+          
+          // Apply user's updates
+          recordUpdater(newRecord);
+          console.log(`[DB ${this.table}] New recipe tag created`);
+        });
 
-      return record;
+        return record;
+      });
     } catch (error) {
       console.error(`[DB ${this.table}] Error creating recipe tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
 
-  serialize(): RecipeTagSync {
-    const base = super.serialize();
-    return {
-      ...base,
-      object_type: 'recipe_tag',
-      recipe: this.recipe.syncId,  // Use sync_id of the recipe
-      tag: this.tag.syncId        // Use sync_id of the tag
-    };
+  // Static method to find recipe tags by recipe ID
+  static async findByRecipeId(database: Database, recipeId: string): Promise<RecipeTag[]> {
+    return await database
+      .get<RecipeTag>('recipe_tags')
+      .query(
+        Q.and(
+          Q.where('recipe_id', recipeId),
+          Q.where('is_deleted', false)
+        )
+      )
+      .fetch();
   }
 
-  static async deserialize(item: SyncItemType, database: Database) {
-    if (item.object_type !== 'recipe_tag') {
-      throw new Error(`Invalid object type for RecipeTag: ${item.object_type}`);
-    }
-
-    const baseFields = await BaseModel.deserialize(item);
-    const recipeTagItem = item as unknown as RecipeTagSync;
-    
-    if (!recipeTagItem.recipe || !recipeTagItem.tag) {
-      throw new Error(`Missing recipe or tag for recipe_tag ${item.sync_id}`);
-    }
-
-    // Find recipe by sync_id
-    const recipes = await database.get('recipes').query(
-      Q.where('sync_id', recipeTagItem.recipe)
-    ).fetch();
-    
-    if (recipes.length === 0) {
-      throw new Error(`Recipe with sync_id ${recipeTagItem.recipe} not found`);
-    }
-
-    // Find tag by sync_id
-    const tags = await database.get('tags').query(
-      Q.where('sync_id', recipeTagItem.tag)
-    ).fetch();
-
-    if (tags.length === 0) {
-      throw new Error(`Tag with sync_id ${recipeTagItem.tag} not found`);
-    }
-
-    return {
-      ...baseFields,
-      recipe_id: recipes[0].id,
-      tag_id: tags[0].id
-    };
+  // Static method to find recipe tags by tag ID
+  static async findByTagId(database: Database, tagId: string): Promise<RecipeTag[]> {
+    return await database
+      .get<RecipeTag>('recipe_tags')
+      .query(
+        Q.and(
+          Q.where('tag_id', tagId),
+          Q.where('is_deleted', false)
+        )
+      )
+      .fetch();
   }
 } 

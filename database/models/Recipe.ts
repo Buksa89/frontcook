@@ -8,7 +8,6 @@ import RecipeTag from './RecipeTag'
 import Ingredient from './Ingredient'
 import { switchMap } from 'rxjs/operators'
 import { Model } from '@nozbe/watermelondb'
-import { SyncItemType, RecipeSync } from '../../app/api/sync'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 
@@ -34,6 +33,25 @@ export default class Recipe extends BaseModel {
     ingredients: { type: 'has_many' as const, foreignKey: 'recipe_id' }
   }
 
+  // Fields specific to Recipe
+  @text('name') name!: string
+  @text('description') description!: string | null
+  @text('image') image!: string | null
+  @field('rating') rating!: number | null
+  @field('is_approved') isApproved!: boolean
+  @field('prep_time') prepTime!: number | null
+  @field('total_time') totalTime!: number | null
+  @field('servings') servings!: number | null
+  @text('instructions') instructions!: string
+  @text('notes') notes!: string | null
+  @text('nutrition') nutrition!: string | null
+  @text('video') video!: string | null
+  @text('source') source!: string | null
+
+  // Children relations
+  @children('recipe_tags') recipeTags!: Observable<RecipeTag[]>
+  @children('ingredients') ingredients!: Observable<Ingredient[]>
+
   // Query methods
   static observeAll(database: Database): Observable<Recipe[]> {
     return from(AuthService.getActiveUser()).pipe(
@@ -51,6 +69,7 @@ export default class Recipe extends BaseModel {
     );
   }
 
+  // Helper method to save a recipe (create or update)
   static async saveRecipe(database: Database, data: RecipeData, existingRecipe?: Recipe): Promise<Recipe> {
     return await database.write(async () => {
       let recipe: Recipe;
@@ -102,19 +121,33 @@ export default class Recipe extends BaseModel {
         }
       } else {
         // Create new recipe
-        recipe = await Recipe.createRecipe(database, record => {
-          record.name = data.name;
-          record.description = data.description || null;
-          record.prepTime = parseInt(data.prepTime || '0') || 0;
-          record.totalTime = parseInt(data.totalTime || '0') || 0;
-          record.servings = parseInt(data.servings || '1') || 1;
-          record.instructions = data.instructions;
-          record.notes = data.notes || null;
-          record.nutrition = data.nutrition || null;
-          record.video = data.video || null;
-          record.source = data.source || null;
-          record.rating = 0;
-          record.isApproved = true;
+        const activeUser = await AuthService.getActiveUser();
+        
+        recipe = await database.write(async () => {
+          const newRecipe = await database.get<Recipe>('recipes').create((record: Recipe) => {
+            // Initialize base fields
+            record.syncStatus = 'pending';
+            record.lastUpdate = new Date().toISOString();
+            record.isDeleted = false;
+            record.syncId = uuidv4();
+            record.owner = activeUser;
+            
+            // Set recipe-specific fields
+            record.name = data.name;
+            record.description = data.description || null;
+            record.prepTime = parseInt(data.prepTime || '0') || 0;
+            record.totalTime = parseInt(data.totalTime || '0') || 0;
+            record.servings = parseInt(data.servings || '1') || 1;
+            record.instructions = data.instructions;
+            record.notes = data.notes || null;
+            record.nutrition = data.nutrition || null;
+            record.video = data.video || null;
+            record.source = data.source || null;
+            record.rating = 0;
+            record.isApproved = true;
+          });
+          
+          return newRecipe;
         });
 
         // Create tag relationships for new recipe
@@ -146,59 +179,11 @@ export default class Recipe extends BaseModel {
     });
   }
 
-  static async createRecipe(
-    database: Database,
-    recordUpdater: (record: Recipe) => void
-  ): Promise<Recipe> {
-    try {
-      const collection = database.get<Recipe>('recipes');
-      const activeUser = await AuthService.getActiveUser();
-      
-      const record = await collection.create((record: any) => {
-        console.log(`[DB ${this.table}] Creating new recipe`);
-        
-        // Initialize base fields first
-        record.synchStatus = 'pending';
-        record.lastUpdate = new Date().toISOString();
-        record.isLocal = true;
-        record.isDeleted = false;
-        record.syncId = uuidv4();
-        record.owner = activeUser;
-        
-        // Then apply user's updates
-        recordUpdater(record as Recipe);
-        console.log(`[DB ${this.table}] New recipe created with:`, record._raw);
-      });
-
-      return record;
-    } catch (error) {
-      console.error(`[DB ${this.table}] Error creating recipe: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  @text('name') name!: string
-  @text('description') description!: string | null
-  @text('image') image!: string | null
-  @field('rating') rating!: number | null
-  @field('is_approved') isApproved!: boolean
-  @field('prep_time') prepTime!: number | null
-  @field('total_time') totalTime!: number | null
-  @field('servings') servings!: number | null
-  @text('instructions') instructions!: string
-  @text('notes') notes!: string | null
-  @text('nutrition') nutrition!: string | null
-  @text('video') video!: string | null
-  @text('source') source!: string | null
-
-  // Children relations
-  @children('recipe_tags') recipeTags!: Observable<RecipeTag[]>
-  @children('ingredients') ingredients!: Observable<Ingredient[]>
-
-  serialize(): RecipeSync {
-    const base = super.serialize();
+  // Helper method to get sync data for this recipe
+  getSyncData(): Record<string, any> {
+    const baseData = super.getSyncData();
     return {
-      ...base,
+      ...baseData,
       object_type: 'recipe',
       name: this.name,
       description: this.description,
@@ -217,7 +202,7 @@ export default class Recipe extends BaseModel {
   }
 
   // Override markAsDeleted to also delete related recipe_tags and ingredients
-  async markAsDeleted(cascade: boolean = true): Promise<void> {
+  async markAsDeleted(): Promise<void> {
     try {
       await this.database.write(async () => {
         // Get all related records before marking recipe as deleted
@@ -237,16 +222,22 @@ export default class Recipe extends BaseModel {
           // Mark recipe as deleted
           this.prepareUpdate(() => {
             this.isDeleted = true;
+            this.syncStatus = 'pending';
+            this.lastUpdate = new Date().toISOString();
           }),
           // Mark all related records as deleted
           ...relatedRecipeTags.map(recipeTag => 
             recipeTag.prepareUpdate(() => {
               recipeTag.isDeleted = true;
+              recipeTag.syncStatus = 'pending';
+              recipeTag.lastUpdate = new Date().toISOString();
             })
           ),
           ...relatedIngredients.map(ingredient => 
             ingredient.prepareUpdate(() => {
               ingredient.isDeleted = true;
+              ingredient.syncStatus = 'pending';
+              ingredient.lastUpdate = new Date().toISOString();
             })
           )
         ];
@@ -267,27 +258,5 @@ export default class Recipe extends BaseModel {
     await this.update(recipe => {
       recipe.rating = newRating
     })
-  }
-
-  static async deserialize(item: SyncItemType, database: Database) {
-    const baseFields = await BaseModel.deserialize(item);
-    const recipeItem = item as RecipeSync;
-    
-    return {
-      ...baseFields,
-      name: recipeItem.name,
-      description: recipeItem.description,
-      image: recipeItem.image,
-      rating: recipeItem.rating,
-      is_approved: recipeItem.is_approved,
-      prep_time: recipeItem.prep_time,
-      total_time: recipeItem.total_time,
-      servings: recipeItem.servings,
-      instructions: recipeItem.instructions,
-      notes: recipeItem.notes,
-      nutrition: recipeItem.nutrition,
-      video: recipeItem.video,
-      source: recipeItem.source
-    };
   }
 } 

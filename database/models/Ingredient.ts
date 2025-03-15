@@ -1,21 +1,31 @@
 import { field, text, relation } from '@nozbe/watermelondb/decorators'
 import { associations } from '@nozbe/watermelondb'
-import { Database, Model } from '@nozbe/watermelondb'
+import { Database, Model, Collection } from '@nozbe/watermelondb'
 import { Q } from '@nozbe/watermelondb'
 import BaseModel from './BaseModel'
 import Recipe from './Recipe'
 import { parseIngredient } from '../../app/utils/ingredientParser'
 import { Observable, from } from 'rxjs'
 import { switchMap } from 'rxjs/operators'
-import { SyncItemType, IngredientSync } from '../../app/api/sync'
 import { v4 as uuidv4 } from 'uuid'
-import AuthService from '../../app/services/auth/authService'
 
 export default class Ingredient extends BaseModel {
   static table = 'ingredients'
   static associations = {
     recipes: { type: 'belongs_to', key: 'recipe_id' }
   } as const
+
+  // Fields specific to Ingredient
+  @field('amount') amount!: number | null
+  @text('unit') unit!: string | null
+  @text('name') name!: string
+  @text('type') type!: string | null
+  @field('recipe_id') recipeId!: string
+  @field('order') order!: number
+  @text('original_str') originalStr!: string
+
+  // Relation to access the related Recipe
+  @relation('recipes', 'recipe_id') recipe!: Recipe
 
   // Query methods
   static observeForRecipe(database: Database, recipeId: string): Observable<Ingredient[]> {
@@ -71,7 +81,7 @@ export default class Ingredient extends BaseModel {
       ...existingIngredients.map(ingredient => 
         ingredient.prepareUpdate(record => {
           record.isDeleted = true;
-          record.synchStatus = 'pending';
+          record.syncStatus = 'pending';
           record.lastUpdate = new Date().toISOString();
         })
       ),
@@ -88,9 +98,8 @@ export default class Ingredient extends BaseModel {
           ingredient.type = null;
           
           // Initialize base fields
-          ingredient.synchStatus = 'pending';
+          ingredient.syncStatus = 'pending';
           ingredient.lastUpdate = new Date().toISOString();
-          ingredient.isLocal = true;
           ingredient.isDeleted = false;
           ingredient.syncId = uuidv4();
         });
@@ -100,95 +109,28 @@ export default class Ingredient extends BaseModel {
     return operations;
   }
 
-  @field('amount') amount!: number | null
-  @text('unit') unit!: string | null
-  @text('name') name!: string
-  @text('type') type!: string | null
-  @field('recipe_id') recipeId!: string
-  @field('order') order!: number
-  @text('original_str') originalStr!: string
-
-  // Relation to access the related Recipe
-  @relation('recipes', 'recipe_id') recipe!: Recipe
-
-  serialize(): IngredientSync {
-    const base = super.serialize();
+  // Helper method to get sync data for this ingredient
+  getSyncData(): Record<string, any> {
+    const baseData = super.getSyncData();
     return {
-      ...base,
+      ...baseData,
       object_type: 'ingredient',
       name: this.name,
       amount: this.amount,
       unit: this.unit,
       type: this.type,
       order: this.order,
-      recipe: this.recipe.syncId,  // Use sync_id of the recipe
-      original_str: this.originalStr
+      original_str: this.originalStr,
+      recipe: this.recipe?.syncId  // Use sync_id of the recipe
     };
   }
 
-  static async deserialize(item: SyncItemType, database: Database) {
-    if (item.object_type !== 'ingredient') {
-      throw new Error(`Invalid object type for Ingredient: ${item.object_type}`);
-    }
-    console.log('item', item);
-    const baseFields = await BaseModel.deserialize(item);
-    const ingredientItem = item as IngredientSync;
+  // Static method to find a recipe by sync_id
+  static async findRecipeBySyncId(database: Database, recipeSyncId: string): Promise<Recipe | null> {
+    const recipes = await database.get<Recipe>('recipes')
+      .query(Q.where('sync_id', recipeSyncId))
+      .fetch();
     
-    if (!ingredientItem.recipe) {
-      throw new Error(`Missing recipe for ingredient ${item.sync_id}`);
-    }
-
-    // Find recipe by sync_id
-    const recipes = await database.get('recipes').query(
-      Q.where('sync_id', ingredientItem.recipe)
-    ).fetch();
-    
-    if (recipes.length === 0) {
-      throw new Error(`Recipe with sync_id ${ingredientItem.recipe} not found`);
-    }
-    
-    console.log(`[Ingredient] Found recipe ${recipes[0].id} for sync_id ${ingredientItem.recipe}`);
-    
-    return {
-      ...baseFields,
-      amount: ingredientItem.amount,
-      unit: ingredientItem.unit,
-      name: ingredientItem.name,
-      type: ingredientItem.type,
-      recipe_id: recipes[0].id,
-      order: ingredientItem.order,
-      original_str: ingredientItem.original_str
-    };
-  }
-
-  static async createIngredient(
-    database: Database,
-    recordUpdater: (record: Ingredient) => void
-  ): Promise<Ingredient> {
-    try {
-      const collection = database.get<Ingredient>('ingredients');
-      const activeUser = await AuthService.getActiveUser();
-      
-      const record = await collection.create((record: any) => {
-        console.log(`[DB ${this.table}] Creating new ingredient`);
-        
-        // Initialize base fields first
-        record.synchStatus = 'pending';
-        record.lastUpdate = new Date().toISOString();
-        record.isLocal = true;
-        record.isDeleted = false;
-        record.syncId = uuidv4();
-        record.owner = activeUser;
-        
-        // Then apply user's updates
-        recordUpdater(record as Ingredient);
-        console.log(`[DB ${this.table}] New ingredient created with:`, record._raw);
-      });
-
-      return record;
-    } catch (error) {
-      console.error(`[DB ${this.table}] Error creating ingredient: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
+    return recipes.length > 0 ? recipes[0] : null;
   }
 } 

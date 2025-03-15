@@ -7,7 +7,7 @@ import BaseModel from './BaseModel'
 import RecipeTag from './RecipeTag'
 import AuthService from '../../app/services/auth/authService'
 import { Model } from '@nozbe/watermelondb'
-import { SyncItemType, TagSync } from '../../app/api/sync'
+import { v4 as uuidv4 } from 'uuid'
 
 export default class Tag extends BaseModel {
   static table = 'tags'
@@ -15,16 +15,23 @@ export default class Tag extends BaseModel {
     recipe_tags: { type: 'has_many' as const, foreignKey: 'tag_id' }
   }
 
+  // Fields specific to Tag
   @field('order') order!: number
   @text('name') name!: string
 
   // Children relation to access recipe_tags
   @children('recipe_tags') recipeTags!: Observable<RecipeTag[]>
 
-  serialize(): TagSync {
-    const base = super.serialize();
+  // Derived fields
+  get displayName() {
+    return this.name.charAt(0).toUpperCase() + this.name.slice(1).toLowerCase()
+  }
+
+  // Helper method to get sync data for this tag
+  getSyncData(): Record<string, any> {
+    const baseData = super.getSyncData();
     return {
-      ...base,
+      ...baseData,
       object_type: 'tag',
       name: this.name,
       order: this.order
@@ -85,8 +92,17 @@ export default class Tag extends BaseModel {
         .fetch();
       
       const maxOrder = lastTag.length > 0 ? lastTag[0].order : -1;
+      const activeUser = await AuthService.getActiveUser();
       
-      return await Tag.create(database, record => {
+      return await collection.create((record: Tag) => {
+        // Initialize base fields
+        record.syncStatus = 'pending';
+        record.lastUpdate = new Date().toISOString();
+        record.isDeleted = false;
+        record.syncId = uuidv4();
+        record.owner = activeUser;
+        
+        // Set tag-specific fields
         record.name = name.trim();
         record.order = maxOrder + 1;
       });
@@ -94,42 +110,41 @@ export default class Tag extends BaseModel {
   }
 
   // Override markAsDeleted to also delete related recipe_tags
-  async markAsDeleted(cascade: boolean = true): Promise<void> {
+  async markAsDeleted(): Promise<void> {
     try {
-      // Get all related recipe_tags before marking tag as deleted
-      const relatedRecipeTags = await this.collections
-        .get<RecipeTag>('recipe_tags')
-        .query(Q.where('tag_id', this.id))
-        .fetch();
+      await this.database.write(async () => {
+        // Get all related recipe_tags before marking tag as deleted
+        const relatedRecipeTags = await this.collections
+          .get<RecipeTag>('recipe_tags')
+          .query(Q.where('tag_id', this.id))
+          .fetch();
 
-      // Mark all related recipe_tags as deleted
-      await Promise.all(
-        relatedRecipeTags.map(recipeTag => recipeTag.markAsDeleted())
-      );
+        // Prepare all operations
+        const operations = [
+          // Mark tag as deleted
+          this.prepareUpdate(() => {
+            this.isDeleted = true;
+            this.syncStatus = 'pending';
+            this.lastUpdate = new Date().toISOString();
+          }),
+          // Mark all related recipe_tags as deleted
+          ...relatedRecipeTags.map(recipeTag => 
+            recipeTag.prepareUpdate(() => {
+              recipeTag.isDeleted = true;
+              recipeTag.syncStatus = 'pending';
+              recipeTag.lastUpdate = new Date().toISOString();
+            })
+          )
+        ];
 
-      // Mark the tag itself as deleted
-      await super.markAsDeleted();
-      
-      console.log(`[DB ${this.table}] Successfully marked tag ${this.id} and ${relatedRecipeTags.length} related recipe_tags as deleted`);
+        // Execute all operations in a batch
+        await this.database.batch(...operations);
+        
+        console.log(`[DB ${this.table}] Successfully marked tag ${this.id} and ${relatedRecipeTags.length} related recipe_tags as deleted`);
+      });
     } catch (error) {
       console.error(`[DB ${this.table}] Error marking tag and related recipe_tags as deleted: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
-  }
-
-  // Derived fields
-  get displayName() {
-    return this.name.charAt(0).toUpperCase() + this.name.slice(1).toLowerCase()
-  }
-
-  static async deserialize(item: SyncItemType, database: Database) {
-    const baseFields = await BaseModel.deserialize(item);
-    const tagItem = item as TagSync;
-    
-    return {
-      ...baseFields,
-      name: tagItem.name,
-      order: tagItem.order
-    };
   }
 }

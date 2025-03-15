@@ -6,23 +6,24 @@ import BaseModel from './BaseModel'
 import AuthService from '../../app/services/auth/authService'
 import { map } from 'rxjs/operators'
 import { parseIngredient } from '../../app/utils/ingredientParser'
-import { Model } from '@nozbe/watermelondb'
-import { SyncItemType, ShoppingItemSync } from '../../app/api/sync'
+import { v4 as uuidv4 } from 'uuid'
 
 export default class ShoppingItem extends BaseModel {
   static table = 'shopping_items'
 
+  // Fields specific to ShoppingItem
   @field('amount') amount!: number
   @text('unit') unit!: string | null
   @text('name') name!: string
   @text('type') type!: string | null
   @field('order') order!: number
-  @field('is_checked', { default: false }) isChecked!: boolean
+  @field('is_checked') isChecked!: boolean
   
-  serialize(): ShoppingItemSync {
-    const base = super.serialize();
+  // Helper method to get sync data for this shopping item
+  getSyncData(): Record<string, any> {
+    const baseData = super.getSyncData();
     return {
-      ...base,
+      ...baseData,
       object_type: 'shopping_item',
       name: this.name,
       amount: this.amount,
@@ -32,7 +33,7 @@ export default class ShoppingItem extends BaseModel {
       is_checked: this.isChecked
     };
   }
-
+  
   // Query methods
   static observeAll(database: Database): Observable<ShoppingItem[]> {
     return new Observable<ShoppingItem[]>(subscriber => {
@@ -185,13 +186,23 @@ export default class ShoppingItem extends BaseModel {
             .fetch();
           
           const maxOrder = lastItem.length > 0 ? lastItem[0].order : -1;
+          const activeUser = await AuthService.getActiveUser();
           
-          return await ShoppingItem.create(database, record => {
+          return await database.get<ShoppingItem>('shopping_items').create((record: ShoppingItem) => {
+            // Initialize base fields
+            record.syncStatus = 'pending';
+            record.lastUpdate = new Date().toISOString();
+            record.isDeleted = false;
+            record.syncId = uuidv4();
+            record.owner = activeUser;
+            
+            // Set shopping item specific fields
             record.name = parsed.name;
             record.amount = parsed.amount;
             record.unit = parsed.unit;
             record.type = null;
             record.order = maxOrder + 1;
+            record.isChecked = false;
           });
         }
       } catch (error) {
@@ -270,20 +281,5 @@ export default class ShoppingItem extends BaseModel {
       console.error(`[DB ShoppingItem] Error updating with parsed text: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
-  }
-
-  static async deserialize(item: SyncItemType, database: Database) {
-    const baseFields = await BaseModel.deserialize(item);
-    const shoppingItem = item as ShoppingItemSync;
-    
-    return {
-      ...baseFields,
-      amount: typeof shoppingItem.amount === 'string' ? parseFloat(shoppingItem.amount) : shoppingItem.amount,
-      unit: shoppingItem.unit,
-      name: shoppingItem.name,
-      type: shoppingItem.type,
-      order: shoppingItem.order,
-      is_checked: shoppingItem.is_checked
-    };
   }
 } 

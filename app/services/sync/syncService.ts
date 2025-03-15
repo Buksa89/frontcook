@@ -6,6 +6,13 @@ import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import { asyncStorageService } from '../storage';
 import api from '../../api/api';
+import BaseModel from '../../../database/models/BaseModel';
+import Recipe from '../../../database/models/Recipe';
+import Tag from '../../../database/models/Tag';
+import RecipeTag from '../../../database/models/RecipeTag';
+import Ingredient from '../../../database/models/Ingredient';
+import ShoppingItem from '../../../database/models/ShoppingItem';
+import UserSettings from '../../../database/models/UserSettings';
 
 // Interface for the pull response items
 interface PullResponseItem {
@@ -13,69 +20,26 @@ interface PullResponseItem {
   sync_id: string;
   last_update: string;
   is_deleted: boolean;
-  name?: string;
-  description?: string | null;
-  image?: string | null;
-  rating?: number | null;
-  is_approved?: boolean;
-  prep_time?: number | null;
-  total_time?: number | null;
-  servings?: number | null;
-  instructions?: string;
-  notes?: string | null;
-  nutrition?: string | null;
-  video?: string | null;
-  source?: string | null;
-  amount?: number | null;
-  unit?: string | null;
-  type?: string | null;
-  order?: number;
-  is_checked?: boolean;
-  recipe_id?: string;
-  original_str?: string;
-  recipe?: string;
-  tag?: string;
-  language?: string;
+  owner: string;
   [key: string]: any;
 }
 
-
 const BATCH_SIZE = 20;
-const SYNC_INTERVAL = 30000//5 * 60 * 1000; // 5 minut
-const MIN_SYNC_INTERVAL = 30 * 1000; // 30 sekund - minimalny czas między synchronizacjami
+const SYNC_INTERVAL = 30000; // 30 seconds
+const MIN_SYNC_INTERVAL = 30 * 1000; // 30 seconds - minimalny czas między synchronizacjami
 const IS_DEBUG = Constants.expoConfig?.extra?.isDebug || false;
 
 type TableName = 'shopping_items' | 'recipes' | 'ingredients' | 'tags' | 'user_settings' | 'recipe_tags';
 
-// Rozszerzony interfejs dla _RawRecord
-interface ExtendedRawRecord {
-  [key: string]: any;
-  sync_status: string;
-  last_update: string;
-  is_deleted: boolean;
-  owner: string | null;
-  name?: string;
-  amount?: number | string;
-  unit?: string | null;
-  type?: string | null;
-  order?: number;
-  is_checked?: boolean;
-  description?: string | null;
-  image?: string | null;
-  rating?: number | null;
-  is_approved?: boolean;
-  prep_time?: number | null;
-  total_time?: number | null;
-  servings?: number | null;
-  instructions?: string;
-  notes?: string | null;
-  nutrition?: string | null;
-  video?: string | null;
-  source?: string | null;
-  recipe_id?: string;
-  original_str?: string;
-  language?: string;
-}
+// Map of object types to model classes
+const MODEL_CLASSES = {
+  'recipe': Recipe,
+  'tag': Tag,
+  'recipe_tag': RecipeTag,
+  'ingredient': Ingredient,
+  'shopping_item': ShoppingItem,
+  'user_settings': UserSettings
+};
 
 class SyncService {
   private syncInterval: NodeJS.Timeout | null = null;
@@ -161,30 +125,25 @@ class SyncService {
   // Główna funkcja synchronizacji
   private async syncPendingRecords(owner: string): Promise<void> {
     if (this.isSyncing) {
-      console.log('[Sync Service] Sync already in progress, skipping');
       return;
     }
 
     // Sprawdź czy można wykonać synchronizację
     if (!(await this.canSync())) {
-      console.log('[Sync Service] Cannot sync right now, conditions not met');
       return;
     }
     
     try {
       this.isSyncing = true;
-      console.log('[Sync Service] Starting sync process for owner:', owner);
 
       // Pobierz timestamp ostatniej synchronizacji
       const lastSync = await asyncStorageService.getLastSync() || new Date(0).toISOString();
       console.log('[Sync Service] Last sync timestamp:', lastSync);
 
       // First push local changes to server
-      console.log('[Sync Service] Starting push phase...');
       await this.syncPush();
 
       // Then pull changes from server and get the most recent update timestamp
-      console.log('[Sync Service] Starting pull phase...');
       const mostRecentUpdate = await this.syncPull(lastSync);
 
       // Only update the last sync time if both push and pull completed successfully
@@ -192,7 +151,6 @@ class SyncService {
       if (mostRecentUpdate) {
         await asyncStorageService.storeLastSync(mostRecentUpdate);
         this.lastSyncTime = Date.now();
-        console.log('[Sync Service] Updated last sync to:', mostRecentUpdate);
       }
       
       console.log('[Sync Service] Sync process completed successfully');
@@ -226,6 +184,8 @@ class SyncService {
       user_settings: []
     };
 
+    console.log('[Sync Service] Starting pull phase...');
+
     while (hasMoreData) {
       try {
         const payload = {
@@ -233,7 +193,6 @@ class SyncService {
           limit: BATCH_SIZE
         };
 
-        console.log('[Sync Service] Making sync request with payload:', payload);
         const data = await api.post<PullResponseItem[]>('/api/sync/pull/', payload, true);
 
         if (!Array.isArray(data)) {
@@ -248,57 +207,65 @@ class SyncService {
           break;
         }
 
-        // Process each received item
-        await database.write(async () => {
+        // Group server objects by object type
+        const groupedObjects: { [key: string]: PullResponseItem[] } = {
+          recipe: [],
+          tag: [],
+          ingredient: [],
+          recipe_tag: [],
+          shopping_item: [],
+          user_settings: []
+        };
+
+        // Update most recent update time and group objects
           for (const item of data) {
-            try {
               // Update most recent update time if this item is newer
               if (!mostRecentUpdate || new Date(item.last_update) > new Date(mostRecentUpdate)) {
                 mostRecentUpdate = item.last_update;
               }
 
-              const table = this.getTableName(item.object_type);
-              const collection = database.get(table);
-              
-              // Special handling for user_settings
-              if (item.object_type === 'user_settings') {
-                const LocalUserSettings = collection.modelClass as any;
-                await LocalUserSettings.handleSync(database, item, activeUser);
-                continue; // Skip the standard processing
-              }
-              
-              // Try to find existing record
-              const existingRecords = await collection.query(
-                Q.where('sync_id', item.sync_id)
-              ).fetch();
-
-              // Deserialize data before creating/updating record
-              const deserializedData = await (collection.modelClass as any).deserialize(item, database);
-
-              if (existingRecords.length === 0) {
-                // Record doesn't exist - create new one
-                await collection.create(record => {
-                  Object.assign(record._raw, deserializedData);
-                  (record._raw as any).owner = activeUser;
-                  (record._raw as any).sync_status = 'synced';
-                });
-              } else {
-                // Record exists - check if update needed
-                const existingRecord = existingRecords[0];
-                if (new Date(item.last_update) > new Date((existingRecord._raw as any).last_update)) {
-                  await existingRecord.update(record => {
-                    Object.assign(record._raw, deserializedData);
-                    (record._raw as any).owner = activeUser;
-                    (record._raw as any).sync_status = 'synced';
-                  });
-                }
-              }
-            } catch (itemError) {
-              console.error('[Sync Service] Failed to process item:', item, itemError);
-              failedItems[item.object_type].push(item);
-            }
+          // Add to the appropriate group
+          if (groupedObjects[item.object_type]) {
+            groupedObjects[item.object_type].push(item);
           }
-        });
+        }
+
+        // Process each object type in the correct order
+        const syncOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
+        
+        for (const objectType of syncOrder) {
+          const objectsToSync = groupedObjects[objectType];
+          if (objectsToSync.length === 0) continue;
+
+          try {
+            // Process each object type with the appropriate model class
+            let result;
+            
+            switch (objectType) {
+              case 'recipe':
+                result = await (Recipe as any).pullSync(database, objectsToSync);
+                break;
+              case 'tag':
+                result = await (Tag as any).pullSync(database, objectsToSync);
+                break;
+              case 'ingredient':
+                result = await (Ingredient as any).pullSync(database, objectsToSync);
+                break;
+              case 'recipe_tag':
+                result = await (RecipeTag as any).pullSync(database, objectsToSync);
+                break;
+              case 'shopping_item':
+                result = await (ShoppingItem as any).pullSync(database, objectsToSync);
+                break;
+              case 'user_settings':
+                result = await (UserSettings as any).pullSync(database, objectsToSync);
+                break;
+            }
+          } catch (error) {
+            console.error(`[Sync Service] Error processing ${objectType} objects:`, error);
+            failedItems[objectType].push(...objectsToSync);
+          }
+        }
 
         // Update lastSync for next iteration
         const batchMostRecent = data.reduce((latest, item) => {
@@ -308,7 +275,6 @@ class SyncService {
         }, lastSync);
 
         if (batchMostRecent === lastSync) {
-          console.log('[Sync Service] No new updates found, stopping sync');
           hasMoreData = false;
           break;
         }
@@ -322,67 +288,49 @@ class SyncService {
       }
     }
 
-    // Próba ponownej synchronizacji nieudanych obiektów w odpowiedniej kolejności
-    const retryOrder: (keyof typeof failedItems)[] = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
+    // Retry failed items
+    const retryOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
     
     for (const objectType of retryOrder) {
-      const items = failedItems[objectType];
-      if (items.length === 0) continue;
+      const objectsToRetry = failedItems[objectType];
+      if (objectsToRetry.length === 0) continue;
 
-      await database.write(async () => {
-        for (const item of items) {
-          try {
-            const table = this.getTableName(item.object_type);
-            const collection = database.get(table);
-            
-            // Special handling for user_settings
-            if (item.object_type === 'user_settings') {
-              const LocalUserSettings = collection.modelClass as any;
-              await LocalUserSettings.handleSync(database, item, activeUser);
-              continue; // Skip the standard processing
-            }
-            
-            const existingRecords = await collection.query(
-              Q.where('sync_id', item.sync_id)
-            ).fetch();
-
-            const deserializedData = await (collection.modelClass as any).deserialize(item, database);
-
-            if (existingRecords.length === 0) {
-              await collection.create(record => {
-                Object.assign(record._raw, deserializedData);
-                (record._raw as any).owner = activeUser;
-                (record._raw as any).sync_status = 'synced';
-              });
-            } else {
-              const existingRecord = existingRecords[0];
-              if (new Date(item.last_update) > new Date((existingRecord._raw as any).last_update)) {
-                await existingRecord.update(record => {
-                  Object.assign(record._raw, deserializedData);
-                  (record._raw as any).owner = activeUser;
-                  (record._raw as any).sync_status = 'synced';
-                });
-              }
-            }
-          } catch (retryError) {
-            // Loguj błąd tylko jeśli druga próba się nie powiedzie
-            console.error(`[Sync Service] Failed to sync ${item.object_type} with sync_id ${item.sync_id} after retry:`, retryError);
-          }
+      try {
+        // Process each object type with the appropriate model class
+        switch (objectType) {
+          case 'recipe':
+            await (Recipe as any).pullSync(database, objectsToRetry);
+            break;
+          case 'tag':
+            await (Tag as any).pullSync(database, objectsToRetry);
+            break;
+          case 'ingredient':
+            await (Ingredient as any).pullSync(database, objectsToRetry);
+            break;
+          case 'recipe_tag':
+            await (RecipeTag as any).pullSync(database, objectsToRetry);
+            break;
+          case 'shopping_item':
+            await (ShoppingItem as any).pullSync(database, objectsToRetry);
+            break;
+          case 'user_settings':
+            await (UserSettings as any).pullSync(database, objectsToRetry);
+            break;
         }
-      });
+      } catch (error) {
+        console.error(`[Sync Service] Error retrying ${objectType} objects:`, error);
+      }
     }
 
     return mostRecentUpdate || lastSync;
   }
 
-  private async getPendingRecordsForPush(table: TableName): Promise<(Model & { _raw: ExtendedRawRecord, serialize: () => any })[]> {
+  private async getPendingRecordsForPush(table: TableName): Promise<BaseModel[]> {
     const activeUser = await this.activeUserGetter?.();
     if (!activeUser) {
       console.error('[Sync Service] No active user found');
       return [];
     }
-
-    console.log(`[Sync Service] Querying ${table} for pending records with owner: ${activeUser}`);
     
     const records = await database.get(table).query(
       Q.and(
@@ -390,12 +338,7 @@ class SyncService {
         Q.where('owner', activeUser)
       ),
       Q.sortBy('last_update', Q.asc)
-    ).fetch() as (Model & { _raw: ExtendedRawRecord, serialize: () => any })[];
-
-    console.log(`[Sync Service] Found ${records.length} pending records in ${table} for owner ${activeUser}`);
-    if (records.length > 0) {
-      console.log(`[Sync Service] Sample record from ${table}:`, records[0]._raw);
-    }
+    ).fetch() as BaseModel[];
 
     return records;
   }
@@ -420,15 +363,13 @@ class SyncService {
       const pushOrder: TableName[] = ['recipes', 'tags', 'ingredients', 'recipe_tags', 'shopping_items', 'user_settings'];
       
       // Kolekcja obiektów do wysłania wraz z informacją o tabeli
-      const recordsToSync: { record: Model & { _raw: ExtendedRawRecord, serialize: () => any }, table: TableName }[] = [];
+      const recordsToSync: { record: BaseModel, table: TableName }[] = [];
 
-      console.log('[Sync Service] Starting push sync, checking for pending records...');
+      console.log('[Sync Service] Starting push phase...');
 
       // Pobierz rekordy w odpowiedniej kolejności
       for (const table of pushOrder) {
-        console.log(`[Sync Service] Checking table ${table} for pending records...`);
         const records = await this.getPendingRecordsForPush(table);
-        console.log(`[Sync Service] Found ${records.length} pending records in ${table}`);
         if (records.length > 0) {
           // Store records with their table information
           recordsToSync.push(...records.map(record => ({ record, table })));
@@ -450,19 +391,30 @@ class SyncService {
         if (orderDiff !== 0) return orderDiff;
         
         // Jeśli ten sam typ, sortuj po last_update
-        return new Date(a.record._raw.last_update).getTime() - new Date(b.record._raw.last_update).getTime();
+        return new Date(a.record.lastUpdate || '').getTime() - new Date(b.record.lastUpdate || '').getTime();
       });
 
-      // Serializuj rekordy
-      const serializedRecords = recordsToSync.map(({ record }) => record.serialize());
+      // Serializuj rekordy używając metody getSyncData
+      const serializedRecords = recordsToSync.map(({ record, table }) => {
+        const syncData = record.getSyncData();
+        // Dodaj informację o typie obiektu do danych synchronizacji
+        return {
+          ...syncData,
+          object_type: this.getObjectTypeFromTable(table)
+        };
+      });
 
-      console.log('[Sync Service] Pushing changes to server:', serializedRecords);
+      // Przygotuj payload jako tablicę
+      const payload = serializedRecords;
       
       // Wyślij zmiany na serwer i odbierz zaktualizowane obiekty
-      const response = await api.post<PullResponseItem[]>('/api/sync/push/', serializedRecords, true);
+      const response = await api.post<PullResponseItem[]>('/api/sync/push/', payload, true);
 
-      // Kolekcja obiektów, które nie udało się zsynchronizować
-      const failedItems: { [key: string]: PullResponseItem[] } = {
+      // Zbierz sync_id rekordów zwróconych przez serwer (te, które wygrały konflikt)
+      const returnedSyncIds = new Set(response.map(item => item.sync_id));
+
+      // Group server objects by object type
+      const groupedObjects: { [key: string]: PullResponseItem[] } = {
         recipe: [],
         tag: [],
         ingredient: [],
@@ -471,98 +423,61 @@ class SyncService {
         user_settings: []
       };
 
-      // Zapisz zaktualizowane obiekty z odpowiedzi serwera
-      await database.write(async () => {
+      // Group objects by type
         for (const item of response) {
-          try {
-            const table = this.getTableName(item.object_type);
-            const collection = database.get(table);
-            
-            // Special handling for user_settings
-            if (item.object_type === 'user_settings') {
-              const LocalUserSettings = collection.modelClass as any;
-              await LocalUserSettings.handleSync(database, item, activeUser);
-              continue; // Skip the standard processing
-            }
-            
-            // Try to find existing record
-            const existingRecords = await collection.query(
-              Q.where('sync_id', item.sync_id)
-            ).fetch();
-
-            // Deserialize data before creating/updating record
-            const deserializedData = await (collection.modelClass as any).deserialize(item, database);
-
-            if (existingRecords.length === 0) {
-              // Record doesn't exist - create new one
-              await collection.create(record => {
-                Object.assign(record._raw, deserializedData);
-                (record._raw as any).owner = activeUser;
-                (record._raw as any).sync_status = 'synced';
-              });
-            } else {
-              // Record exists - update it
-              const existingRecord = existingRecords[0];
-              await existingRecord.update(record => {
-                Object.assign(record._raw, deserializedData);
-                (record._raw as any).owner = activeUser;
-                (record._raw as any).sync_status = 'synced';
-              });
-            }
-          } catch (itemError) {
-            // Dodaj obiekt do kolekcji nieudanych synchronizacji
-            failedItems[item.object_type].push(item);
-          }
+        if (groupedObjects[item.object_type]) {
+          groupedObjects[item.object_type].push(item);
         }
-      });
+      }
 
-      // Próba ponownej synchronizacji nieudanych obiektów w odpowiedniej kolejności
-      const retryOrder: (keyof typeof failedItems)[] = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
+      // Process each object type in the correct order
+      const syncOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
       
-      for (const objectType of retryOrder) {
-        const items = failedItems[objectType];
-        if (items.length === 0) continue;
+      for (const objectType of syncOrder) {
+        const objectsToSync = groupedObjects[objectType];
+        if (objectsToSync.length === 0) continue;
 
+        try {
+          // Process each object type with the appropriate model class
+          switch (objectType) {
+            case 'recipe':
+              await (Recipe as any).pullSync(database, objectsToSync);
+              break;
+            case 'tag':
+              await (Tag as any).pullSync(database, objectsToSync);
+              break;
+            case 'ingredient':
+              await (Ingredient as any).pullSync(database, objectsToSync);
+              break;
+            case 'recipe_tag':
+              await (RecipeTag as any).pullSync(database, objectsToSync);
+              break;
+            case 'shopping_item':
+              await (ShoppingItem as any).pullSync(database, objectsToSync);
+              break;
+            case 'user_settings':
+              await (UserSettings as any).pullSync(database, objectsToSync);
+              break;
+          }
+        } catch (error) {
+          console.error(`[Sync Service] Error processing ${objectType} objects from server response:`, error);
+        }
+      }
+
+      // Oznacz jako zsynchronizowane te rekordy, które zostały wysłane, ale nie zostały zwrócone przez serwer
+      // (czyli te, które serwer zaakceptował)
         await database.write(async () => {
-          for (const item of items) {
+        for (const { record } of recordsToSync) {
+          // Jeśli rekord nie został zwrócony przez serwer, oznacz go jako zsynchronizowany
+          if (!returnedSyncIds.has(record.syncId)) {
             try {
-              const table = this.getTableName(item.object_type);
-              const collection = database.get(table);
-              
-              // Special handling for user_settings
-              if (item.object_type === 'user_settings') {
-                const LocalUserSettings = collection.modelClass as any;
-                await LocalUserSettings.handleSync(database, item, activeUser);
-                continue; // Skip the standard processing
-              }
-              
-              const existingRecords = await collection.query(
-                Q.where('sync_id', item.sync_id)
-              ).fetch();
-
-              const deserializedData = await (collection.modelClass as any).deserialize(item, database);
-
-              if (existingRecords.length === 0) {
-                await collection.create(record => {
-                  Object.assign(record._raw, deserializedData);
-                  (record._raw as any).owner = activeUser;
-                  (record._raw as any).sync_status = 'synced';
-                });
-              } else {
-                const existingRecord = existingRecords[0];
-                await existingRecord.update(record => {
-                  Object.assign(record._raw, deserializedData);
-                  (record._raw as any).owner = activeUser;
-                  (record._raw as any).sync_status = 'synced';
-                });
-              }
-            } catch (retryError) {
-              // Loguj błąd tylko jeśli druga próba się nie powiedzie
-              console.error(`[Sync Service] Failed to sync ${item.object_type} with sync_id ${item.sync_id} after retry:`, retryError);
+              await record.markAsSynced();
+            } catch (error) {
+              console.error(`[Sync Service] Error marking record ${record.id} as synced:`, error);
+            }
             }
           }
         });
-      }
 
       console.log('[Sync Service] Successfully pushed changes to server');
     } catch (error) {
@@ -571,37 +486,27 @@ class SyncService {
     }
   }
 
-  // Helper method to get object type from raw record
-  private getObjectType(raw: ExtendedRawRecord, table?: TableName): string {
-    const tableToType: { [key in TableName]: string } = {
-      'recipes': 'recipe',
-      'tags': 'tag',
-      'ingredients': 'ingredient',
-      'shopping_items': 'shopping_item',
-      'user_settings': 'user_settings',
-      'recipe_tags': 'recipe_tag'
-    };
-
-    // If table is provided directly, use it
-    if (table) {
-      return tableToType[table];
+  // Helper method to get object type from table name
+  private getObjectTypeFromTable(tableName: string): string {
+    // Remove trailing 's' from table name to get object type
+    // e.g. 'recipes' -> 'recipe', 'tags' -> 'tag'
+    // Special case for 'recipe_tags' which should be 'recipe_tag'
+    if (tableName === 'recipe_tags') {
+      return 'recipe_tag';
     }
-
-    // If record has table information, use it
-    if (raw._raw?.table) {
-      const tableType = Object.entries(tableToType).find(([t]) => t === raw._raw.table);
-      if (tableType) {
-        return tableType[1];
-      }
+    
+    // Special case for 'user_settings' which should be 'user_settings' (pozostaje w liczbie mnogiej)
+    if (tableName === 'user_settings') {
+      return 'user_settings';
     }
-
-    // If we still can't determine, log and throw error
-    console.error('[Sync Service] Failed to determine object type. Record details:', {
-      available_fields: Object.keys(raw),
-      raw_record: raw
-    });
-
-    throw new Error(`Cannot determine object type for record: ${raw.sync_id}`);
+    
+    // Special case for 'shopping_items' which should be 'shopping_item'
+    if (tableName === 'shopping_items') {
+      return 'shopping_item';
+    }
+    
+    // Remove trailing 's' for other tables
+    return tableName.endsWith('s') ? tableName.slice(0, -1) : tableName;
   }
 
   // Helper method to get table name from object type
