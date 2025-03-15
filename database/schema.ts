@@ -83,12 +83,10 @@ const shoppingItemsSchema: TableSchema = tableSchema({
 })
 
 // Schema for user settings
-const userSettingsSchema: TableSchema = tableSchema({
+const localUserSettingsSchema: TableSchema = tableSchema({
   name: 'user_settings',
   columns: [
     { name: 'language', type: 'string' },
-    { name: 'auto_translate_recipes', type: 'boolean' },
-    { name: 'allow_friends_views_recipes', type: 'boolean' },
     ...syncColumns
   ]
 })
@@ -101,7 +99,7 @@ const schema: AppSchema = appSchema({
     recipeTagsSchema,
     ingredientsSchema,
     shoppingItemsSchema,
-    userSettingsSchema
+    localUserSettingsSchema
   ]
 })
 

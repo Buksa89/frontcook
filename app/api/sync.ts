@@ -63,8 +63,6 @@ export interface RecipeTagSync extends BaseSyncItem {
 export interface UserSettingsSync extends BaseSyncItem {
   object_type: 'user_settings';
   language: string;
-  auto_translate_recipes: boolean;
-  allow_friends_views_recipes: boolean;
 }
 
 export type SyncItemType = ShoppingItemSync | RecipeSync | IngredientSync | TagSync | RecipeTagSync | UserSettingsSync;

@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import database from '../../../database';
-import { UserSettings } from '../../../database';
+import { LocalUserSettings } from '../../../database';
 import { useAuth } from '../../context/authContext';
 import { LoginPrompt } from './LoginPrompt';
 import { PasswordChange } from './PasswordChange';
 
 export default function SettingsScreen() {
-  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [settings, setSettings] = useState<LocalUserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<'pl' | 'en'>('pl');
   const [autoTranslate, setAutoTranslate] = useState(true);
@@ -20,11 +20,12 @@ export default function SettingsScreen() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const userSettings = await UserSettings.getOrCreate(database);
+        const userSettings = await LocalUserSettings.getOrCreate(database);
         setSettings(userSettings);
         setLanguage(userSettings.language as 'pl' | 'en');
-        setAutoTranslate(userSettings.autoTranslateRecipes);
-        setAllowFriendsViews(userSettings.allowFriendsViewsRecipes);
+        // Default values for future API integration
+        setAutoTranslate(true);
+        setAllowFriendsViews(true);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Nie udało się załadować ustawień';
         console.error('Błąd podczas ładowania ustawień:', error);
@@ -58,29 +59,13 @@ export default function SettingsScreen() {
   };
 
   const updateAutoTranslate = async (value: boolean) => {
-    if (!settings) return;
-
-    try {
-      await settings.updateAutoTranslate(value);
-      setAutoTranslate(value);
-    } catch (error) {
-      handleError(error, 'zmiany auto-tłumaczenia');
-      // Przywróć poprzednią wartość w przypadku błędu
-      setAutoTranslate(settings.autoTranslateRecipes);
-    }
+    // TODO: Integrate with new API
+    setAutoTranslate(value);
   };
 
   const updateAllowFriendsViews = async (value: boolean) => {
-    if (!settings) return;
-
-    try {
-      await settings.updateAllowFriendsViews(value);
-      setAllowFriendsViews(value);
-    } catch (error) {
-      handleError(error, 'zmiany widoczności dla znajomych');
-      // Przywróć poprzednią wartość w przypadku błędu
-      setAllowFriendsViews(settings.allowFriendsViewsRecipes);
-    }
+    // TODO: Integrate with new API
+    setAllowFriendsViews(value);
   };
 
   const getLanguageDisplayName = (lang: 'pl' | 'en') => {

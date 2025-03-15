@@ -7,41 +7,34 @@ import { text } from '@nozbe/watermelondb/decorators'
 import { SyncItemType, UserSettingsSync } from '../../app/api/sync'
 import AuthService from '../../app/services/auth/authService'
 
-export default class UserSettings extends BaseModel {
+export default class LocalUserSettings extends BaseModel {
   static table = 'user_settings'
 
   @field('language') language!: string
-  @field('auto_translate_recipes') autoTranslateRecipes!: boolean
-  @field('allow_friends_views_recipes') allowFriendsViewsRecipes!: boolean
 
   serialize(): UserSettingsSync {
     const base = super.serialize();
     return {
       ...base,
       object_type: 'user_settings',
-      language: this.language,
-      auto_translate_recipes: this.autoTranslateRecipes,
-      allow_friends_views_recipes: this.allowFriendsViewsRecipes
+      language: this.language
     };
   }
 
-  static async deserialize(item: SyncItemType, database: Database) {
+  static async deserialize(item: SyncItemType) {
     const baseFields = await BaseModel.deserialize(item);
     const settingsItem = item as UserSettingsSync;
     
     return {
       ...baseFields,
-      language: settingsItem.language,
-      auto_translate_recipes: settingsItem.auto_translate_recipes,
-      allow_friends_views_recipes: settingsItem.allow_friends_views_recipes
+      language: settingsItem.language
     };
   }
 
   @writer async updateLanguage(newLanguage: 'pl' | 'en') {
     try {
-
       await this.update(settings => {
-        settings.language = newLanguage
+        settings.language = newLanguage;
         console.log(`[DB Settings] Zmiana języka: ${this.language} -> ${newLanguage}`);
       });
     } catch (error) {
@@ -50,59 +43,31 @@ export default class UserSettings extends BaseModel {
     }
   }
 
-  @writer async updateAutoTranslate(autoTranslate: boolean) {
-    try {
-      
-      await this.update(settings => {
-        settings.autoTranslateRecipes = autoTranslate
-        console.log(`[DB Settings] Zmiana auto-tłumaczenia: ${this.autoTranslateRecipes} -> ${autoTranslate}`);
-      });
-    } catch (error) {
-      console.error(`[DB Settings] Błąd zmiany auto-tłumaczenia: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  @writer async updateAllowFriendsViews(allowFriendsViews: boolean) {
-    try {
-
-      await this.update(settings => {
-        settings.allowFriendsViewsRecipes = allowFriendsViews
-        console.log(`[DB Settings] Zmiana widoczności dla znajomych: ${this.allowFriendsViewsRecipes} -> ${allowFriendsViews}`);
-      });
-    } catch (error) {
-      console.error(`[DB Settings] Błąd zmiany widoczności: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
   // Static method to get or create settings
-  static async getOrCreate(database: Database): Promise<UserSettings> {
+  static async getOrCreate(database: Database): Promise<LocalUserSettings> {
     try {
       const activeUser = await AuthService.getActiveUser();
       
       // Query settings for specific owner
-      const settings = await database.get<UserSettings>('user_settings')
+      const settings = await database.get<LocalUserSettings>('user_settings')
         .query(Q.where('owner', activeUser))
         .fetch();
       
       if (settings.length > 0) {
-        console.log(`[DB Settings] Pobrano ustawienia dla ${activeUser}: język=${settings[0].language}, auto-tłumaczenie=${settings[0].autoTranslateRecipes}, widoczność=${settings[0].allowFriendsViewsRecipes}`);
+        console.log(`[DB Settings] Pobrano ustawienia dla ${activeUser}: język=${settings[0].language}`);
         return settings[0];
       }
 
       const newSettings = await database.write(async () => {
-        return await super.create(database, (settings: UserSettings) => {
+        return await super.create(database, (settings: LocalUserSettings) => {
           settings.language = 'pl'
-          settings.autoTranslateRecipes = true
-          settings.allowFriendsViewsRecipes = true
         });
       });
 
-      console.log(`[DB Settings] Utworzono domyślne ustawienia dla ${activeUser}: język=pl, auto-tłumaczenie=true, widoczność=true`);
+      console.log(`[DB Settings] Utworzono domyślne ustawienia dla ${activeUser}: język=pl`);
       return newSettings;
     } catch (error) {
-      console.error(`[DB Settings] Błąd bazy danych: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`[DB Settings] Błąd podczas pobierania/tworzenia ustawień: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }

@@ -37,8 +37,6 @@ interface PullResponseItem {
   recipe?: string;
   tag?: string;
   language?: string;
-  auto_translate_recipes?: boolean;
-  allow_friends_views_recipes?: boolean;
   [key: string]: any;
 }
 
@@ -78,8 +76,6 @@ interface ExtendedRawRecord {
   recipe_id?: string;
   original_str?: string;
   language?: string;
-  auto_translate_recipes?: boolean;
-  allow_friends_views_recipes?: boolean;
 }
 
 class SyncService {

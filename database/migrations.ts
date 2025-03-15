@@ -62,9 +62,7 @@ export default schemaMigrations({
         createTable({
           name: 'user_settings',
           columns: [
-            { name: 'language', type: 'string' },
-            { name: 'auto_translate_recipes', type: 'boolean' },
-            { name: 'allow_friends_views_recipes', type: 'boolean' }
+            { name: 'language', type: 'string' }
           ]
         })
       ]

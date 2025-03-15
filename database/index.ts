@@ -13,8 +13,9 @@ import Recipe from './models/Recipe'
 import RecipeTag from './models/RecipeTag'
 import Ingredient from './models/Ingredient'
 import ShoppingItem from './models/ShoppingItem'
-import UserSettings from './models/UserSettings'
+import LocalUserSettings from './models/UserSettings'
 import { v4 as uuidv4 } from 'uuid'
+
 interface DefaultTag {
   name: string
   order: number
@@ -55,7 +56,7 @@ const database = new Database({
     RecipeTag,
     Ingredient,
     ShoppingItem,
-    UserSettings
+    LocalUserSettings
   ],
 })
 
@@ -119,7 +120,7 @@ populateDefaultTags().catch(error => {
 })
 
 export {
-  UserSettings,
+  LocalUserSettings,
 }
 
 export default database 
