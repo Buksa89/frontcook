@@ -170,9 +170,14 @@ export default class ShoppingItem extends BaseModel {
 
         if (existingItem) {
           console.log(`[DB ShoppingItem] Found existing item: ${existingItem.id}, adding amount: ${parsed.amount}`);
-          await existingItem.update(record => {
-            record.amount = record.amount + parsed.amount;
-          });
+          
+          // Używamy prepareUpdate zamiast bezpośredniego wywołania update
+          await database.batch(
+            existingItem.prepareUpdate(record => {
+              record.amount = record.amount + parsed.amount;
+            })
+          );
+          
           console.log(`[DB ShoppingItem] Successfully updated item ${existingItem.id}, new amount: ${existingItem.amount}`);
           return existingItem;
         } else {
@@ -225,20 +230,25 @@ export default class ShoppingItem extends BaseModel {
 
         if (existingCheckedItem) {
           console.log(`[DB ShoppingItem] Found existing checked item ${existingCheckedItem.id}, merging amounts`);
-          // Sumujemy ilości
-          await existingCheckedItem.update(record => {
-            record.amount = record.amount + this.amount;
-          });
-          // Usuwamy obecny element
-          await this.markAsDeleted();
+          // Sumujemy ilości - używamy callWriter aby uniknąć zagnieżdżonych operacji writer
+          await this.callWriter(() => 
+            existingCheckedItem.update(record => {
+              record.amount = record.amount + this.amount;
+            })
+          );
+          // Usuwamy obecny element - używamy callWriter aby uniknąć zagnieżdżonych operacji writer
+          await this.callWriter(() => this.markAsDeleted());
           return;
         }
       }
 
       console.log(`[DB ShoppingItem] Toggling checked status for item ${this.id}: ${this.isChecked} -> ${!this.isChecked}`);
-      await this.update(record => {
-        record.isChecked = !record.isChecked;
-      });
+      // Używamy callWriter aby uniknąć zagnieżdżonych operacji writer
+      await this.callWriter(() => 
+        this.update(record => {
+          record.isChecked = !record.isChecked;
+        })
+      );
     } catch (error) {
       console.error(`[DB ShoppingItem] Error toggling checked status: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
@@ -260,21 +270,26 @@ export default class ShoppingItem extends BaseModel {
 
       if (existingItem && existingItem.id !== this.id) {
         console.log(`[DB ShoppingItem] Found existing item ${existingItem.id}, merging amounts`);
-        // Sumujemy ilości
-        await existingItem.update(record => {
-          record.amount = record.amount + parsed.amount;
-        });
-        // Usuwamy obecny element
-        await this.markAsDeleted();
+        // Sumujemy ilości - używamy callWriter aby uniknąć zagnieżdżonych operacji writer
+        await this.callWriter(() => 
+          existingItem.update(record => {
+            record.amount = record.amount + parsed.amount;
+          })
+        );
+        // Usuwamy obecny element - używamy callWriter aby uniknąć zagnieżdżonych operacji writer
+        await this.callWriter(() => this.markAsDeleted());
         return;
       }
       
-      await this.update(record => {
-        record.name = parsed.name;
-        record.amount = parsed.amount;
-        record.unit = parsed.unit;
-        record.type = null;
-      });
+      // Używamy callWriter aby uniknąć zagnieżdżonych operacji writer
+      await this.callWriter(() => 
+        this.update(record => {
+          record.name = parsed.name;
+          record.amount = parsed.amount;
+          record.unit = parsed.unit;
+          record.type = null;
+        })
+      );
 
       console.log(`[DB ShoppingItem] Successfully updated item ${this.id}`);
     } catch (error) {

@@ -33,10 +33,8 @@ const TagManagementScreenComponent = ({ tags }: { tags: Tag[] }) => {
     if (!editingTag || !editText.trim()) return;
 
     try {
-      await database.write(async () => {
-        await editingTag.update(record => {
-          record.name = editText.trim();
-        });
+      await editingTag.update(record => {
+        record.name = editText.trim();
       });
       
       setEditingTag(null);

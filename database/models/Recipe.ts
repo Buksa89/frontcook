@@ -111,53 +111,74 @@ export default class Recipe extends BaseModel {
             !existingTagIds.includes(tag.id)
           );
 
-          // Używamy createRecipeTag dla każdego nowego tagu
+          // Instead of calling createRecipeTag which uses database.write internally,
+          // prepare the creation operations directly
           for (const tag of newTags) {
-            await RecipeTag.createRecipeTag(database, rt => {
-              rt.recipeId = recipe.id;
-              rt.tagId = tag.id;
-            });
+            const activeUser = await AuthService.getActiveUser();
+            operations.push(
+              database.get<RecipeTag>('recipe_tags').prepareCreate(rt => {
+                // Initialize base fields
+                rt.syncStatus = 'pending';
+                rt.lastUpdate = new Date().toISOString();
+                rt.isDeleted = false;
+                rt.syncId = uuidv4();
+                rt.owner = activeUser;
+                
+                // Set recipe tag fields
+                rt.recipeId = recipe.id;
+                rt.tagId = tag.id;
+              })
+            );
           }
         }
       } else {
         // Create new recipe
         const activeUser = await AuthService.getActiveUser();
         
-        recipe = await database.write(async () => {
-          const newRecipe = await database.get<Recipe>('recipes').create((record: Recipe) => {
-            // Initialize base fields
-            record.syncStatus = 'pending';
-            record.lastUpdate = new Date().toISOString();
-            record.isDeleted = false;
-            record.syncId = uuidv4();
-            record.owner = activeUser;
-            
-            // Set recipe-specific fields
-            record.name = data.name;
-            record.description = data.description || null;
-            record.prepTime = parseInt(data.prepTime || '0') || 0;
-            record.totalTime = parseInt(data.totalTime || '0') || 0;
-            record.servings = parseInt(data.servings || '1') || 1;
-            record.instructions = data.instructions;
-            record.notes = data.notes || null;
-            record.nutrition = data.nutrition || null;
-            record.video = data.video || null;
-            record.source = data.source || null;
-            record.rating = 0;
-            record.isApproved = true;
-          });
+        // Create the recipe directly without a nested database.write
+        recipe = await database.get<Recipe>('recipes').create((record: Recipe) => {
+          // Initialize base fields
+          record.syncStatus = 'pending';
+          record.lastUpdate = new Date().toISOString();
+          record.isDeleted = false;
+          record.syncId = uuidv4();
+          record.owner = activeUser;
           
-          return newRecipe;
+          // Set recipe-specific fields
+          record.name = data.name;
+          record.description = data.description || null;
+          record.prepTime = parseInt(data.prepTime || '0') || 0;
+          record.totalTime = parseInt(data.totalTime || '0') || 0;
+          record.servings = parseInt(data.servings || '1') || 1;
+          record.instructions = data.instructions;
+          record.notes = data.notes || null;
+          record.nutrition = data.nutrition || null;
+          record.video = data.video || null;
+          record.source = data.source || null;
+          record.rating = 0;
+          record.isApproved = true;
         });
 
         // Create tag relationships for new recipe
         if (data.selectedTags) {
-          // Używamy createRecipeTag dla każdego tagu
+          // Instead of calling createRecipeTag which uses database.write internally,
+          // prepare the creation operations directly
           for (const tag of data.selectedTags) {
-            await RecipeTag.createRecipeTag(database, rt => {
-              rt.recipeId = recipe.id;
-              rt.tagId = tag.id;
-            });
+            const activeUser = await AuthService.getActiveUser();
+            operations.push(
+              database.get<RecipeTag>('recipe_tags').prepareCreate(rt => {
+                // Initialize base fields
+                rt.syncStatus = 'pending';
+                rt.lastUpdate = new Date().toISOString();
+                rt.isDeleted = false;
+                rt.syncId = uuidv4();
+                rt.owner = activeUser;
+                
+                // Set recipe tag fields
+                rt.recipeId = recipe.id;
+                rt.tagId = tag.id;
+              })
+            );
           }
         }
       }
@@ -170,7 +191,7 @@ export default class Recipe extends BaseModel {
       );
       operations.push(...ingredientsOperations);
 
-      // Execute all operations in a batch
+      // Execute all operations in a batch if there are any
       if (operations.length > 0) {
         await database.batch(...operations);
       }

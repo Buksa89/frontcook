@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Start sync if we have both token and user
     if (accessToken && activeUser) {
-      syncService.startBackgroundSync(activeUser);
+      // syncService.startBackgroundSync(activeUser);
     }
   }, [accessToken, activeUser]);
 
