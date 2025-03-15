@@ -78,19 +78,24 @@ export default class Recipe extends BaseModel {
       let operations: Model[] = [];
 
       if (existingRecipe) {
-        // Update existing recipe
-        recipe = await existingRecipe.update(record => {
-          record.name = data.name;
-          record.description = data.description || null;
-          record.prepTime = parseInt(data.prepTime || '0') || 0;
-          record.totalTime = parseInt(data.totalTime || '0') || 0;
-          record.servings = parseInt(data.servings || '1') || 1;
-          record.instructions = data.instructions;
-          record.notes = data.notes || null;
-          record.nutrition = data.nutrition || null;
-          record.video = data.video || null;
-          record.source = data.source || null;
-        });
+        // Prepare update operation instead of directly calling update
+        operations.push(
+          existingRecipe.prepareUpdate(record => {
+            record.name = data.name;
+            record.description = data.description || null;
+            record.prepTime = parseInt(data.prepTime || '0') || 0;
+            record.totalTime = parseInt(data.totalTime || '0') || 0;
+            record.servings = parseInt(data.servings || '1') || 1;
+            record.instructions = data.instructions;
+            record.notes = data.notes || null;
+            record.nutrition = data.nutrition || null;
+            record.video = data.video || null;
+            record.source = data.source || null;
+          })
+        );
+        
+        // Set recipe to existingRecipe for later use
+        recipe = existingRecipe;
 
         // Handle tags update
         if (data.selectedTags) {
@@ -223,51 +228,50 @@ export default class Recipe extends BaseModel {
   }
 
   // Override markAsDeleted to also delete related recipe_tags and ingredients
+  @writer
   async markAsDeleted(): Promise<void> {
     try {
-      await this.database.write(async () => {
-        // Get all related records before marking recipe as deleted
-        const [relatedRecipeTags, relatedIngredients] = await Promise.all([
-          this.collections
-            .get<RecipeTag>('recipe_tags')
-            .query(Q.where('recipe_id', this.id))
-            .fetch(),
-          this.collections
-            .get<Ingredient>('ingredients')
-            .query(Q.where('recipe_id', this.id))
-            .fetch()
-        ]);
+      // Get all related records before marking recipe as deleted
+      const [relatedRecipeTags, relatedIngredients] = await Promise.all([
+        this.collections
+          .get<RecipeTag>('recipe_tags')
+          .query(Q.where('recipe_id', this.id))
+          .fetch(),
+        this.collections
+          .get<Ingredient>('ingredients')
+          .query(Q.where('recipe_id', this.id))
+          .fetch()
+      ]);
 
-        // Prepare all operations
-        const operations = [
-          // Mark recipe as deleted
-          this.prepareUpdate(() => {
-            this.isDeleted = true;
-            this.syncStatus = 'pending';
-            this.lastUpdate = new Date().toISOString();
-          }),
-          // Mark all related records as deleted
-          ...relatedRecipeTags.map(recipeTag => 
-            recipeTag.prepareUpdate(() => {
-              recipeTag.isDeleted = true;
-              recipeTag.syncStatus = 'pending';
-              recipeTag.lastUpdate = new Date().toISOString();
-            })
-          ),
-          ...relatedIngredients.map(ingredient => 
-            ingredient.prepareUpdate(() => {
-              ingredient.isDeleted = true;
-              ingredient.syncStatus = 'pending';
-              ingredient.lastUpdate = new Date().toISOString();
-            })
-          )
-        ];
+      // Prepare all operations
+      const operations = [
+        // Mark recipe as deleted
+        this.prepareUpdate(() => {
+          this.isDeleted = true;
+          this.syncStatus = 'pending';
+          this.lastUpdate = new Date().toISOString();
+        }),
+        // Mark all related records as deleted
+        ...relatedRecipeTags.map(recipeTag => 
+          recipeTag.prepareUpdate(() => {
+            recipeTag.isDeleted = true;
+            recipeTag.syncStatus = 'pending';
+            recipeTag.lastUpdate = new Date().toISOString();
+          })
+        ),
+        ...relatedIngredients.map(ingredient => 
+          ingredient.prepareUpdate(() => {
+            ingredient.isDeleted = true;
+            ingredient.syncStatus = 'pending';
+            ingredient.lastUpdate = new Date().toISOString();
+          })
+        )
+      ];
 
-        // Execute all operations in a batch
-        await this.database.batch(...operations);
-        
-        console.log(`[DB ${this.table}] Successfully marked recipe ${this.id} and related records as deleted (${relatedRecipeTags.length} recipe_tags, ${relatedIngredients.length} ingredients)`);
-      });
+      // Execute all operations in a batch
+      await this.database.batch(...operations);
+      
+      console.log(`[DB ${this.table}] Successfully marked recipe ${this.id} and related records as deleted (${relatedRecipeTags.length} recipe_tags, ${relatedIngredients.length} ingredients)`);
     } catch (error) {
       console.error(`[DB ${this.table}] Error marking recipe and related records as deleted: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
@@ -276,8 +280,10 @@ export default class Recipe extends BaseModel {
 
   // Writer methods
   @writer async updateRating(newRating: number): Promise<void> {
-    await this.update(recipe => {
-      recipe.rating = newRating
-    })
+    await this.callWriter(() => 
+      this.update(recipe => {
+        recipe.rating = newRating
+      })
+    );
   }
 } 

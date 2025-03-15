@@ -8,6 +8,7 @@ import { parseIngredient } from '../../app/utils/ingredientParser'
 import { Observable, from } from 'rxjs'
 import { switchMap } from 'rxjs/operators'
 import { v4 as uuidv4 } from 'uuid'
+import AuthService from '../../app/services/auth/authService'
 
 export default class Ingredient extends BaseModel {
   static table = 'ingredients'
@@ -75,6 +76,9 @@ export default class Ingredient extends BaseModel {
       )
       .fetch();
 
+    // Get active user
+    const activeUser = await AuthService.getActiveUser();
+
     // Prepare all operations
     const operations: Model[] = [
       // Mark existing ingredients as deleted by preparing update operations
@@ -89,6 +93,7 @@ export default class Ingredient extends BaseModel {
       ...ingredientLines.map((line, index) => {
         const parsed = parseIngredient(line);
         return ingredientsCollection.prepareCreate(ingredient => {
+          // Set ingredient-specific fields
           ingredient.recipeId = recipeId;
           ingredient.order = index + 1;
           ingredient.originalStr = line;
@@ -97,11 +102,8 @@ export default class Ingredient extends BaseModel {
           ingredient.name = parsed.name;
           ingredient.type = null;
           
-          // Initialize base fields
-          ingredient.syncStatus = 'pending';
-          ingredient.lastUpdate = new Date().toISOString();
-          ingredient.isDeleted = false;
-          ingredient.syncId = uuidv4();
+          // Apply base model defaults to ensure all required fields are set correctly
+          BaseModel.applyBaseModelDefaults(ingredient, activeUser);
         });
       })
     ];
