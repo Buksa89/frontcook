@@ -37,6 +37,9 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       case 'notifications':
         navigate('/(screens)/NotificationScreen/NotificationScreen');
         break;
+      case 'pending-recipes':
+        navigate('/(screens)/PendingRecipesScreen/PendingRecipesScreen');
+        break;
       case 'friends':
         navigate('/(screens)/FriendsScreen/FriendsScreen');
         break;
@@ -84,7 +87,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       label: 'Przepisy do akceptacji',
       icon: <MaterialIcons name="pending-actions" size={24} color="#666" />,
       section: 'main',
-      disabled: true,
+      disabled: false,
       requiresAuth: true
     },
     

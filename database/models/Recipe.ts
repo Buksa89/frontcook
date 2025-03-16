@@ -61,7 +61,8 @@ export default class Recipe extends BaseModel {
           .query(
             Q.and(
               Q.where('owner', activeUser),
-              Q.where('is_deleted', false)
+              Q.where('is_deleted', false),
+              Q.where('is_approved', true)
             )
           )
           .observe()
@@ -294,6 +295,14 @@ export default class Recipe extends BaseModel {
     await this.callWriter(() => 
       this.update(recipe => {
         recipe.rating = newRating
+      })
+    );
+  }
+
+  @writer async toggleApproval(): Promise<void> {
+    await this.callWriter(() => 
+      this.update(recipe => {
+        recipe.isApproved = !recipe.isApproved;
       })
     );
   }

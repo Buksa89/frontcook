@@ -6,7 +6,7 @@ import type { NativeStackNavigationOptions, NativeStackHeaderProps } from '@reac
 import type { ParamListBase } from '@react-navigation/native';
 import { MainMenu } from './components/MainMenu';
 import { AuthProvider } from './context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { DEBUG } from './constants/env';
 
 type RootStackParamList = {
@@ -21,6 +21,7 @@ type RootStackParamList = {
   '(screens)/SettingsScreen/SettingsScreen': undefined;
   '(screens)/AuthScreen/AuthScreen': undefined;
   '(screens)/DebugScreen/DebugScreen': undefined;
+  '(screens)/PendingRecipesScreen/PendingRecipesScreen': undefined;
 };
 
 type NavigationProps = NativeStackHeaderProps;
@@ -52,7 +53,6 @@ export default function RootLayout() {
   const [resetFunction, setResetFunction] = useState<ResetFunction | null>(null);
   const [searchFunction, setSearchFunction] = useState<SearchFunction | null>(null);
   const [searchText, setSearchText] = useState('');
-  const router = useRouter();
 
   const handleSetResetFunction = (fn: ResetFunction) => {
     console.log('Setting reset function');
@@ -208,7 +208,9 @@ export default function RootLayout() {
                   {DEBUG && (
                     <TouchableOpacity 
                       style={{ marginRight: 20 }}
-                      onPress={() => router.push('/(screens)/DebugScreen/DebugScreen')}
+                      onPress={() => router.push({
+                        pathname: '/(screens)/DebugScreen/DebugScreen'
+                      } as any)}
                     >
                       <MaterialIcons name="developer-mode" size={24} color="#333" />
                     </TouchableOpacity>
@@ -393,6 +395,27 @@ export default function RootLayout() {
                 color: '#333'
               },
               headerShadowVisible: false
+            }} 
+          />
+          <Stack.Screen 
+            name="(screens)/PendingRecipesScreen/PendingRecipesScreen" 
+            options={{ 
+              headerTitle: "Przepisy do akceptacji",
+              headerBackTitle: "Wróć",
+              headerStyle: {
+                backgroundColor: '#fff'
+              },
+              headerTitleStyle: {
+                fontSize: 20,
+                fontWeight: '600',
+                color: '#333'
+              },
+              headerShadowVisible: false,
+              headerRight: () => (
+                <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
+                  <Entypo name="dots-three-vertical" size={24} color="#333" />
+                </TouchableOpacity>
+              )
             }} 
           />
         </Stack>
