@@ -6,13 +6,17 @@ import { LocalUserSettings } from '../../../database';
 import { useAuth } from '../../context/authContext';
 import { LoginPrompt } from './LoginPrompt';
 import { PasswordChange } from './PasswordChange';
+import userSettingsService from '../../services/userSettings/userSettingsService';
+import { UserSettingsApiResponse } from '../../services/userSettings/userSettingsService';
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<LocalUserSettings | null>(null);
+  const [apiSettings, setApiSettings] = useState<UserSettingsApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [apiLoading, setApiLoading] = useState(false);
   const [language, setLanguage] = useState<'pl' | 'en'>('pl');
-  const [autoTranslate, setAutoTranslate] = useState(true);
-  const [allowFriendsViews, setAllowFriendsViews] = useState(true);
+  const [autoTranslate, setAutoTranslate] = useState(false);
+  const [allowFriendsViews, setAllowFriendsViews] = useState(false);
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
   const { isAuthenticated } = useAuth();
 
@@ -23,9 +27,15 @@ export default function SettingsScreen() {
         const userSettings = await LocalUserSettings.getOrCreate(database);
         setSettings(userSettings);
         setLanguage(userSettings.language as 'pl' | 'en');
-        // Default values for future API integration
-        setAutoTranslate(true);
-        setAllowFriendsViews(true);
+        
+        // Load API settings if user is authenticated
+        if (isAuthenticated) {
+          await loadApiSettings();
+        } else {
+          // Default values when not authenticated
+          setAutoTranslate(false);
+          setAllowFriendsViews(false);
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Nie udało się załadować ustawień';
         console.error('Błąd podczas ładowania ustawień:', error);
@@ -36,7 +46,26 @@ export default function SettingsScreen() {
     };
 
     loadSettings();
-  }, []);
+  }, [isAuthenticated]);
+
+  // Load API settings
+  const loadApiSettings = async () => {
+    if (!isAuthenticated) return;
+    
+    setApiLoading(true);
+    try {
+      const response = await userSettingsService.getUserSettings();
+      setApiSettings(response);
+      setAutoTranslate(response.auto_translate_recipes);
+      setAllowFriendsViews(response.allow_friends_view_recipes);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nie udało się załadować ustawień z API';
+      console.error('Błąd podczas ładowania ustawień z API:', error);
+      Alert.alert('Błąd', message);
+    } finally {
+      setApiLoading(false);
+    }
+  };
 
   const handleError = (error: any, action: string) => {
     const message = error instanceof Error ? error.message : `Nie udało się ${action}`;
@@ -59,13 +88,37 @@ export default function SettingsScreen() {
   };
 
   const updateAutoTranslate = async (value: boolean) => {
-    // TODO: Integrate with new API
-    setAutoTranslate(value);
+    if (!isAuthenticated) return;
+    
+    setApiLoading(true);
+    try {
+      const response = await userSettingsService.updateSetting('auto_translate_recipes', value);
+      setAutoTranslate(response.auto_translate_recipes);
+      setApiSettings(response);
+    } catch (error) {
+      handleError(error, 'aktualizacji ustawień tłumaczenia');
+      // Przywróć poprzednią wartość w przypadku błędu
+      setAutoTranslate(autoTranslate);
+    } finally {
+      setApiLoading(false);
+    }
   };
 
   const updateAllowFriendsViews = async (value: boolean) => {
-    // TODO: Integrate with new API
-    setAllowFriendsViews(value);
+    if (!isAuthenticated) return;
+    
+    setApiLoading(true);
+    try {
+      const response = await userSettingsService.updateSetting('allow_friends_view_recipes', value);
+      setAllowFriendsViews(response.allow_friends_view_recipes);
+      setApiSettings(response);
+    } catch (error) {
+      handleError(error, 'aktualizacji ustawień widoczności przepisów');
+      // Przywróć poprzednią wartość w przypadku błędu
+      setAllowFriendsViews(allowFriendsViews);
+    } finally {
+      setApiLoading(false);
+    }
   };
 
   const getLanguageDisplayName = (lang: 'pl' | 'en') => {
@@ -136,6 +189,12 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Przepisy</Text>
           
+          {apiLoading && (
+            <View style={styles.apiLoadingContainer}>
+              <ActivityIndicator size="small" color="#0000ff" />
+            </View>
+          )}
+          
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
               <MaterialIcons name="translate" size={24} color="#666" />
@@ -146,6 +205,7 @@ export default function SettingsScreen() {
               onValueChange={updateAutoTranslate}
               trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
               thumbColor={autoTranslate ? '#2196F3' : '#f4f3f4'}
+              disabled={apiLoading}
             />
           </View>
           
@@ -159,6 +219,7 @@ export default function SettingsScreen() {
               onValueChange={updateAllowFriendsViews}
               trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
               thumbColor={allowFriendsViews ? '#2196F3' : '#f4f3f4'}
+              disabled={apiLoading}
             />
           </View>
         </View>
@@ -176,6 +237,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  apiLoadingContainer: {
+    padding: 8,
     alignItems: 'center',
   },
   loadingText: {
