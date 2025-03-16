@@ -113,17 +113,38 @@ export default class Ingredient extends BaseModel {
 
   // Helper method to get sync data for this ingredient
   getSyncData(): Record<string, any> {
-    const baseData = super.getSyncData();
+    // Pobierz sync_id przepisu, jeśli jest dostępny
+    let recipeSyncId = null;
+    
+    // Najpierw sprawdź, czy mamy dostęp do obiektu recipe przez relację
+    if (this.recipe) {
+      recipeSyncId = this.recipe.syncId;
+    }
+    
+    // Jeśli nie, sprawdź, czy mamy dostęp do obiektu recipe przez pole _recipe ustawione przez SyncService
+    if (!recipeSyncId && (this as any)._recipe) {
+      recipeSyncId = (this as any)._recipe.syncId;
+    }
+    
+    // Jeśli nadal nie mamy sync_id przepisu, logujemy informację
+    if (!recipeSyncId && this.recipeId) {
+      console.log(`[DB ${this.table}] No recipe object available, trying to get sync_id for recipe_id: ${this.recipeId}`);
+      // Nie możemy użyć await bezpośrednio w metodzie synchronicznej, więc zwracamy dane bez recipe
+      // Pole recipe zostanie dodane w metodzie push w SyncService
+    }
+    
     return {
-      ...baseData,
       object_type: 'ingredient',
+      sync_id: this.syncId,
+      last_update: this.lastUpdate,
+      is_deleted: this.isDeleted,
       name: this.name,
       amount: this.amount,
       unit: this.unit,
       type: this.type,
       order: this.order,
       original_str: this.originalStr,
-      recipe: this.recipe?.syncId  // Use sync_id of the recipe
+      recipe: recipeSyncId,  // Używamy sync_id przepisu
     };
   }
 

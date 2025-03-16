@@ -25,12 +25,48 @@ export default class RecipeTag extends BaseModel {
 
   // Helper method to get sync data for this recipe tag
   getSyncData(): Record<string, any> {
-    const baseData = super.getSyncData();
+    // Pobierz sync_id przepisu i tagu, jeśli są dostępne
+    let recipeSyncId = null;
+    let tagSyncId = null;
+    
+    // Najpierw sprawdź, czy mamy dostęp do obiektów recipe i tag przez relacje
+    if (this.recipe) {
+      recipeSyncId = this.recipe.syncId;
+    }
+    
+    if (this.tag) {
+      tagSyncId = this.tag.syncId;
+    }
+    
+    // Jeśli nie, sprawdź, czy mamy dostęp do obiektów recipe i tag przez pola _recipe i _tag ustawione przez SyncService
+    if (!recipeSyncId && (this as any)._recipe) {
+      recipeSyncId = (this as any)._recipe.syncId;
+    }
+    
+    if (!tagSyncId && (this as any)._tag) {
+      tagSyncId = (this as any)._tag.syncId;
+    }
+    
+    // Jeśli nadal nie mamy sync_id przepisu lub tagu, logujemy informację
+    if (!recipeSyncId && this.recipeId) {
+      console.log(`[DB ${this.table}] No recipe object available, trying to get sync_id for recipe_id: ${this.recipeId}`);
+      // Nie możemy użyć await bezpośrednio w metodzie synchronicznej, więc zwracamy dane bez recipe
+      // Pole recipe zostanie dodane w metodzie push w SyncService
+    }
+    
+    if (!tagSyncId && this.tagId) {
+      console.log(`[DB ${this.table}] No tag object available, trying to get sync_id for tag_id: ${this.tagId}`);
+      // Nie możemy użyć await bezpośrednio w metodzie synchronicznej, więc zwracamy dane bez tag
+      // Pole tag zostanie dodane w metodzie push w SyncService
+    }
+    
     return {
-      ...baseData,
       object_type: 'recipe_tag',
-      recipe: this.recipe?.syncId,
-      tag: this.tag?.syncId
+      sync_id: this.syncId,
+      last_update: this.lastUpdate,
+      is_deleted: this.isDeleted,
+      recipe: recipeSyncId,  // Używamy sync_id przepisu
+      tag: tagSyncId,        // Używamy sync_id tagu
     };
   }
 

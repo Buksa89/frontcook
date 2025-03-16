@@ -401,6 +401,9 @@ class SyncService {
         return new Date(a.record.lastUpdate || '').getTime() - new Date(b.record.lastUpdate || '').getTime();
       });
 
+      // Uzupełnij brakujące pola recipe i tag dla Ingredient i RecipeTag
+      await this.enrichRelationFields(recordsToSync);
+
       // Serializuj rekordy używając metody getSyncData
       const serializedRecords = recordsToSync.map(({ record, table }) => {
         const syncData = record.getSyncData();
@@ -504,6 +507,83 @@ class SyncService {
     } catch (error) {
       console.error('[Sync Service] Push sync failed:', error);
       throw error;
+    }
+  }
+
+  // Metoda do uzupełniania brakujących pól recipe i tag dla Ingredient i RecipeTag
+  private async enrichRelationFields(recordsToSync: { record: BaseModel, table: TableName }[]): Promise<void> {
+    // Znajdź wszystkie Ingredient i RecipeTag rekordy
+    const ingredients = recordsToSync.filter(({ table }) => table === 'ingredients');
+    const recipeTags = recordsToSync.filter(({ table }) => table === 'recipe_tags');
+    
+    if (ingredients.length === 0 && recipeTags.length === 0) {
+      return; // Nie ma nic do uzupełnienia
+    }
+    
+    console.log(`[Sync Service] Enriching relation fields for ${ingredients.length} ingredients and ${recipeTags.length} recipe_tags`);
+    
+    // Uzupełnij pola recipe dla Ingredient
+    for (const { record } of ingredients) {
+      const ingredient = record as any; // Używamy any, aby uniknąć problemów z typami
+      
+      // Jeśli ingredient ma recipeId, ale nie ma recipe.syncId
+      if (ingredient.recipeId && (!ingredient.recipe || !ingredient.recipe.syncId)) {
+        try {
+          // Znajdź przepis po ID
+          const recipe = await database.get<Recipe>('recipes').find(ingredient.recipeId);
+          if (recipe) {
+            // Ustaw pole recipe w getSyncData
+            console.log(`[Sync Service] Found recipe with syncId ${recipe.syncId} for ingredient ${ingredient.id}`);
+            // Przypisujemy bezpośrednio do obiektu, aby getSyncData mogło z tego skorzystać
+            ingredient._recipe = recipe;
+          } else {
+            console.error(`[Sync Service] Could not find recipe with id ${ingredient.recipeId} for ingredient ${ingredient.id}`);
+          }
+        } catch (error) {
+          console.error(`[Sync Service] Error finding recipe for ingredient ${ingredient.id}:`, error);
+        }
+      }
+    }
+    
+    // Uzupełnij pola recipe i tag dla RecipeTag
+    for (const { record } of recipeTags) {
+      const recipeTag = record as any; // Używamy any, aby uniknąć problemów z typami
+      
+      // Jeśli recipeTag ma recipeId, ale nie ma recipe.syncId
+      if (recipeTag.recipeId && (!recipeTag.recipe || !recipeTag.recipe.syncId)) {
+        try {
+          // Znajdź przepis po ID
+          const recipe = await database.get<Recipe>('recipes').find(recipeTag.recipeId);
+          if (recipe) {
+            // Ustaw pole recipe w getSyncData
+            console.log(`[Sync Service] Found recipe with syncId ${recipe.syncId} for recipeTag ${recipeTag.id}`);
+            // Przypisujemy bezpośrednio do obiektu, aby getSyncData mogło z tego skorzystać
+            recipeTag._recipe = recipe;
+          } else {
+            console.error(`[Sync Service] Could not find recipe with id ${recipeTag.recipeId} for recipeTag ${recipeTag.id}`);
+          }
+        } catch (error) {
+          console.error(`[Sync Service] Error finding recipe for recipeTag ${recipeTag.id}:`, error);
+        }
+      }
+      
+      // Jeśli recipeTag ma tagId, ale nie ma tag.syncId
+      if (recipeTag.tagId && (!recipeTag.tag || !recipeTag.tag.syncId)) {
+        try {
+          // Znajdź tag po ID
+          const tag = await database.get<Tag>('tags').find(recipeTag.tagId);
+          if (tag) {
+            // Ustaw pole tag w getSyncData
+            console.log(`[Sync Service] Found tag with syncId ${tag.syncId} for recipeTag ${recipeTag.id}`);
+            // Przypisujemy bezpośrednio do obiektu, aby getSyncData mogło z tego skorzystać
+            recipeTag._tag = tag;
+          } else {
+            console.error(`[Sync Service] Could not find tag with id ${recipeTag.tagId} for recipeTag ${recipeTag.id}`);
+          }
+        } catch (error) {
+          console.error(`[Sync Service] Error finding tag for recipeTag ${recipeTag.id}:`, error);
+        }
+      }
     }
   }
 
