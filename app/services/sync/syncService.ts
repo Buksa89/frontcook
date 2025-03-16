@@ -190,7 +190,8 @@ class SyncService {
       try {
         const payload = {
           lastSync,
-          limit: BATCH_SIZE
+          limit: BATCH_SIZE,
+          local_time: new Date().toISOString()
         };
 
         const data = await api.post<PullResponseItem[]>('/api/sync/pull/', payload, true);
@@ -414,8 +415,11 @@ class SyncService {
         };
       });
 
-      // Przygotuj payload jako tablicę
-      const payload = serializedRecords;
+      // Przygotuj payload jako obiekt z local_time i objects
+      const payload = {
+        local_time: new Date().toISOString(),
+        objects: serializedRecords
+      };
       
       // Wyślij zmiany na serwer i odbierz zaktualizowane obiekty
       const response = await api.post<PullResponseItem[]>('/api/sync/push/', payload, true);
