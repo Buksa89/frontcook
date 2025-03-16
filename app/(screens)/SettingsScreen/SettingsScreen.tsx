@@ -6,8 +6,7 @@ import { LocalUserSettings } from '../../../database';
 import { useAuth } from '../../context/authContext';
 import { LoginPrompt } from './LoginPrompt';
 import { PasswordChange } from './PasswordChange';
-import userSettingsService from '../../services/userSettings/userSettingsService';
-import { UserSettingsApiResponse } from '../../services/userSettings/userSettingsService';
+import { UserSettingsApi, UserSettingsApiResponse } from '../../api/userSettings';
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<LocalUserSettings | null>(null);
@@ -54,7 +53,7 @@ export default function SettingsScreen() {
     
     setApiLoading(true);
     try {
-      const response = await userSettingsService.getUserSettings();
+      const response = await UserSettingsApi.getUserSettings();
       setApiSettings(response);
       setAutoTranslate(response.auto_translate_recipes);
       setAllowFriendsViews(response.allow_friends_view_recipes);
@@ -92,7 +91,7 @@ export default function SettingsScreen() {
     
     setApiLoading(true);
     try {
-      const response = await userSettingsService.updateSetting('auto_translate_recipes', value);
+      const response = await UserSettingsApi.updateSetting('auto_translate_recipes', value);
       setAutoTranslate(response.auto_translate_recipes);
       setApiSettings(response);
     } catch (error) {
@@ -109,7 +108,7 @@ export default function SettingsScreen() {
     
     setApiLoading(true);
     try {
-      const response = await userSettingsService.updateSetting('allow_friends_view_recipes', value);
+      const response = await UserSettingsApi.updateSetting('allow_friends_view_recipes', value);
       setAllowFriendsViews(response.allow_friends_view_recipes);
       setApiSettings(response);
     } catch (error) {
