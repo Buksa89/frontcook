@@ -164,7 +164,8 @@ export default class RecipeTag extends BaseModel {
             // Set recipeId to the local ID of the recipe
             serverObject.recipeId = recipe.id;
           } else {
-            console.error(`[DB ${this.table}] Could not find recipe with sync_id ${serverObject.recipe}`);
+            console.log(`[DB ${this.table}] Recipe with sync_id ${serverObject.recipe} not found yet, will retry later`);
+            // Instead of failing immediately, we'll mark that we can't create this object yet
             canCreate = false;
           }
         }
@@ -177,23 +178,26 @@ export default class RecipeTag extends BaseModel {
             // Set tagId to the local ID of the tag
             serverObject.tagId = tag.id;
           } else {
-            console.error(`[DB ${this.table}] Could not find tag with sync_id ${serverObject.tag}`);
+            console.log(`[DB ${this.table}] Tag with sync_id ${serverObject.tag} not found yet, will retry later`);
+            // Instead of failing immediately, we'll mark that we can't create this object yet
             canCreate = false;
           }
         }
         
-        // If we can't find either the recipe or the tag, we can't create the recipe_tag
+        // If we can't find either the recipe or the tag, we'll return an empty array
+        // to indicate this object should be retried later
         if (!canCreate) {
           return [];
         }
       } catch (error) {
-        console.error(`[DB ${this.table}] Error mapping sync_ids to local IDs:`, error);
+        console.log(`[DB ${this.table}] Error finding related objects, will retry later`);
+        // Instead of failing, we'll return an empty array to indicate this object should be retried later
         return [];
       }
     }
     
     // Call the base implementation to find matching records
-    const records = await BaseModel.findMatchingRecords.call(this, database, serverObject);
+    const records = await BaseModel.findMatchingRecords.call(this as unknown as (new () => BaseModel) & typeof BaseModel, database, serverObject);
     return records as RecipeTag[];
   }
 } 

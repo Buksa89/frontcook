@@ -176,8 +176,8 @@ class SyncService {
       return null;
     }
 
-    // Kolekcja obiektów, które nie udało się zsynchronizować
-    const failedItems: { [key: string]: PullResponseItem[] } = {
+    // Collection of objects that failed to sync and should be retried
+    const objectsToRetry: { [key: string]: PullResponseItem[] } = {
       recipe: [],
       tag: [],
       ingredient: [],
@@ -225,11 +225,11 @@ class SyncService {
         };
 
         // Update most recent update time and group objects
-          for (const item of data) {
-              // Update most recent update time if this item is newer
-              if (!mostRecentUpdate || new Date(item.last_update) > new Date(mostRecentUpdate)) {
-                mostRecentUpdate = item.last_update;
-              }
+        for (const item of data) {
+          // Update most recent update time if this item is newer
+          if (!mostRecentUpdate || new Date(item.last_update) > new Date(mostRecentUpdate)) {
+            mostRecentUpdate = item.last_update;
+          }
 
           // Add to the appropriate group
           if (groupedObjects[item.object_type]) {
@@ -256,13 +256,28 @@ class SyncService {
                 result = await (Tag as any).pullSync(database, objectsToSync);
                 break;
               case 'ingredient':
-                result = await (Ingredient as any).pullSync(database, objectsToSync);
+                try {
+                  result = await (Ingredient as any).pullSync(database, objectsToSync);
+                } catch (error) {
+                  console.log(`[Sync Service] Collecting ingredients that failed to sync for retry`);
+                  objectsToRetry[objectType].push(...objectsToSync);
+                }
                 break;
               case 'recipe_tag':
-                result = await (RecipeTag as any).pullSync(database, objectsToSync);
+                try {
+                  result = await (RecipeTag as any).pullSync(database, objectsToSync);
+                } catch (error) {
+                  console.log(`[Sync Service] Collecting recipe_tags that failed to sync for retry`);
+                  objectsToRetry[objectType].push(...objectsToSync);
+                }
                 break;
               case 'shopping_item':
-                result = await (ShoppingItem as any).pullSync(database, objectsToSync);
+                try {
+                  result = await (ShoppingItem as any).pullSync(database, objectsToSync);
+                } catch (error) {
+                  console.log(`[Sync Service] Collecting shopping_items that failed to sync for retry`);
+                  objectsToRetry[objectType].push(...objectsToSync);
+                }
                 break;
               case 'user_settings':
                 result = await (UserSettings as any).pullSync(database, objectsToSync);
@@ -272,8 +287,9 @@ class SyncService {
                 break;
             }
           } catch (error) {
-            console.error(`[Sync Service] Error processing ${objectType} objects:`, error);
-            failedItems[objectType].push(...objectsToSync);
+            console.log(`[Sync Service] Object type ${objectType} will be retried later`);
+            // Add failed objects to retry collection
+            objectsToRetry[objectType].push(...objectsToSync);
           }
         }
 
@@ -298,41 +314,133 @@ class SyncService {
       }
     }
 
-    // Retry failed items
-    const retryOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings', 'notification'];
+    // Retry objects that failed to sync
+    console.log('[Sync Service] Starting retry phase...');
     
-    for (const objectType of retryOrder) {
-      const objectsToRetry = failedItems[objectType];
-      if (objectsToRetry.length === 0) continue;
-
-      try {
-        // Process each object type with the appropriate model class
-        switch (objectType) {
-          case 'recipe':
-            await (Recipe as any).pullSync(database, objectsToRetry);
-            break;
-          case 'tag':
-            await (Tag as any).pullSync(database, objectsToRetry);
-            break;
-          case 'ingredient':
-            await (Ingredient as any).pullSync(database, objectsToRetry);
-            break;
-          case 'recipe_tag':
-            await (RecipeTag as any).pullSync(database, objectsToRetry);
-            break;
-          case 'shopping_item':
-            await (ShoppingItem as any).pullSync(database, objectsToRetry);
-            break;
-          case 'user_settings':
-            await (UserSettings as any).pullSync(database, objectsToRetry);
-            break;
-          case 'notification':
-            await (Notification as any).pullSync(database, objectsToRetry);
-            break;
-        }
-      } catch (error) {
-        console.error(`[Sync Service] Error retrying ${objectType} objects:`, error);
+    // We'll retry multiple times to handle dependencies between objects
+    const MAX_RETRY_ATTEMPTS = 3;
+    
+    for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+      const isLastAttempt = attempt === MAX_RETRY_ATTEMPTS - 1;
+      console.log(`[Sync Service] Retry attempt ${attempt + 1}/${MAX_RETRY_ATTEMPTS}`);
+      
+      // Count objects to retry
+      const totalObjectsToRetry = Object.values(objectsToRetry).reduce(
+        (sum, objects) => sum + objects.length, 0
+      );
+      
+      if (totalObjectsToRetry === 0) {
+        console.log('[Sync Service] No objects to retry, skipping retry phase');
+        break;
       }
+      
+      console.log(`[Sync Service] Retrying ${totalObjectsToRetry} objects`);
+      
+      // Create a copy of the objects to retry
+      const currentRetryBatch: { [key: string]: PullResponseItem[] } = {
+        recipe: [...objectsToRetry.recipe],
+        tag: [...objectsToRetry.tag],
+        ingredient: [...objectsToRetry.ingredient],
+        recipe_tag: [...objectsToRetry.recipe_tag],
+        shopping_item: [...objectsToRetry.shopping_item],
+        user_settings: [...objectsToRetry.user_settings],
+        notification: [...objectsToRetry.notification]
+      };
+      
+      // Clear the retry collection for this attempt
+      Object.keys(objectsToRetry).forEach(key => {
+        objectsToRetry[key] = [];
+      });
+      
+      // Retry in the correct order
+      const retryOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings', 'notification'];
+      
+      for (const objectType of retryOrder) {
+        const objectsToProcess = currentRetryBatch[objectType];
+        if (objectsToProcess.length === 0) continue;
+        
+        console.log(`[Sync Service] Retrying ${objectsToProcess.length} ${objectType} objects`);
+        
+        try {
+          // Process each object type with the appropriate model class
+          switch (objectType) {
+            case 'recipe':
+              await (Recipe as any).pullSync(database, objectsToProcess);
+              break;
+            case 'tag':
+              await (Tag as any).pullSync(database, objectsToProcess);
+              break;
+            case 'ingredient':
+              try {
+                await (Ingredient as any).pullSync(database, objectsToProcess);
+              } catch (error) {
+                // If still failing, add back to retry collection
+                objectsToRetry[objectType].push(...objectsToProcess);
+                // Only log error on the last attempt
+                if (isLastAttempt) {
+                  console.error(`[Sync Service] Error processing ${objectType} objects after all retry attempts:`, error);
+                }
+              }
+              break;
+            case 'recipe_tag':
+              try {
+                await (RecipeTag as any).pullSync(database, objectsToProcess);
+              } catch (error) {
+                // If still failing, add back to retry collection
+                objectsToRetry[objectType].push(...objectsToProcess);
+                // Only log error on the last attempt
+                if (isLastAttempt) {
+                  console.error(`[Sync Service] Error processing ${objectType} objects after all retry attempts:`, error);
+                }
+              }
+              break;
+            case 'shopping_item':
+              try {
+                await (ShoppingItem as any).pullSync(database, objectsToProcess);
+              } catch (error) {
+                // If still failing, add back to retry collection
+                objectsToRetry[objectType].push(...objectsToProcess);
+                // Only log error on the last attempt
+                if (isLastAttempt) {
+                  console.error(`[Sync Service] Error processing ${objectType} objects after all retry attempts:`, error);
+                }
+              }
+              break;
+            case 'user_settings':
+              await (UserSettings as any).pullSync(database, objectsToProcess);
+              break;
+            case 'notification':
+              await (Notification as any).pullSync(database, objectsToProcess);
+              break;
+          }
+        } catch (error) {
+          // Add failed objects back to retry collection
+          objectsToRetry[objectType].push(...objectsToProcess);
+          // Only log error on the last attempt
+          if (isLastAttempt) {
+            console.error(`[Sync Service] Error processing ${objectType} objects after all retry attempts:`, error);
+          } else {
+            console.log(`[Sync Service] Will retry ${objectsToProcess.length} ${objectType} objects in next attempt`);
+          }
+        }
+      }
+    }
+    
+    // Log any objects that still failed after all retry attempts
+    const remainingFailedObjects = Object.entries(objectsToRetry)
+      .filter(([_, objects]) => objects.length > 0);
+    
+    if (remainingFailedObjects.length > 0) {
+      console.log('[Sync Service] Some objects still failed to sync after all retry attempts:');
+      remainingFailedObjects.forEach(([objectType, objects]) => {
+        console.log(`- ${objectType}: ${objects.length} objects`);
+        // Log the first few objects for debugging
+        objects.slice(0, 3).forEach(obj => {
+          console.log(`  - sync_id: ${obj.sync_id}, related to: ${(obj as any).recipe || (obj as any).tag || 'unknown'}`);
+        });
+      });
+    } else {
+      console.log('[Sync Service] All objects synced successfully after retries');
     }
 
     return mostRecentUpdate || lastSync;
@@ -547,10 +655,10 @@ class SyncService {
             // Przypisujemy bezpośrednio do obiektu, aby getSyncData mogło z tego skorzystać
             ingredient._recipe = recipe;
           } else {
-            console.error(`[Sync Service] Could not find recipe with id ${ingredient.recipeId} for ingredient ${ingredient.id}`);
+            console.log(`[Sync Service] Recipe with id ${ingredient.recipeId} for ingredient ${ingredient.id} not found yet, will be handled during retry`);
           }
         } catch (error) {
-          console.error(`[Sync Service] Error finding recipe for ingredient ${ingredient.id}:`, error);
+          console.log(`[Sync Service] Error finding recipe for ingredient ${ingredient.id}, will be handled during retry`);
         }
       }
     }
@@ -570,10 +678,10 @@ class SyncService {
             // Przypisujemy bezpośrednio do obiektu, aby getSyncData mogło z tego skorzystać
             recipeTag._recipe = recipe;
           } else {
-            console.error(`[Sync Service] Could not find recipe with id ${recipeTag.recipeId} for recipeTag ${recipeTag.id}`);
+            console.log(`[Sync Service] Recipe with id ${recipeTag.recipeId} for recipeTag ${recipeTag.id} not found yet, will be handled during retry`);
           }
         } catch (error) {
-          console.error(`[Sync Service] Error finding recipe for recipeTag ${recipeTag.id}:`, error);
+          console.log(`[Sync Service] Error finding recipe for recipeTag ${recipeTag.id}, will be handled during retry`);
         }
       }
       
@@ -588,10 +696,10 @@ class SyncService {
             // Przypisujemy bezpośrednio do obiektu, aby getSyncData mogło z tego skorzystać
             recipeTag._tag = tag;
           } else {
-            console.error(`[Sync Service] Could not find tag with id ${recipeTag.tagId} for recipeTag ${recipeTag.id}`);
+            console.log(`[Sync Service] Tag with id ${recipeTag.tagId} for recipeTag ${recipeTag.id} not found yet, will be handled during retry`);
           }
         } catch (error) {
-          console.error(`[Sync Service] Error finding tag for recipeTag ${recipeTag.id}:`, error);
+          console.log(`[Sync Service] Error finding tag for recipeTag ${recipeTag.id}, will be handled during retry`);
         }
       }
     }

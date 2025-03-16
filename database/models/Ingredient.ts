@@ -172,18 +172,19 @@ export default class Ingredient extends BaseModel {
           // Set recipeId to the local ID of the recipe
           serverObject.recipeId = recipe.id;
         } else {
-          console.error(`[DB ${this.table}] Could not find recipe with sync_id ${serverObject.recipe}`);
-          // If we can't find the recipe, we can't create the ingredient
+          console.log(`[DB ${this.table}] Recipe with sync_id ${serverObject.recipe} not found yet, will retry later`);
+          // Instead of failing, we'll return an empty array to indicate this object should be retried later
           return [];
         }
       } catch (error) {
-        console.error(`[DB ${this.table}] Error mapping recipe sync_id to local ID:`, error);
+        console.log(`[DB ${this.table}] Error finding recipe with sync_id ${serverObject.recipe}, will retry later`);
+        // Instead of failing, we'll return an empty array to indicate this object should be retried later
         return [];
       }
     }
     
     // Call the base implementation to find matching records
-    const records = await BaseModel.findMatchingRecords.call(this, database, serverObject);
+    const records = await BaseModel.findMatchingRecords.call(this as unknown as (new () => BaseModel) & typeof BaseModel, database, serverObject);
     return records as Ingredient[];
   }
 } 

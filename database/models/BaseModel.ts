@@ -600,7 +600,18 @@ export default class BaseModel extends Model {
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           const syncId = serverObject.syncId || serverObject.sync_id || 'unknown';
-          console.error(`[DB ${this.table}] Error processing server object with syncId ${syncId}: ${errorMessage}`);
+          
+          // Check if this is a relation error (missing recipe or tag)
+          if (errorMessage.includes('recipe') || errorMessage.includes('tag') || 
+              (serverObject.recipe && !serverObject.recipeId) || 
+              (serverObject.tag && !serverObject.tagId)) {
+            // This is likely a relation error, just log it as info
+            console.log(`[DB ${this.table}] Object with syncId ${syncId} will be retried later: ${errorMessage}`);
+          } else {
+            // This is some other error, log it as an error
+            console.error(`[DB ${this.table}] Error processing server object with syncId ${syncId}: ${errorMessage}`);
+          }
+          
           result.errors.push({ 
             syncId: syncId, 
             error: errorMessage 
