@@ -100,7 +100,12 @@ export default class Recipe extends BaseModel {
         // Handle tags update
         if (data.selectedTags) {
           const existingTags = await recipeTagsCollection
-            .query(Q.where('recipe_id', recipe.id))
+            .query(
+              Q.and(
+                Q.where('recipe_id', recipe.id),
+                Q.where('is_deleted', false)
+              )
+            )
             .fetch();
 
           // Find tags to remove
@@ -108,7 +113,13 @@ export default class Recipe extends BaseModel {
             !data.selectedTags?.some(tag => tag.id === rt.tagId)
           );
 
-          operations.push(...tagsToRemove.map(rt => rt.prepareDestroyPermanently()));
+          operations.push(...tagsToRemove.map(rt => 
+            rt.prepareUpdate(record => {
+              record.isDeleted = true;
+              record.syncStatus = 'pending';
+              record.lastUpdate = new Date().toISOString();
+            })
+          ));
 
           // Add new tags
           const existingTagIds = existingTags.map(rt => rt.tagId);

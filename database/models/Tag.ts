@@ -1,6 +1,6 @@
 import { field, text, children, lazy, writer } from '@nozbe/watermelondb/decorators'
 import { Q } from '@nozbe/watermelondb'
-import { Observable, from } from 'rxjs'
+import { Observable, from, of } from 'rxjs'
 import { Database } from '@nozbe/watermelondb'
 import { map, switchMap } from 'rxjs/operators'
 import BaseModel from './BaseModel'
@@ -68,18 +68,39 @@ export default class Tag extends BaseModel {
   // Static method to observe tags for a recipe
   static observeForRecipe(database: Database, recipeId: string): Observable<Tag[]> {
     return from(AuthService.getActiveUser()).pipe(
-      switchMap(activeUser => 
-        database.get<Tag>('tags')
+      switchMap(activeUser => {
+        // Obserwuj RecipeTag dla danego przepisu
+        return database
+          .get<RecipeTag>('recipe_tags')
           .query(
-            Q.experimentalJoinTables(['recipe_tags']),
             Q.and(
-              Q.where('owner', activeUser),
-              Q.where('is_deleted', false),
-              Q.on('recipe_tags', 'recipe_id', recipeId)
+              Q.where('recipe_id', recipeId),
+              Q.where('is_deleted', false)
             )
           )
           .observe()
-      )
+          .pipe(
+            // Dla każdej zmiany w kolekcji RecipeTag, pobierz powiązane tagi
+            switchMap(recipeTags => {
+              if (recipeTags.length === 0) {
+                return of([]);
+              }
+              
+              const tagIds = recipeTags.map(rt => rt.tagId);
+              
+              return database
+                .get<Tag>('tags')
+                .query(
+                  Q.and(
+                    Q.where('owner', activeUser),
+                    Q.where('is_deleted', false),
+                    Q.where('id', Q.oneOf(tagIds))
+                  )
+                )
+                .fetch();
+            })
+          );
+      })
     );
   }
 
