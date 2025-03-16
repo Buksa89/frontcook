@@ -1,9 +1,9 @@
 problem z writerem przy local sync
 popraw prompt, zeby nie tworzyl wlasnych tagow
-dodaj endpoint do pobierania przepisow z api do listy, details i management
-zaimpleemntuj endpoint do przpeisow z api
-zaimplementuj endpoint do tworzenia przepisow z weba
 dodaj notyfikacje po stworzonym przpiesie
+popraw widok approve/remove
+dodaj approve/remove w detalach not approved
+dodaj approve w edycji not approved, kiedy klika sie zaakceptuj
 
 
 sync
