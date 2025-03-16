@@ -1,36 +1,74 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { webImportRecipeApi } from '../../api';
+import type { WebImportRecipeResponse } from '../../api/webImportRecipe';
 
 interface WebImportModalProps {
   visible: boolean;
   onClose: () => void;
+  onImportSuccess?: (taskId: string) => void;
 }
 
-export const WebImportModal = ({ visible, onClose }: WebImportModalProps) => {
+export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportModalProps) => {
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleImport = () => {
+  const handleImport = async () => {
+    // Reset states
+    setError('');
+    setSuccessMessage('');
+    
+    // Validate URL
     if (!url.trim()) {
-      setError('Wprowadź adres URL przepisu');
+      setError('Wpisz adres strony z przepisem');
       return;
     }
 
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      setError('Wprowadź poprawny adres URL');
+      setError('Ten adres nie wygląda na poprawny. Upewnij się, że zaczyna się od http:// lub https://');
       return;
     }
 
-    // Clear error if validation passes
-    setError('');
+    // Start loading
+    setIsLoading(true);
     
-    // TODO: Implement recipe import from URL
-    console.log('Import recipe from URL:', url);
-    
-    // Reset and close modal
-    setUrl('');
-    onClose();
+    try {
+      // Call API to import recipe from URL using the dedicated API module
+      const response = await webImportRecipeApi.importFromUrl(url.trim());
+      
+      // Handle success
+      setSuccessMessage('Super! Zaczęliśmy pobierać przepis. Damy Ci znać, gdy będzie gotowy!');
+      
+      // Call success callback if provided
+      if (onImportSuccess && response.task_id) {
+        onImportSuccess(response.task_id);
+      }
+      
+      // Reset form and close modal after a delay
+      setTimeout(() => {
+        setUrl('');
+        setSuccessMessage('');
+        onClose();
+      }, 2000);
+      
+    } catch (err: any) {
+      // Handle API error
+      if (err.status === 401) {
+        setError('Hej, musisz się najpierw zalogować, żeby dodać przepis');
+      } else if (err.data && err.data.error) {
+        setError(err.data.error);
+      } else if (err.status === 404) {
+        setError('Ups! Nie możemy znaleźć tej strony. Sprawdź, czy adres jest poprawny.');
+      } else {
+        setError('Coś poszło nie tak. Może spróbuj ponownie za chwilę?');
+      }
+      console.error('Import recipe error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -47,8 +85,8 @@ export const WebImportModal = ({ visible, onClose }: WebImportModalProps) => {
         <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
           <View style={styles.header}>
             <Text style={styles.title}>Importuj z internetu</Text>
-            <TouchableOpacity onPress={onClose}>
-              <MaterialIcons name="close" size={24} color="#666" />
+            <TouchableOpacity onPress={onClose} disabled={isLoading}>
+              <MaterialIcons name="close" size={24} color={isLoading ? "#ccc" : "#666"} />
             </TouchableOpacity>
           </View>
 
@@ -64,15 +102,24 @@ export const WebImportModal = ({ visible, onClose }: WebImportModalProps) => {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
+            editable={!isLoading}
           />
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
           <TouchableOpacity 
-            style={styles.importButton}
+            style={[styles.importButton, isLoading ? styles.importButtonDisabled : null]}
             onPress={handleImport}
+            disabled={isLoading}
           >
-            <MaterialIcons name="download" size={20} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Importuj</Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <MaterialIcons name="download" size={20} color="#fff" style={styles.buttonIcon} />
+                <Text style={styles.buttonText}>Importuj</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </Pressable>
@@ -126,6 +173,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
+  successText: {
+    color: '#28a745',
+    fontSize: 14,
+    marginTop: 4,
+  },
   importButton: {
     backgroundColor: '#2196F3',
     flexDirection: 'row',
@@ -134,6 +186,10 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     marginTop: 24,
+    minHeight: 48,
+  },
+  importButtonDisabled: {
+    backgroundColor: '#a0d0f7',
   },
   buttonIcon: {
     marginRight: 8,
