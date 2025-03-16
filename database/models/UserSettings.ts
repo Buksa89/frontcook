@@ -110,25 +110,21 @@ export default class UserSettings extends BaseModel {
     try {
       console.log(`[DB ${this.table}] Filtering ${serverObjects.length} server objects for sync`);
       
-      // Get active user
-      const activeUser = await AuthService.getActiveUser();
-      
-      // Filter server objects to only include those for the active user
-      const userServerObjects = serverObjects.filter(obj => obj.owner === activeUser);
-      
-      if (userServerObjects.length === 0) {
-        console.log(`[DB ${this.table}] No server objects found for user ${activeUser}`);
+      if (serverObjects.length === 0) {
         return [];
       }
       
+      // Nie filtrujemy po owner, ponieważ serwer może używać innego pola (np. user)
+      // Zamiast tego, po prostu wybieramy najnowszy obiekt, jeśli jest ich wiele
+      
       // Get the most recent server object
-      const mostRecentObject = userServerObjects.sort((a, b) => {
-        const aTime = a.lastUpdate ? new Date(a.lastUpdate).getTime() : 0;
-        const bTime = b.lastUpdate ? new Date(b.lastUpdate).getTime() : 0;
+      const mostRecentObject = serverObjects.sort((a, b) => {
+        const aTime = a.last_update ? new Date(a.last_update).getTime() : 0;
+        const bTime = b.last_update ? new Date(b.last_update).getTime() : 0;
         return bTime - aTime;
       })[0];
       
-      console.log(`[DB ${this.table}] Selected most recent object for user ${activeUser}`);
+      console.log(`[DB ${this.table}] Selected most recent object for sync`);
       return [mostRecentObject];
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

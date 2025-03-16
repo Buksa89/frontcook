@@ -1,8 +1,6 @@
 sync
-
- (NOBRIDGE) ERROR  [Sync Service] Push sync failed: [ApiError: {'user': ['User settings with this User already exists.']}]
- (NOBRIDGE) ERROR  [Sync Service] Sync failed: [ApiError: {'user': ['User settings with this User already exists.']}]
-
+konflikt na serwerze przegrany bez powodu
+recipes sie nie dodaja na serwerze, powiazania
 dodaj dodawanie tagow w trakcie tworzeni/edycji przpeisu
 react-toastify - moze pomoc z wygladem alertow
 recipetag sie tworza bez basemodel

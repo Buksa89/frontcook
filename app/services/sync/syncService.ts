@@ -207,6 +207,13 @@ class SyncService {
           break;
         }
 
+        // Log the received data for debugging
+        console.log(`[Sync Service] Received ${data.length} items from server`);
+        // Log a sample item to check the structure
+        if (data.length > 0) {
+          console.log('[Sync Service] Sample item structure:', JSON.stringify(data[0], null, 2));
+        }
+
         // Group server objects by object type
         const groupedObjects: { [key: string]: PullResponseItem[] } = {
           recipe: [],
@@ -466,18 +473,32 @@ class SyncService {
 
       // Oznacz jako zsynchronizowane te rekordy, które zostały wysłane, ale nie zostały zwrócone przez serwer
       // (czyli te, które serwer zaakceptował)
-        await database.write(async () => {
+      await database.write(async () => {
+        // Collect all update operations
+        const updateOperations = [];
+        
         for (const { record } of recordsToSync) {
           // Jeśli rekord nie został zwrócony przez serwer, oznacz go jako zsynchronizowany
           if (!returnedSyncIds.has(record.syncId)) {
             try {
-              await record.markAsSynced();
+              // Use prepareUpdate instead of calling markAsSynced directly
+              updateOperations.push(
+                record.prepareUpdate(rec => {
+                  rec.syncStatusField = 'synced';
+                  // Don't update lastUpdate, keep the existing value
+                })
+              );
             } catch (error) {
-              console.error(`[Sync Service] Error marking record ${record.id} as synced:`, error);
-            }
+              console.error(`[Sync Service] Error preparing update for record ${record.id}:`, error);
             }
           }
-        });
+        }
+        
+        // Execute all update operations in a single batch
+        if (updateOperations.length > 0) {
+          await database.batch(...updateOperations);
+        }
+      });
 
       console.log('[Sync Service] Successfully pushed changes to server');
     } catch (error) {
