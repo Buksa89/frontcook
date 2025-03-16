@@ -66,7 +66,6 @@ class AuthService {
   static async getActiveUser(): Promise<string | null> {
     try {
       const activeUser = await AuthStorage.retrieveActiveUser();
-      console.log('[AuthService] Retrieved active user successfully.');
       return activeUser;
     } catch (error) {
       console.error('[AuthService] Błąd podczas pobierania aktywnego użytkownika:', error);

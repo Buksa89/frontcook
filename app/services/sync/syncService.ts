@@ -209,10 +209,6 @@ class SyncService {
 
         // Log the received data for debugging
         console.log(`[Sync Service] Received ${data.length} items from server`);
-        // Log a sample item to check the structure
-        if (data.length > 0) {
-          console.log('[Sync Service] Sample item structure:', JSON.stringify(data[0], null, 2));
-        }
 
         // Group server objects by object type
         const groupedObjects: { [key: string]: PullResponseItem[] } = {

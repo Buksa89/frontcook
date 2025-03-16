@@ -163,7 +163,6 @@ export default class RecipeTag extends BaseModel {
           if (recipe) {
             // Set recipeId to the local ID of the recipe
             serverObject.recipeId = recipe.id;
-            console.log(`[DB ${this.table}] Mapped recipe sync_id ${serverObject.recipe} to local ID ${recipe.id}`);
           } else {
             console.error(`[DB ${this.table}] Could not find recipe with sync_id ${serverObject.recipe}`);
             canCreate = false;
@@ -177,7 +176,6 @@ export default class RecipeTag extends BaseModel {
           if (tag) {
             // Set tagId to the local ID of the tag
             serverObject.tagId = tag.id;
-            console.log(`[DB ${this.table}] Mapped tag sync_id ${serverObject.tag} to local ID ${tag.id}`);
           } else {
             console.error(`[DB ${this.table}] Could not find tag with sync_id ${serverObject.tag}`);
             canCreate = false;

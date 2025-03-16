@@ -171,7 +171,6 @@ export default class Ingredient extends BaseModel {
         if (recipe) {
           // Set recipeId to the local ID of the recipe
           serverObject.recipeId = recipe.id;
-          console.log(`[DB ${this.table}] Mapped recipe sync_id ${serverObject.recipe} to local ID ${recipe.id}`);
         } else {
           console.error(`[DB ${this.table}] Could not find recipe with sync_id ${serverObject.recipe}`);
           // If we can't find the recipe, we can't create the ingredient

@@ -374,18 +374,15 @@ export default class BaseModel extends Model {
     const syncId = serverObject.syncId || serverObject.sync_id;
     
     if (!syncId) {
-      console.log(`[DB ${this.table}] No syncId found in server object:`, serverObject);
       return [];
     }
     
-    console.log(`[DB ${this.table}] Finding records with sync_id: ${syncId}`);
     
     const records = await database
       .get<T>(this.table)
       .query(Q.where('sync_id', syncId))
       .fetch();
       
-    console.log(`[DB ${this.table}] Found ${records.length} matching records`);
     return records;
   }
 
@@ -411,7 +408,6 @@ export default class BaseModel extends Model {
     Object.entries(specialFields).forEach(([snakeCase, camelCase]) => {
       if (preparedData[snakeCase] !== undefined && preparedData[camelCase] === undefined) {
         preparedData[camelCase] = preparedData[snakeCase];
-        console.log(`[DB ${this.table}] Mapped ${snakeCase} to ${camelCase}: ${preparedData[camelCase]}`);
       }
     });
     
@@ -522,8 +518,6 @@ export default class BaseModel extends Model {
           }
           
           if (existingRecords.length === 0) {
-            // No existing record found, prepare to create a new one
-            console.log(`[DB ${this.table}] Creating new record with syncId: ${preparedData.syncId}`);
             
             // Get the active user for record ownership
             const activeUser = await AuthService.getActiveUser();
@@ -541,7 +535,6 @@ export default class BaseModel extends Model {
                       // For example, 'recipe' would be a relation field if there's a @relation decorator for it
                       if (key === 'recipe' || key === 'tag') {
                         // Skip relation fields - they will be established via the ID fields (recipeId, tagId)
-                        console.log(`[DB ${this.table}] Skipping relation field ${key} during creation`);
                       } else {
                         // Regular field, set directly
                         (record as any)[key] = value;
