@@ -5,6 +5,7 @@ import { Observable } from 'rxjs'
 import BaseModel from './BaseModel'
 import AuthService from '../../app/services/auth/authService'
 import { v4 as uuidv4 } from 'uuid'
+import { map } from 'rxjs/operators'
 
 export default class Notification extends BaseModel {
   static table = 'notifications'
@@ -42,10 +43,22 @@ export default class Notification extends BaseModel {
             Q.and(
               Q.where('owner', activeUser),
               Q.where('is_deleted', false)
-            ),
-            Q.sortBy('order', Q.desc)
+            )
           )
           .observe()
+          .pipe(
+            map(notifications => 
+              // Najpierw sortujemy po statusie przeczytania (nieprzeczytane na górze)
+              notifications.sort((a, b) => {
+                // Jeśli jeden jest przeczytany a drugi nie, nieprzeczytany idzie na górę
+                if (a.isReaded !== b.isReaded) {
+                  return a.isReaded ? 1 : -1;
+                }
+                // Jeśli oba mają ten sam status przeczytania, sortujemy po order (malejąco)
+                return b.order - a.order;
+              })
+            )
+          )
           .subscribe(subscriber);
       });
 
@@ -69,10 +82,12 @@ export default class Notification extends BaseModel {
               Q.where('owner', activeUser),
               Q.where('is_readed', false),
               Q.where('is_deleted', false)
-            ),
-            Q.sortBy('order', Q.desc)
+            )
           )
           .observe()
+          .pipe(
+            map(notifications => notifications.sort((a, b) => b.order - a.order))
+          )
           .subscribe(subscriber);
       });
 
@@ -117,6 +132,45 @@ export default class Notification extends BaseModel {
       });
     } catch (error) {
       console.error(`[DB Notification] Error marking all notifications as read: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  // Helper method to delete all read notifications
+  static async deleteAllRead(database: Database): Promise<void> {
+    try {
+      const activeUser = await AuthService.getActiveUser();
+      
+      const readNotifications = await database
+        .get<Notification>('notifications')
+        .query(
+          Q.and(
+            Q.where('owner', activeUser),
+            Q.where('is_readed', true),
+            Q.where('is_deleted', false)
+          )
+        )
+        .fetch();
+      
+      if (readNotifications.length === 0) {
+        return;
+      }
+      
+      console.log(`[DB Notification] Deleting ${readNotifications.length} read notifications`);
+      
+      await database.write(async () => {
+        const updates = readNotifications.map(notification => 
+          notification.prepareUpdate(record => {
+            record.isDeleted = true;
+            record.syncStatus = 'pending';
+            record.lastUpdate = new Date().toISOString();
+          })
+        );
+        
+        await database.batch(...updates);
+      });
+    } catch (error) {
+      console.error(`[DB Notification] Error deleting read notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }

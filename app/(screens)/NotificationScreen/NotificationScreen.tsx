@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import database from '../../../database';
 import Notification from '../../../database/models/Notification';
 import { useNavigation } from '@react-navigation/native';
@@ -17,7 +17,12 @@ type NotificationItem = {
 export default function NotificationScreen() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
   const navigation = useNavigation();
+
+  // Obliczamy te wartości na podstawie aktualnego stanu powiadomień
+  const hasReadNotifications = notifications.some(notification => notification.isReaded);
+  const hasUnreadNotifications = notifications.some(notification => !notification.isReaded);
 
   useEffect(() => {
     const subscription = Notification.observeAll(database).subscribe(
@@ -40,14 +45,80 @@ export default function NotificationScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    // Dodajemy przyciski do paska nawigacji
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerRightContainer}>
+          {hasUnreadNotifications && (
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={handleMarkAllAsRead}
+            >
+              <MaterialIcons name="done-all" size={24} color="#007aff" />
+            </TouchableOpacity>
+          )}
+          {hasReadNotifications && (
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={handleDeleteAllRead}
+            >
+              <MaterialIcons name="delete-sweep" size={24} color="#ff3b30" />
+            </TouchableOpacity>
+          )}
+        </View>
+      ),
+    });
+  }, [navigation, hasReadNotifications, hasUnreadNotifications]);
+
   const handleMarkAllAsRead = async () => {
     if (notifications.length === 0) return;
     
     try {
       await Notification.markAllAsRead(database);
+      
+      // Aktualizujemy lokalny stan, aby natychmiast odzwierciedlić zmianę
+      setNotifications(prevNotifications => 
+        prevNotifications.map(item => 
+          !item.isReaded ? { ...item, isReaded: true } : item
+        )
+      );
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
+  };
+
+  const handleDeleteAllRead = async () => {
+    const readNotifications = notifications.filter(notification => notification.isReaded);
+    if (readNotifications.length === 0) return;
+    
+    Alert.alert(
+      "Usuń przeczytane",
+      `Czy na pewno chcesz usunąć wszystkie przeczytane powiadomienia (${readNotifications.length})?`,
+      [
+        {
+          text: "Anuluj",
+          style: "cancel"
+        },
+        { 
+          text: "Usuń", 
+          onPress: async () => {
+            try {
+              await Notification.deleteAllRead(database);
+              
+              // Aktualizujemy lokalny stan, aby natychmiast usunąć przeczytane powiadomienia z listy
+              setNotifications(prevNotifications => 
+                prevNotifications.filter(item => !item.isReaded)
+              );
+            } catch (error) {
+              console.error('Error deleting read notifications:', error);
+              Alert.alert("Błąd", "Nie udało się usunąć przeczytanych powiadomień");
+            }
+          },
+          style: "destructive"
+        }
+      ]
+    );
   };
 
   const handleNotificationPress = async (notification: NotificationItem) => {
@@ -59,6 +130,15 @@ export default function NotificationScreen() {
       
       if (!notification.isReaded) {
         await notificationRecord.markAsRead();
+        
+        // Aktualizujemy lokalny stan, aby natychmiast odzwierciedlić zmianę
+        setNotifications(prevNotifications => 
+          prevNotifications.map(item => 
+            item.id === notification.id 
+              ? { ...item, isReaded: true } 
+              : item
+          )
+        );
       }
       
       // Jeśli jest link, nawiguj do odpowiedniego ekranu
@@ -71,6 +151,76 @@ export default function NotificationScreen() {
     }
   };
 
+  const handleNotificationLongPress = (notification: NotificationItem) => {
+    setSelectedNotification(notification);
+    
+    Alert.alert(
+      "Opcje powiadomienia",
+      notification.content,
+      [
+        {
+          text: "Anuluj",
+          style: "cancel"
+        },
+        {
+          text: notification.isReaded ? "Oznacz jako nieprzeczytane" : "Oznacz jako przeczytane",
+          onPress: async () => {
+            try {
+              const notificationRecord = await database
+                .get<Notification>('notifications')
+                .find(notification.id);
+              
+              if (notification.isReaded) {
+                await notificationRecord.markAsUnread();
+                // Aktualizujemy lokalny stan, aby natychmiast odzwierciedlić zmianę
+                setNotifications(prevNotifications => 
+                  prevNotifications.map(item => 
+                    item.id === notification.id 
+                      ? { ...item, isReaded: false } 
+                      : item
+                  )
+                );
+              } else {
+                await notificationRecord.markAsRead();
+                // Aktualizujemy lokalny stan, aby natychmiast odzwierciedlić zmianę
+                setNotifications(prevNotifications => 
+                  prevNotifications.map(item => 
+                    item.id === notification.id 
+                      ? { ...item, isReaded: true } 
+                      : item
+                  )
+                );
+              }
+            } catch (error) {
+              console.error('Error changing notification read status:', error);
+            }
+          }
+        },
+        { 
+          text: "Usuń", 
+          onPress: async () => {
+            try {
+              const notificationRecord = await database
+                .get<Notification>('notifications')
+                .find(notification.id);
+              
+              await notificationRecord.markAsDeleted();
+              
+              // Aktualizujemy lokalny stan, aby natychmiast usunąć powiadomienie z listy
+              setNotifications(prevNotifications => 
+                prevNotifications.filter(item => item.id !== notification.id)
+              );
+            } catch (error) {
+              console.error('Error deleting notification:', error);
+              Alert.alert("Błąd", "Nie udało się usunąć powiadomienia");
+            }
+          },
+          style: "destructive"
+        }
+      ]
+    );
+  };
+
   const renderNotificationItem = ({ item }: { item: NotificationItem }) => (
     <TouchableOpacity
       style={[
@@ -78,6 +228,7 @@ export default function NotificationScreen() {
         !item.isReaded && styles.notificationItemUnread
       ]}
       onPress={() => handleNotificationPress(item)}
+      onLongPress={() => handleNotificationLongPress(item)}
     >
       <View style={styles.notificationIcon}>
         <MaterialIcons
@@ -117,15 +268,6 @@ export default function NotificationScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Powiadomienia</Text>
-        {notifications.length > 0 && (
-          <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllButton}>
-            <Text style={styles.markAllButtonText}>Oznacz wszystkie jako przeczytane</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      
       <FlatList
         data={notifications}
         renderItem={renderNotificationItem}
@@ -142,28 +284,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f8f8',
   },
-  header: {
+  headerRightContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-  },
-  markAllButton: {
+  headerIconButton: {
     padding: 8,
-  },
-  markAllButtonText: {
-    color: '#007aff',
-    fontSize: 14,
-    fontWeight: '500',
+    marginLeft: 8,
   },
   listContainer: {
     flexGrow: 1,
