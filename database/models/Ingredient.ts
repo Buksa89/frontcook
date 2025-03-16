@@ -135,4 +135,35 @@ export default class Ingredient extends BaseModel {
     
     return recipes.length > 0 ? recipes[0] : null;
   }
+
+  // Method to find matching records with recipe sync_id mapping
+  static async findMatchingRecordsWithRecipe(
+    database: Database,
+    serverObject: Record<string, any>
+  ): Promise<Ingredient[]> {
+    // If this is an ingredient and it has a recipe field (which is a sync_id)
+    if (serverObject.object_type === 'ingredient' && serverObject.recipe) {
+      try {
+        // Find the recipe by sync_id
+        const recipe = await Ingredient.findRecipeBySyncId(database, serverObject.recipe);
+        
+        if (recipe) {
+          // Set recipeId to the local ID of the recipe
+          serverObject.recipeId = recipe.id;
+          console.log(`[DB ${this.table}] Mapped recipe sync_id ${serverObject.recipe} to local ID ${recipe.id}`);
+        } else {
+          console.error(`[DB ${this.table}] Could not find recipe with sync_id ${serverObject.recipe}`);
+          // If we can't find the recipe, we can't create the ingredient
+          return [];
+        }
+      } catch (error) {
+        console.error(`[DB ${this.table}] Error mapping recipe sync_id to local ID:`, error);
+        return [];
+      }
+    }
+    
+    // Call the base implementation to find matching records
+    const records = await BaseModel.findMatchingRecords.call(this, database, serverObject);
+    return records as Ingredient[];
+  }
 } 

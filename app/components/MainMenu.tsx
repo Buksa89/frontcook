@@ -61,9 +61,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           console.error("Logout error:", error);
         }
         break;
-      case 'database-debug':
-        navigate('/(screens)/DatabaseDebugScreen/DatabaseDebugScreen');
-        break;
     }
     onClose();
   };
@@ -113,12 +110,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       id: 'account-settings',
       label: 'Ustawienia konta',
       icon: <Ionicons name="settings-outline" size={24} color="#666" />,
-      section: 'account'
-    },
-    {
-      id: 'database-debug',
-      label: 'Debug bazy danych',
-      icon: <MaterialIcons name="storage" size={24} color="#666" />,
       section: 'account'
     },
     {

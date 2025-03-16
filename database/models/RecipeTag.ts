@@ -91,4 +91,75 @@ export default class RecipeTag extends BaseModel {
       )
       .fetch();
   }
+
+  // Static method to find a recipe by sync_id
+  static async findRecipeBySyncId(database: Database, recipeSyncId: string): Promise<Recipe | null> {
+    const recipes = await database.get<Recipe>('recipes')
+      .query(Q.where('sync_id', recipeSyncId))
+      .fetch();
+    
+    return recipes.length > 0 ? recipes[0] : null;
+  }
+
+  // Static method to find a tag by sync_id
+  static async findTagBySyncId(database: Database, tagSyncId: string): Promise<Tag | null> {
+    const tags = await database.get<Tag>('tags')
+      .query(Q.where('sync_id', tagSyncId))
+      .fetch();
+    
+    return tags.length > 0 ? tags[0] : null;
+  }
+
+  // Method to find matching records with recipe and tag sync_id mapping
+  static async findMatchingRecordsWithRelations(
+    database: Database,
+    serverObject: Record<string, any>
+  ): Promise<RecipeTag[]> {
+    // If this is a recipe_tag
+    if (serverObject.object_type === 'recipe_tag') {
+      try {
+        let canCreate = true;
+        
+        // Handle recipe sync_id conversion
+        if (serverObject.recipe) {
+          const recipe = await RecipeTag.findRecipeBySyncId(database, serverObject.recipe);
+          
+          if (recipe) {
+            // Set recipeId to the local ID of the recipe
+            serverObject.recipeId = recipe.id;
+            console.log(`[DB ${this.table}] Mapped recipe sync_id ${serverObject.recipe} to local ID ${recipe.id}`);
+          } else {
+            console.error(`[DB ${this.table}] Could not find recipe with sync_id ${serverObject.recipe}`);
+            canCreate = false;
+          }
+        }
+        
+        // Handle tag sync_id conversion
+        if (serverObject.tag) {
+          const tag = await RecipeTag.findTagBySyncId(database, serverObject.tag);
+          
+          if (tag) {
+            // Set tagId to the local ID of the tag
+            serverObject.tagId = tag.id;
+            console.log(`[DB ${this.table}] Mapped tag sync_id ${serverObject.tag} to local ID ${tag.id}`);
+          } else {
+            console.error(`[DB ${this.table}] Could not find tag with sync_id ${serverObject.tag}`);
+            canCreate = false;
+          }
+        }
+        
+        // If we can't find either the recipe or the tag, we can't create the recipe_tag
+        if (!canCreate) {
+          return [];
+        }
+      } catch (error) {
+        console.error(`[DB ${this.table}] Error mapping sync_ids to local IDs:`, error);
+        return [];
+      }
+    }
+    
+    // Call the base implementation to find matching records
+    const records = await BaseModel.findMatchingRecords.call(this, database, serverObject);
+    return records as RecipeTag[];
+  }
 } 

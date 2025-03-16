@@ -2,14 +2,54 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import database from '../../../database';
 import { Q } from '@nozbe/watermelondb';
+import { asyncStorageService } from '../../services/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function DatabaseDebugScreen() {
+export default function DebugScreen() {
   const [tables, setTables] = useState<{ [key: string]: any[] }>({});
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllData();
+    loadLastSyncTime();
   }, []);
+
+  const loadLastSyncTime = async () => {
+    try {
+      const time = await asyncStorageService.getLastSync();
+      setLastSyncTime(time);
+    } catch (error) {
+      console.error('Error loading last sync time:', error);
+    }
+  };
+
+  const resetLastSyncTime = async () => {
+    try {
+      Alert.alert(
+        'Potwierdzenie',
+        'Czy na pewno chcesz zresetować czas ostatniej synchronizacji? Spowoduje to pobranie wszystkich danych od początku przy następnej synchronizacji.',
+        [
+          {
+            text: 'Anuluj',
+            style: 'cancel'
+          },
+          {
+            text: 'Resetuj',
+            style: 'destructive',
+            onPress: async () => {
+              await AsyncStorage.removeItem('last_sync');
+              Alert.alert('Sukces', 'Czas ostatniej synchronizacji został zresetowany');
+              await loadLastSyncTime();
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error resetting last sync time:', error);
+      Alert.alert('Błąd', 'Nie udało się zresetować czasu ostatniej synchronizacji');
+    }
+  };
 
   const loadAllData = async () => {
     try {
@@ -102,6 +142,19 @@ export default function DatabaseDebugScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>Debug Panel</Text>
+        <Text style={styles.syncTimeText}>
+          Ostatnia synchronizacja: {lastSyncTime ? new Date(lastSyncTime).toLocaleString() : 'Brak'}
+        </Text>
+        <TouchableOpacity
+          style={styles.resetSyncButton}
+          onPress={resetLastSyncTime}
+        >
+          <Text style={styles.resetSyncButtonText}>Resetuj czas synchronizacji</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView horizontal style={styles.tablesContainer}>
         {Object.keys(tables).map(renderTableButton)}
       </ScrollView>
@@ -127,6 +180,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  headerContainer: {
+    padding: 16,
+    backgroundColor: '#f8f8f8',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  syncTimeText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  resetSyncButton: {
+    backgroundColor: '#ff9500',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  resetSyncButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   tablesContainer: {
     flexGrow: 0,

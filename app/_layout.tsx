@@ -1,11 +1,13 @@
 import { Stack } from "expo-router/stack";
 import { TouchableOpacity, Animated, TextInput, View, Dimensions, Text } from 'react-native';
-import { AntDesign, Entypo } from '@expo/vector-icons';
+import { AntDesign, Entypo, MaterialIcons } from '@expo/vector-icons';
 import React, { useRef, useState, createContext } from 'react';
 import type { NativeStackNavigationOptions, NativeStackHeaderProps } from '@react-navigation/native-stack';
 import type { ParamListBase } from '@react-navigation/native';
 import { MainMenu } from './components/MainMenu';
 import { AuthProvider } from './context';
+import { useRouter } from 'expo-router';
+import { DEBUG } from './constants/env';
 
 type RootStackParamList = {
   index: undefined;
@@ -18,7 +20,7 @@ type RootStackParamList = {
   '(screens)/FriendsScreen/FriendsScreen': undefined;
   '(screens)/SettingsScreen/SettingsScreen': undefined;
   '(screens)/AuthScreen/AuthScreen': undefined;
-  '(screens)/DatabaseDebugScreen/DatabaseDebugScreen': undefined;
+  '(screens)/DebugScreen/DebugScreen': undefined;
 };
 
 type NavigationProps = NativeStackHeaderProps;
@@ -50,6 +52,7 @@ export default function RootLayout() {
   const [resetFunction, setResetFunction] = useState<ResetFunction | null>(null);
   const [searchFunction, setSearchFunction] = useState<SearchFunction | null>(null);
   const [searchText, setSearchText] = useState('');
+  const router = useRouter();
 
   const handleSetResetFunction = (fn: ResetFunction) => {
     console.log('Setting reset function');
@@ -202,6 +205,14 @@ export default function RootLayout() {
                   >
                     <AntDesign name="search1" size={24} color="#333" />
                   </TouchableOpacity>
+                  {DEBUG && (
+                    <TouchableOpacity 
+                      style={{ marginRight: 20 }}
+                      onPress={() => router.push('/(screens)/DebugScreen/DebugScreen')}
+                    >
+                      <MaterialIcons name="developer-mode" size={24} color="#333" />
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
                     <Entypo name="dots-three-vertical" size={24} color="#333" />
                   </TouchableOpacity>
@@ -369,9 +380,9 @@ export default function RootLayout() {
             }} 
           />
           <Stack.Screen 
-            name="(screens)/DatabaseDebugScreen/DatabaseDebugScreen" 
+            name="(screens)/DebugScreen/DebugScreen" 
             options={{ 
-              headerTitle: "Debug bazy danych",
+              headerTitle: "Debug",
               headerBackTitle: "Wróć",
               headerStyle: {
                 backgroundColor: '#fff'

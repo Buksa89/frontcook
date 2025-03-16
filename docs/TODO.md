@@ -1,5 +1,7 @@
+problem z writerem przy local sync
+problem czasu serwera
+
 sync
-konflikt na serwerze przegrany bez powodu
 recipes sie nie dodaja na serwerze, powiazania
 dodaj dodawanie tagow w trakcie tworzeni/edycji przpeisu
 react-toastify - moze pomoc z wygladem alertow
@@ -9,20 +11,12 @@ sprawdzic rozne formy edycji czy updatuja sie przez basemodel
 sprawdzic settings
 
 nie wyslaly sie: ingredient, recipetag
-prawdopodobnie nie zmieniaja sie statusy po wyslaniu
-update lastsync from candidate
-sprawdz czy push jest na pewno per user
-obsluga response z konfliktami
 
 
 
 synchronizacja:
-    settings
-    tags
-    recipes
-    shopping list
+
     notyfikacje
-obsluga refresh tokena
 obsluga logout
 
 1. Enable recipe sharing
