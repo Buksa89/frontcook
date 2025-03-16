@@ -151,6 +151,40 @@ export default schemaMigrations({
           `
         }
       ]
+    },
+    {
+      toVersion: 7,
+      steps: [
+        // Create notifications table
+        createTable({
+          name: 'notifications',
+          columns: [
+            { name: 'content', type: 'string' },
+            { name: 'type', type: 'string' },
+            { name: 'link', type: 'string', isOptional: true },
+            { name: 'is_readed', type: 'boolean' },
+            { name: 'sync_id', type: 'string' },
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'string', isOptional: true },
+            { name: 'is_local', type: 'boolean', isOptional: true },
+            { name: 'owner', type: 'string', isOptional: true },
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        })
+      ]
+    },
+    {
+      toVersion: 8,
+      steps: [
+        // Add order column to notifications table
+        {
+          type: 'sql',
+          sql: `
+            ALTER TABLE notifications
+            ADD COLUMN order INTEGER DEFAULT 0;
+          `
+        }
+      ]
     }
   ]
 }) 

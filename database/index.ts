@@ -14,6 +14,7 @@ import RecipeTag from './models/RecipeTag'
 import Ingredient from './models/Ingredient'
 import ShoppingItem from './models/ShoppingItem'
 import LocalUserSettings from './models/UserSettings'
+import Notification from './models/Notification'
 import { v4 as uuidv4 } from 'uuid'
 
 interface DefaultTag {
@@ -56,7 +57,8 @@ const database = new Database({
     RecipeTag,
     Ingredient,
     ShoppingItem,
-    LocalUserSettings
+    LocalUserSettings,
+    Notification
   ],
 })
 
@@ -121,6 +123,7 @@ populateDefaultTags().catch(error => {
 
 export {
   LocalUserSettings,
+  Notification
 }
 
 export default database 

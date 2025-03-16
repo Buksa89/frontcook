@@ -13,10 +13,11 @@ import RecipeTag from '../../../database/models/RecipeTag';
 import Ingredient from '../../../database/models/Ingredient';
 import ShoppingItem from '../../../database/models/ShoppingItem';
 import UserSettings from '../../../database/models/UserSettings';
+import Notification from '../../../database/models/Notification';
 
 // Interface for the pull response items
 interface PullResponseItem {
-  object_type: 'recipe' | 'tag' | 'recipe_tag' | 'ingredient' | 'shopping_item' | 'user_settings';
+  object_type: 'recipe' | 'tag' | 'recipe_tag' | 'ingredient' | 'shopping_item' | 'user_settings' | 'notification';
   sync_id: string;
   last_update: string;
   is_deleted: boolean;
@@ -29,7 +30,7 @@ const SYNC_INTERVAL = 30000; // 30 seconds
 const MIN_SYNC_INTERVAL = 30 * 1000; // 30 seconds - minimalny czas między synchronizacjami
 const IS_DEBUG = Constants.expoConfig?.extra?.isDebug || false;
 
-type TableName = 'shopping_items' | 'recipes' | 'ingredients' | 'tags' | 'user_settings' | 'recipe_tags';
+type TableName = 'shopping_items' | 'recipes' | 'ingredients' | 'tags' | 'user_settings' | 'recipe_tags' | 'notifications';
 
 // Map of object types to model classes
 const MODEL_CLASSES = {
@@ -38,7 +39,8 @@ const MODEL_CLASSES = {
   'recipe_tag': RecipeTag,
   'ingredient': Ingredient,
   'shopping_item': ShoppingItem,
-  'user_settings': UserSettings
+  'user_settings': UserSettings,
+  'notification': Notification
 };
 
 class SyncService {
@@ -181,7 +183,8 @@ class SyncService {
       ingredient: [],
       recipe_tag: [],
       shopping_item: [],
-      user_settings: []
+      user_settings: [],
+      notification: []
     };
 
     console.log('[Sync Service] Starting pull phase...');
@@ -217,7 +220,8 @@ class SyncService {
           ingredient: [],
           recipe_tag: [],
           shopping_item: [],
-          user_settings: []
+          user_settings: [],
+          notification: []
         };
 
         // Update most recent update time and group objects
@@ -234,7 +238,7 @@ class SyncService {
         }
 
         // Process each object type in the correct order
-        const syncOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
+        const syncOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings', 'notification'];
         
         for (const objectType of syncOrder) {
           const objectsToSync = groupedObjects[objectType];
@@ -262,6 +266,9 @@ class SyncService {
                 break;
               case 'user_settings':
                 result = await (UserSettings as any).pullSync(database, objectsToSync);
+                break;
+              case 'notification':
+                result = await (Notification as any).pullSync(database, objectsToSync);
                 break;
             }
           } catch (error) {
@@ -292,7 +299,7 @@ class SyncService {
     }
 
     // Retry failed items
-    const retryOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
+    const retryOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings', 'notification'];
     
     for (const objectType of retryOrder) {
       const objectsToRetry = failedItems[objectType];
@@ -318,6 +325,9 @@ class SyncService {
             break;
           case 'user_settings':
             await (UserSettings as any).pullSync(database, objectsToRetry);
+            break;
+          case 'notification':
+            await (Notification as any).pullSync(database, objectsToRetry);
             break;
         }
       } catch (error) {
@@ -363,7 +373,7 @@ class SyncService {
       }
 
       // Kolejność synchronizacji
-      const pushOrder: TableName[] = ['recipes', 'tags', 'ingredients', 'recipe_tags', 'shopping_items', 'user_settings'];
+      const pushOrder: TableName[] = ['recipes', 'tags', 'ingredients', 'recipe_tags', 'shopping_items', 'user_settings', 'notifications'];
       
       // Kolekcja obiektów do wysłania wraz z informacją o tabeli
       const recordsToSync: { record: BaseModel, table: TableName }[] = [];
@@ -426,7 +436,8 @@ class SyncService {
         ingredient: [],
         recipe_tag: [],
         shopping_item: [],
-        user_settings: []
+        user_settings: [],
+        notification: []
       };
 
       // Group objects by type
@@ -437,7 +448,7 @@ class SyncService {
       }
 
       // Process each object type in the correct order
-      const syncOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings'];
+      const syncOrder = ['recipe', 'tag', 'ingredient', 'recipe_tag', 'shopping_item', 'user_settings', 'notification'];
       
       for (const objectType of syncOrder) {
         const objectsToSync = groupedObjects[objectType];
@@ -463,6 +474,9 @@ class SyncService {
               break;
             case 'user_settings':
               await (UserSettings as any).pullSync(database, objectsToSync);
+              break;
+            case 'notification':
+              await (Notification as any).pullSync(database, objectsToSync);
               break;
           }
         } catch (error) {
@@ -602,6 +616,11 @@ class SyncService {
       return 'shopping_item';
     }
     
+    // Special case for 'notifications' which should be 'notification'
+    if (tableName === 'notifications') {
+      return 'notification';
+    }
+    
     // Remove trailing 's' for other tables
     return tableName.endsWith('s') ? tableName.slice(0, -1) : tableName;
   }
@@ -621,6 +640,8 @@ class SyncService {
         return 'user_settings';
       case 'recipe_tag':
         return 'recipe_tags';
+      case 'notification':
+        return 'notifications';
       default:
         throw new Error(`Unknown object type: ${objectType}`);
     }

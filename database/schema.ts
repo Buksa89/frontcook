@@ -91,15 +91,29 @@ const localUserSettingsSchema: TableSchema = tableSchema({
   ]
 })
 
+// Schema for notifications
+const notificationsSchema: TableSchema = tableSchema({
+  name: 'notifications',
+  columns: [
+    { name: 'content', type: 'string' },
+    { name: 'type', type: 'string' }, // 'warn' or 'info'
+    { name: 'link', type: 'string', isOptional: true },
+    { name: 'is_readed', type: 'boolean', isIndexed: true },
+    { name: 'order', type: 'number', isIndexed: true },
+    ...syncColumns
+  ]
+})
+
 const schema: AppSchema = appSchema({
-  version: 6, // Increasing version number for is_deleted field
+  version: 8, // Increasing version number for adding order field to notifications
   tables: [
     tagsSchema,
     recipesSchema,
     recipeTagsSchema,
     ingredientsSchema,
     shoppingItemsSchema,
-    localUserSettingsSchema
+    localUserSettingsSchema,
+    notificationsSchema
   ]
 })
 
