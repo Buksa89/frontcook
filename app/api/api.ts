@@ -189,10 +189,15 @@ class ApiClient {
     const url = this.normalizeUrl(this.baseUrl, endpoint);
     
     // Domyślne nagłówki
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+    let headers = { ...options.headers } as Record<string, string>;
+
+    // Nie ustawiaj Content-Type dla FormData
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers = {
+        ...headers,
+        'Content-Type': 'application/json'
+      };
+    }
 
     const config = {
       ...options,
@@ -201,19 +206,17 @@ class ApiClient {
 
     // Loguj zapytanie, jeśli DEBUG jest włączony
     if (DEBUG) {
-      let requestPayload = null;
-      if (options.body && typeof options.body === 'string') {
-        try {
-          requestPayload = JSON.parse(options.body);
-          requestPayload = this.sanitizePayloadForLogging(requestPayload);
-        } catch (e) {
-          requestPayload = 'Nieprawidłowy format JSON';
-        }
-      }
-      
       console.log(`🚀 API REQUEST: ${options.method || 'GET'} ${url}`);
-      if (requestPayload) {
-        console.log('📦 Request Payload:', requestPayload);
+      
+      if (options.body instanceof FormData) {
+        console.log('📦 Request Payload: [FormData]');
+      } else if (options.body && typeof options.body === 'string') {
+        try {
+          const requestPayload = JSON.parse(options.body);
+          console.log('📦 Request Payload:', this.sanitizePayloadForLogging(requestPayload));
+        } catch (e) {
+          console.log('📦 Request Payload: [Invalid JSON format]');
+        }
       }
     }
 
@@ -434,9 +437,22 @@ class ApiClient {
   ): Promise<T> {
     const options: RequestInit = {
       method: 'POST',
-      body: JSON.stringify(data),
       headers: { ...additionalHeaders }
     };
+    
+    // Handle FormData differently - don't stringify and don't set Content-Type
+    if (data instanceof FormData) {
+      options.body = data;
+      // Important: Do not set Content-Type for FormData in React Native
+      // The browser/fetch will set it automatically with the correct boundary
+      console.log('Sending FormData');
+    } else {
+      options.body = JSON.stringify(data);
+      options.headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
+    }
     
     if (authenticated) {
       const accessToken = await this.getAccessToken();
@@ -459,13 +475,30 @@ class ApiClient {
    * @param endpoint Endpoint API
    * @param data Dane do wysłania
    * @param authenticated Czy zapytanie wymaga uwierzytelnienia
+   * @param additionalHeaders Dodatkowe nagłówki do wysłania
    * @returns Odpowiedź z API
    */
-  async put<T>(endpoint: string, data: any, authenticated: boolean = true): Promise<T> {
+  async put<T>(
+    endpoint: string, 
+    data: any, 
+    authenticated: boolean = true,
+    additionalHeaders: Record<string, string> = {}
+  ): Promise<T> {
     const options: RequestInit = {
       method: 'PUT',
-      body: JSON.stringify(data),
+      headers: { ...additionalHeaders }
     };
+    
+    // Handle FormData differently - don't stringify and don't set Content-Type
+    if (data instanceof FormData) {
+      options.body = data;
+    } else {
+      options.body = JSON.stringify(data);
+      options.headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
+    }
     
     if (authenticated) {
       const accessToken = await this.getAccessToken();
@@ -475,6 +508,7 @@ class ApiClient {
       }
       
       options.headers = {
+        ...options.headers,
         'Authorization': `Bearer ${accessToken}`,
       };
     }
@@ -487,13 +521,30 @@ class ApiClient {
    * @param endpoint Endpoint API
    * @param data Dane do wysłania
    * @param authenticated Czy zapytanie wymaga uwierzytelnienia
+   * @param additionalHeaders Dodatkowe nagłówki do wysłania
    * @returns Odpowiedź z API
    */
-  async patch<T>(endpoint: string, data: any, authenticated: boolean = true): Promise<T> {
+  async patch<T>(
+    endpoint: string, 
+    data: any, 
+    authenticated: boolean = true,
+    additionalHeaders: Record<string, string> = {}
+  ): Promise<T> {
     const options: RequestInit = {
       method: 'PATCH',
-      body: JSON.stringify(data),
+      headers: { ...additionalHeaders }
     };
+    
+    // Handle FormData differently - don't stringify and don't set Content-Type
+    if (data instanceof FormData) {
+      options.body = data;
+    } else {
+      options.body = JSON.stringify(data);
+      options.headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
+    }
     
     if (authenticated) {
       const accessToken = await this.getAccessToken();
@@ -503,6 +554,7 @@ class ApiClient {
       }
       
       options.headers = {
+        ...options.headers,
         'Authorization': `Bearer ${accessToken}`,
       };
     }

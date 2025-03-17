@@ -9,15 +9,28 @@ import { ScanRecipeModal } from './ScanRecipeModal';
 interface AddRecipeMenuProps {
   visible: boolean;
   onClose: () => void;
+  onTaskCreated?: (taskId: string, taskType: 'scan' | 'import') => void;
 }
 
-export const AddRecipeMenu = ({ visible, onClose }: AddRecipeMenuProps) => {
+export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenuProps) => {
   const { isAuthenticated } = useAuth();
   const [showWebImportModal, setShowWebImportModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
 
   const handleAuthRequiredPress = () => {
     Alert.alert("Wymagane logowanie", "Zaloguj się, aby uzyskać dostęp do tej funkcji");
+  };
+
+  const handleScanSuccess = (taskId: string) => {
+    if (onTaskCreated) {
+      onTaskCreated(taskId, 'scan');
+    }
+  };
+
+  const handleImportSuccess = (taskId: string) => {
+    if (onTaskCreated) {
+      onTaskCreated(taskId, 'import');
+    }
   };
 
   return (
@@ -126,11 +139,13 @@ export const AddRecipeMenu = ({ visible, onClose }: AddRecipeMenuProps) => {
       <WebImportModal 
         visible={showWebImportModal} 
         onClose={() => setShowWebImportModal(false)} 
+        onImportSuccess={handleImportSuccess}
       />
       
       <ScanRecipeModal 
         visible={showScanModal} 
         onClose={() => setShowScanModal(false)} 
+        onScanSuccess={handleScanSuccess}
       />
     </>
   );

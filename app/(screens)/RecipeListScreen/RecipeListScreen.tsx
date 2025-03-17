@@ -128,6 +128,19 @@ export default function RecipeListScreen() {
     }));
   }, []);
 
+  // Handle task creation (scan or import)
+  const handleTaskCreated = useCallback((taskId: string, taskType: 'scan' | 'import') => {
+    // Show a toast or notification to the user
+    const message = taskType === 'scan' 
+      ? 'Rozpoczęto analizowanie przepisu ze zdjęcia. Otrzymasz powiadomienie, gdy będzie gotowy.'
+      : 'Rozpoczęto importowanie przepisu. Otrzymasz powiadomienie, gdy będzie gotowy.';
+    
+    // You could use a toast library here, for now we'll just log
+    console.log(`[Task Created] ${message} Task ID: ${taskId}`);
+    
+    // TODO: Add a toast notification here
+  }, []);
+
   // Reset function for filters and sorting
   const resetFiltersAndSort = useCallback(() => {
     console.log('Resetting filters and sorting');
@@ -235,7 +248,11 @@ export default function RecipeListScreen() {
         </TouchableOpacity>
       </View>
 
-      <AddRecipeMenu visible={showAddMenu} onClose={() => setShowAddMenu(false)} />
+      <AddRecipeMenu 
+        visible={showAddMenu} 
+        onClose={() => setShowAddMenu(false)} 
+        onTaskCreated={handleTaskCreated}
+      />
       <SortMenu
         visible={showSortMenu}
         onClose={() => setShowSortMenu(false)}

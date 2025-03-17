@@ -1,21 +1,30 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, Image } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, Image, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { scanRecipeApi } from '../../api';
+import type { ScanRecipeResponse } from '../../api/scanRecipe';
 
 interface ScanRecipeModalProps {
   visible: boolean;
   onClose: () => void;
+  onScanSuccess?: (taskId: string) => void;
 }
 
-export const ScanRecipeModal = ({ visible, onClose }: ScanRecipeModalProps) => {
+export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeModalProps) => {
   const [image, setImage] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const pickImage = async () => {
+    // Reset states
+    setError('');
+    
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (status !== 'granted') {
-      alert('Przepraszamy, potrzebujemy uprawnień do galerii aby kontynuować!');
+      setError('Przepraszamy, potrzebujemy uprawnień do galerii aby kontynuować!');
       return;
     }
 
@@ -31,10 +40,13 @@ export const ScanRecipeModal = ({ visible, onClose }: ScanRecipeModalProps) => {
   };
 
   const takePhoto = async () => {
+    // Reset states
+    setError('');
+    
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     
     if (status !== 'granted') {
-      alert('Przepraszamy, potrzebujemy uprawnień do kamery aby kontynuować!');
+      setError('Przepraszamy, potrzebujemy uprawnień do kamery aby kontynuować!');
       return;
     }
 
@@ -48,15 +60,53 @@ export const ScanRecipeModal = ({ visible, onClose }: ScanRecipeModalProps) => {
     }
   };
 
-  const handleScan = () => {
-    if (!image) return;
+  const handleScan = async () => {
+    if (!image) {
+      setError('Najpierw wybierz lub zrób zdjęcie przepisu');
+      return;
+    }
 
-    // TODO: Implement recipe scanning from image
-    console.log('Scan recipe from image:', image);
+    // Reset states
+    setError('');
+    setSuccessMessage('');
     
-    // Reset and close modal
-    setImage(null);
-    onClose();
+    // Start loading
+    setIsLoading(true);
+    
+    try {
+      // Call API to scan recipe from image using the dedicated API module
+      const response = await scanRecipeApi.scanFromImage(image);
+      
+      // Handle success
+      setSuccessMessage('Super! Zaczęliśmy analizować przepis. Damy Ci znać, gdy będzie gotowy!');
+      
+      // Call success callback if provided
+      if (onScanSuccess && response.task_id) {
+        onScanSuccess(response.task_id);
+      }
+      
+      // Reset form and close modal after a delay
+      setTimeout(() => {
+        setImage(null);
+        setSuccessMessage('');
+        onClose();
+      }, 2000);
+      
+    } catch (err: any) {
+      // Handle API error
+      if (err.status === 401) {
+        setError('Hej, musisz się najpierw zalogować, żeby dodać przepis');
+      } else if (err.data && err.data.error) {
+        setError(err.data.error);
+      } else if (err.data && err.data.errors && err.data.errors.screenshot) {
+        setError(`Błąd zdjęcia: ${err.data.errors.screenshot.join(', ')}`);
+      } else {
+        setError('Coś poszło nie tak. Może spróbuj ponownie za chwilę?');
+      }
+      console.error('Scan recipe error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -73,8 +123,8 @@ export const ScanRecipeModal = ({ visible, onClose }: ScanRecipeModalProps) => {
         <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
           <View style={styles.header}>
             <Text style={styles.title}>Zeskanuj przepis</Text>
-            <TouchableOpacity onPress={onClose}>
-              <MaterialIcons name="close" size={24} color="#666" />
+            <TouchableOpacity onPress={onClose} disabled={isLoading}>
+              <MaterialIcons name="close" size={24} color={isLoading ? "#ccc" : "#666"} />
             </TouchableOpacity>
           </View>
 
@@ -84,6 +134,7 @@ export const ScanRecipeModal = ({ visible, onClose }: ScanRecipeModalProps) => {
               <TouchableOpacity 
                 style={styles.removeImageButton}
                 onPress={() => setImage(null)}
+                disabled={isLoading}
               >
                 <MaterialIcons name="close" size={20} color="#fff" />
               </TouchableOpacity>
@@ -93,6 +144,7 @@ export const ScanRecipeModal = ({ visible, onClose }: ScanRecipeModalProps) => {
               <TouchableOpacity 
                 style={styles.optionButton}
                 onPress={takePhoto}
+                disabled={isLoading}
               >
                 <MaterialIcons name="camera-alt" size={32} color="#2196F3" style={styles.buttonIcon} />
                 <Text style={styles.buttonLabel}>Zrób zdjęcie</Text>
@@ -101,6 +153,7 @@ export const ScanRecipeModal = ({ visible, onClose }: ScanRecipeModalProps) => {
               <TouchableOpacity 
                 style={styles.optionButton}
                 onPress={pickImage}
+                disabled={isLoading}
               >
                 <MaterialIcons name="photo-library" size={32} color="#2196F3" style={styles.buttonIcon} />
                 <Text style={styles.buttonLabel}>Wybierz z galerii</Text>
@@ -108,13 +161,23 @@ export const ScanRecipeModal = ({ visible, onClose }: ScanRecipeModalProps) => {
             </View>
           )}
 
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
+
           {image && (
             <TouchableOpacity 
-              style={styles.scanButton}
+              style={[styles.scanButton, isLoading ? styles.scanButtonDisabled : null]}
               onPress={handleScan}
+              disabled={isLoading}
             >
-              <MaterialIcons name="document-scanner" size={20} color="#fff" style={styles.buttonIcon} />
-              <Text style={styles.scanButtonText}>Skanuj</Text>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons name="document-scanner" size={20} color="#fff" style={styles.buttonIcon} />
+                  <Text style={styles.scanButtonText}>Skanuj</Text>
+                </>
+              )}
             </TouchableOpacity>
           )}
         </View>
@@ -198,10 +261,26 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     marginTop: 8,
+    minHeight: 48,
+  },
+  scanButtonDisabled: {
+    backgroundColor: '#a0d0f7',
   },
   scanButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 14,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  successText: {
+    color: '#28a745',
+    fontSize: 14,
+    marginTop: 16,
+    marginBottom: 8,
   },
 }); 

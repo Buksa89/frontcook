@@ -4,7 +4,7 @@ dodaj notyfikacje po stworzonym przpiesie
 popraw widok approve/remove
 dodaj approve/remove w detalach not approved
 dodaj approve w edycji not approved, kiedy klika sie zaakceptuj
-
+powiadomienie w przypadku nieprzetworzenia
 
 sync
 dodaj dodawanie tagow w trakcie tworzeni/edycji przpeisu
