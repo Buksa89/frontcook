@@ -5,17 +5,19 @@ import { router } from 'expo-router';
 import { useAuth } from '../../context';
 import { WebImportModal } from './WebImportModal';
 import { ScanRecipeModal } from './ScanRecipeModal';
+import { PDFUploadModal } from './PDFUploadModal';
 
 interface AddRecipeMenuProps {
   visible: boolean;
   onClose: () => void;
-  onTaskCreated?: (taskId: string, taskType: 'scan' | 'import') => void;
+  onTaskCreated?: (taskId: string, taskType: 'scan' | 'import' | 'pdf') => void;
 }
 
 export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenuProps) => {
   const { isAuthenticated } = useAuth();
   const [showWebImportModal, setShowWebImportModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
+  const [showPDFModal, setShowPDFModal] = useState(false);
 
   const handleAuthRequiredPress = () => {
     Alert.alert("Wymagane logowanie", "Zaloguj się, aby uzyskać dostęp do tej funkcji");
@@ -30,6 +32,12 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
   const handleImportSuccess = (taskId: string) => {
     if (onTaskCreated) {
       onTaskCreated(taskId, 'import');
+    }
+  };
+
+  const handlePDFSuccess = (taskId: string) => {
+    if (onTaskCreated) {
+      onTaskCreated(taskId, 'pdf');
     }
   };
 
@@ -120,17 +128,27 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.menuItem, styles.menuItemDisabled]}
-              disabled={true}
+              style={[styles.menuItem, !isAuthenticated && styles.menuItemDisabled]}
+              disabled={!isAuthenticated}
+              onPress={() => {
+                if (!isAuthenticated) {
+                  handleAuthRequiredPress();
+                  return;
+                }
+                onClose();
+                setShowPDFModal(true);
+              }}
             >
               <View style={styles.menuItemContent}>
-                <View style={[styles.iconContainer, styles.iconContainerDisabled]}>
-                  <MaterialIcons name="picture-as-pdf" size={24} color="#999" />
+                <View style={[styles.iconContainer, !isAuthenticated && styles.iconContainerDisabled]}>
+                  <MaterialIcons name="picture-as-pdf" size={24} color={isAuthenticated ? "#2196F3" : "#999"} />
                 </View>
-                <Text style={styles.menuItemTextDisabled}>Cały PDF</Text>
+                <Text style={isAuthenticated ? styles.menuItemText : styles.menuItemTextDisabled}>Cały PDF</Text>
               </View>
-              <Text style={styles.comingSoonText}>Wkrótce</Text>
-              <MaterialIcons name="chevron-right" size={24} color="#ddd" />
+              {!isAuthenticated && (
+                <Text style={styles.requiresAuthText}>Wymaga logowania</Text>
+              )}
+              <MaterialIcons name="chevron-right" size={24} color={isAuthenticated ? "#666" : "#ddd"} />
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -146,6 +164,12 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
         visible={showScanModal} 
         onClose={() => setShowScanModal(false)} 
         onScanSuccess={handleScanSuccess}
+      />
+
+      <PDFUploadModal
+        visible={showPDFModal}
+        onClose={() => setShowPDFModal(false)}
+        onPDFSuccess={handlePDFSuccess}
       />
     </>
   );

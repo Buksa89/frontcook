@@ -1,8 +1,14 @@
 import api from './api';
-import authApi from './auth';
+import AuthApi from './auth';
 import webImportRecipeApi from './webImportRecipe';
 import scanRecipeApi from './scanRecipe';
+import { pdfUploadApi } from './pdfUpload';
 
-export { authApi, webImportRecipeApi, scanRecipeApi };
+export { 
+  AuthApi, 
+  webImportRecipeApi, 
+  scanRecipeApi,
+  pdfUploadApi
+};
 
 export default api; 

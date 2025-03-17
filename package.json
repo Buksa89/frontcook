@@ -47,7 +47,8 @@
     "react-native-secure-storage": "^0.1.2",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "expo-document-picker": "~13.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
