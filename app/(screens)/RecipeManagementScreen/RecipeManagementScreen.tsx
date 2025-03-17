@@ -76,6 +76,12 @@ const EditRecipeScreen = ({
 
     try {
       await Recipe.saveRecipe(database, formData, existingRecipe || undefined);
+      
+      // Jeśli przepis istnieje i nie jest jeszcze zatwierdzony, zatwierdzamy go
+      if (existingRecipe && !existingRecipe.isApproved) {
+        await existingRecipe.toggleApproval();
+      }
+      
       router.back();
     } catch (error) {
       console.error('Error saving recipe:', error);
@@ -105,6 +111,7 @@ const EditRecipeScreen = ({
       onSubmit={handleSubmit}
       onDelete={existingRecipe ? handleDelete : undefined}
       isEditing={!!existingRecipe}
+      isApproved={existingRecipe?.isApproved || false}
     />
   );
 };

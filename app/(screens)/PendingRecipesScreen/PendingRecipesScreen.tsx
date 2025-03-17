@@ -53,16 +53,6 @@ const PendingRecipeCard = ({ recipe, tags, onApprove, onDelete }: PendingRecipeC
           </View>
         )}
         <View style={styles.recipeInfo}>
-          <View style={styles.rating}>
-            {[1, 2, 3, 4, 5].map(star => (
-              <AntDesign 
-                key={star}
-                name={star <= (recipe.rating || 0) ? "star" : "staro"}
-                size={16} 
-                color="#FFD700"
-              />
-            ))}
-          </View>
           {recipe.prepTime > 0 && (
             <Text style={styles.timeInfo}>
               <MaterialIcons name="timer" size={14} color="#666" /> {formatTime(recipe.prepTime)}
@@ -77,16 +67,16 @@ const PendingRecipeCard = ({ recipe, tags, onApprove, onDelete }: PendingRecipeC
       </View>
       <View style={styles.cardActions}>
         <TouchableOpacity 
-          style={styles.approveButton}
-          onPress={onApprove}
-        >
-          <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
-        </TouchableOpacity>
-        <TouchableOpacity 
           style={styles.deleteButton}
           onPress={onDelete}
         >
-          <MaterialIcons name="delete" size={24} color="#F44336" />
+          <MaterialIcons name="close" size={24} color="#F44336" />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.approveButton}
+          onPress={onApprove}
+        >
+          <MaterialIcons name="check" size={24} color="#4CAF50" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -308,10 +298,6 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontSize: 12,
   },
-  rating: {
-    flexDirection: 'row',
-    gap: 2,
-  },
   recipeInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -324,9 +310,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardActions: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    height: 70,
+    alignItems: 'center',
+    marginLeft: 4,
   },
   approveButton: {
     padding: 8,

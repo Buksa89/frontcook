@@ -51,25 +51,36 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
   };
 
   const handleOpenVideo = () => {
-    if (recipe.video && recipe.video.trim() !== '') {
+    if (recipe && recipe.video) {
       Linking.openURL(recipe.video);
     }
   };
 
   const handleOpenSource = () => {
-    if (recipe.source && recipe.source.trim() !== '' && recipe.source.startsWith('http')) {
+    if (recipe && recipe.source && recipe.source.startsWith('http')) {
       Linking.openURL(recipe.source);
     }
   };
 
+  const handleApproveRecipe = async () => {
+    try {
+      await recipe?.toggleApproval();
+      router.back();
+    } catch (error) {
+      console.error('Błąd podczas akceptowania przepisu:', error);
+    }
+  };
+
+  if (!recipe) {
+    return <Text>Ładowanie przepisu...</Text>;
+  }
+
   return (
     <ServingsProvider>
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: recipe.isApproved ? 16 : 80 }}>
         <RecipeHeader recipe={recipe} />
-
+        
         <View style={styles.content}>
-          <Text style={styles.title}>{recipe.name}</Text>
-          
           {tags.length > 0 && (
             <View style={styles.tags}>
               {tags.map(tag => (
@@ -99,9 +110,11 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
             )}
           </View>
 
-          <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
+          {recipe.isApproved && (
+            <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
+          )}
 
-          {recipe.servings !== null && recipe.servings > 0 && (
+          {recipe.isApproved && recipe.servings !== null && recipe.servings > 0 && (
             <ServingsAdjuster 
               originalServings={recipe.servings} 
               ingredients={ingredients}
@@ -113,7 +126,15 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
             <Text style={styles.sectionTitle}>Składniki</Text>
             {ingredients.map((ingredient, index) => (
               <View key={index} style={styles.ingredientRow}>
-                <ScaledIngredient key={index} ingredient={ingredient} />
+                {recipe.isApproved ? (
+                  <ScaledIngredient key={index} ingredient={ingredient} />
+                ) : (
+                  <Text style={styles.sectionContent}>
+                    {ingredient.amount !== null && ingredient.amount !== 0 && `${ingredient.amount} `}
+                    {ingredient.unit && `${ingredient.unit} `}
+                    {ingredient.name || ingredient.originalStr}
+                  </Text>
+                )}
               </View>
             ))}
           </View>
@@ -177,6 +198,18 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
           )}
         </View>
       </ScrollView>
+      
+      {!recipe.isApproved && (
+        <View style={styles.approveButtonContainer}>
+          <TouchableOpacity 
+            style={styles.approveButton}
+            onPress={handleApproveRecipe}
+          >
+            <MaterialIcons name="check-circle" size={20} color="#fff" style={styles.approveIcon} />
+            <Text style={styles.approveButtonText}>Zaakceptuj przepis</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </ServingsProvider>
   );
 };
@@ -312,5 +345,37 @@ const styles = StyleSheet.create({
   },
   textChecked: {
     color: '#fff',
+  },
+  approveButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  approveButton: {
+    backgroundColor: '#2196F3',
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  approveIcon: {
+    marginRight: 8,
+  },
+  approveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }); 

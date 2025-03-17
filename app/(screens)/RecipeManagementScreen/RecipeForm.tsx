@@ -4,7 +4,7 @@ import { FormField } from './FormField';
 import { TagsSelector } from './TagsSelector';
 import { TimeInput } from './TimeInput';
 import { ServingsInput } from './ServingsInput';
-import { AntDesign } from '@expo/vector-icons';
+import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import Tag from '../../../database/models/Tag';
 
 interface RecipeFormData {
@@ -29,6 +29,7 @@ interface RecipeFormProps {
   onSubmit: () => void;
   onDelete?: () => void;
   isEditing: boolean;
+  isApproved?: boolean;
 }
 
 export const RecipeForm = ({ 
@@ -37,7 +38,8 @@ export const RecipeForm = ({
   availableTags, 
   onSubmit,
   onDelete,
-  isEditing 
+  isEditing,
+  isApproved = true
 }: RecipeFormProps) => {
   const handleDelete = () => {
     Alert.alert(
@@ -76,8 +78,7 @@ export const RecipeForm = ({
                 style={styles.deleteButton}
                 onPress={handleDelete}
               >
-                <AntDesign name="delete" size={16} color="#dc3545" />
-                <Text style={styles.deleteButtonText}>Usuń</Text>
+                <MaterialIcons name="delete" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
           )}
@@ -192,10 +193,21 @@ export const RecipeForm = ({
           style={styles.submitButton}
           onPress={onSubmit}
         >
-          <AntDesign name="save" size={20} color="#fff" style={styles.saveIcon} />
-          <Text style={styles.submitButtonText}>
-            {isEditing ? 'Zapisz zmiany' : 'Dodaj przepis'}
-          </Text>
+          {isEditing && !isApproved ? (
+            <>
+              <MaterialIcons name="check-circle" size={20} color="#fff" style={styles.saveIcon} />
+              <Text style={styles.approveButtonText}>
+                Zaakceptuj i zapisz
+              </Text>
+            </>
+          ) : (
+            <>
+              <AntDesign name="save" size={20} color="#fff" style={styles.saveIcon} />
+              <Text style={styles.submitButtonText}>
+                {isEditing ? 'Zapisz zmiany' : 'Dodaj przepis'}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -217,7 +229,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   row: {
     flexDirection: 'row',
@@ -274,24 +286,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  approveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   saveIcon: {
     marginRight: 8,
   },
   deleteButton: {
-    flexDirection: 'row',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F44336',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#dc3545',
-  },
-  deleteButtonText: {
-    color: '#dc3545',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 4,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   bottomSpace: {
     height: 80,
