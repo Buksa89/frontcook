@@ -6,7 +6,7 @@ import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import Tag from '../../../database/models/Tag';
 import Recipe from '../../../database/models/Recipe';
 import { Q } from '@nozbe/watermelondb';
-import { of } from 'rxjs';
+import { of, Observable } from 'rxjs';
 import { router } from 'expo-router';
 import { switchMap, map } from 'rxjs/operators';
 import { ResetFiltersContext } from '../../_layout';
@@ -17,6 +17,8 @@ import { SortMenu } from './SortMenu';
 import { EnhancedFilterMenu } from './FilterMenu';
 import { EnhancedRecipeCard } from './RecipeCard';
 import { useAuth } from '../../context';
+import { formatTime } from '../../../app/utils/timeFormat';
+import { EnhancedPendingRecipeCard } from './PendingRecipeCard';
 
 interface EnhanceRecipeListProps {
   sortBy: SortOption['key'] | null;
@@ -31,26 +33,57 @@ const sortOptions: SortOption[] = [
   { key: 'totalTime', label: 'Czas całkowity', icon: 'schedule' },
 ];
 
-const RecipeList = ({ recipes }: { recipes: Recipe[] }) => (
-  <>
-    <FlatList
-      data={recipes}
-      renderItem={({ item }) => <EnhancedRecipeCard recipe={item} />}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
-      ListEmptyComponent={() => (
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="menu-book" size={80} color="#ccc" style={styles.emptyIcon} />
-          <Text style={styles.emptyText}>Nie znaleziono przepisów</Text>
-          <Text style={styles.emptySubText}>Dodaj swój pierwszy przepis!</Text>
-        </View>
-      )}
-    />
-  </>
-);
+const RecipeList = ({ recipes, pendingRecipes }: { recipes: Recipe[], pendingRecipes: Recipe[] }) => {
+  // Sprawdzenie, czy mamy zarówno oczekujące jak i zwykłe przepisy
+  const hasBothTypes = pendingRecipes.length > 0 && recipes.length > 0;
+  
+  // Tworzymy listę wszystkich przepisów bez modyfikowania oryginalnych obiektów
+  const allRecipes = [...pendingRecipes, ...recipes];
+
+  return (
+    <>
+      <FlatList
+        data={allRecipes}
+        renderItem={({ item, index }) => {
+          // Separator po wszystkich pending recipes
+          const showSeparator = hasBothTypes && index === pendingRecipes.length - 1;
+          
+          return (
+            <View>
+              {item.isApproved ? 
+                <EnhancedRecipeCard recipe={item} /> : 
+                <EnhancedPendingRecipeCard recipe={item} />
+              }
+              {showSeparator && (
+                <View style={styles.separator} />
+              )}
+            </View>
+          );
+        }}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="menu-book" size={80} color="#ccc" style={styles.emptyIcon} />
+            <Text style={styles.emptyText}>Nie znaleziono przepisów</Text>
+            <Text style={styles.emptySubText}>Dodaj swój pierwszy przepis!</Text>
+          </View>
+        )}
+      />
+    </>
+  );
+};
 
 const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, filters }: EnhanceRecipeListProps) => {
-  // Obserwuj wszystkie przepisy z bazy danych
+  // Sprawdź, czy mamy włączone filtrowanie lub sortowanie
+  const hasFiltersOrSorting = sortBy !== null || 
+    filters.selectedTags.length > 0 || 
+    filters.minRating !== null || 
+    filters.maxPrepTime !== null || 
+    filters.maxTotalTime !== null ||
+    filters.searchPhrase !== '';
+  
+  // Obserwuj zatwierdzone przepisy z bazy danych
   let recipesObservable = Recipe.observeAll(database);
   
   // Jeśli są wybrane tagi, potrzebujemy zmodyfikować zapytanie
@@ -70,6 +103,17 @@ const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, fi
             )
           )
         )
+      )
+      .observe();
+  }
+  
+  // Obserwuj niezatwierdzone przepisy, ale tylko gdy nie ma filtrowania/sortowania
+  let pendingRecipesObservable: Observable<Recipe[]> = of([]);
+  if (!hasFiltersOrSorting) {
+    pendingRecipesObservable = database.get<Recipe>('recipes')
+      .query(
+        Q.where('is_approved', false),
+        Q.where('is_deleted', false)
       )
       .observe();
   }
@@ -132,7 +176,8 @@ const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, fi
 
         return filteredRecipes;
       })
-    )
+    ),
+    pendingRecipes: pendingRecipesObservable
   };
 });
 
@@ -377,5 +422,12 @@ const styles = StyleSheet.create({
   emptySubText: {
     fontSize: 14,
     color: '#999',
+  },
+  separator: {
+    backgroundColor: '#f0f0f0',
+    height: 1,
+    marginBottom: 16,
+    marginTop: 16,
+    width: '100%',
   },
 });

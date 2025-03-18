@@ -21,7 +21,6 @@ type RootStackParamList = {
   '(screens)/SettingsScreen/SettingsScreen': undefined;
   '(screens)/AuthScreen/AuthScreen': undefined;
   '(screens)/DebugScreen/DebugScreen': undefined;
-  '(screens)/PendingRecipesScreen/PendingRecipesScreen': undefined;
 };
 
 type NavigationProps = NativeStackHeaderProps;
@@ -395,27 +394,6 @@ export default function RootLayout() {
                 color: '#333'
               },
               headerShadowVisible: false
-            }} 
-          />
-          <Stack.Screen 
-            name="(screens)/PendingRecipesScreen/PendingRecipesScreen" 
-            options={{ 
-              headerTitle: "Przepisy do akceptacji",
-              headerBackTitle: "Wróć",
-              headerStyle: {
-                backgroundColor: '#fff'
-              },
-              headerTitleStyle: {
-                fontSize: 20,
-                fontWeight: '600',
-                color: '#333'
-              },
-              headerShadowVisible: false,
-              headerRight: () => (
-                <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
-                  <Entypo name="dots-three-vertical" size={24} color="#333" />
-                </TouchableOpacity>
-              )
             }} 
           />
         </Stack>
