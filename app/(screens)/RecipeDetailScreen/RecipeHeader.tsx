@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   shareButton: {
     position: 'absolute',
     right: 84,
-    bottom: -28,
+    bottom: -20,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   rejectButton: {
     position: 'absolute',
     right: 84,
-    bottom: -28,
+    bottom: -20,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   editButton: {
     position: 'absolute',
     right: 16,
-    bottom: -28,
+    bottom: -20,
     width: 56,
     height: 56,
     borderRadius: 28,

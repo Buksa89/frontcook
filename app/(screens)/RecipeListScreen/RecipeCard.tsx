@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { withObservables } from '@nozbe/watermelondb/react';
-import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { switchMap, map } from 'rxjs/operators';
 import { Observable, from } from 'rxjs';
@@ -86,13 +86,17 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
           <View style={styles.recipeInfo}>
             <View style={styles.rating}>
               {[1, 2, 3, 4, 5].map(star => (
-                <AntDesign 
+                <Ionicons 
                   key={star}
-                  name={star <= (recipe.rating || 0) ? "star" : "staro"}
-                  size={16} 
-                  color="#FFD700"
+                  name={star <= (recipe.rating || 0) ? "star" : "star-outline"}
+                  size={14} 
+                  color={star <= (recipe.rating || 0) ? "#FFA41C" : "#D4D4D4"}
+                  style={styles.starIcon}
                 />
               ))}
+              {recipe.rating > 0 && (
+                <Text style={styles.ratingText}>{recipe.rating.toFixed(1)}</Text>
+              )}
             </View>
             {recipe.prepTime > 0 && (
               <Text style={styles.timeInfo}>
@@ -198,7 +202,16 @@ const styles = StyleSheet.create({
   },
   rating: {
     flexDirection: 'row',
-    gap: 2,
+    alignItems: 'center',
+  },
+  starIcon: {
+    marginRight: 1,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginLeft: 4,
   },
   cardShopCart: {
     padding: 8,

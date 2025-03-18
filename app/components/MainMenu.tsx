@@ -7,7 +7,6 @@ import { useAuth } from '../context';
 interface MainMenuProps {
   visible: boolean;
   onClose: () => void;
-  hasUnreadNotifications?: boolean;
 }
 
 interface MenuItem {
@@ -21,7 +20,7 @@ interface MenuItem {
   hideWhenNotAuth?: boolean;
 }
 
-export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose, hasUnreadNotifications = false }) => {
+export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
   const { isAuthenticated, logout } = useAuth();
 
   const handleMenuItemPress = async (id: string) => {
@@ -32,9 +31,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose, hasUnreadN
     };
 
     switch (id) {
-      case 'notifications':
-        navigate('/(screens)/NotificationScreen/NotificationScreen');
-        break;
       case 'friends':
         navigate('/(screens)/FriendsScreen/FriendsScreen');
         break;
@@ -65,12 +61,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose, hasUnreadN
 
   const menuItems: MenuItem[] = [
     // Main section
-    {
-      id: 'notifications',
-      label: 'Powiadomienia',
-      icon: <Ionicons name="notifications-outline" size={24} color="#666" />,
-      section: 'main'
-    },
+    // Removed Notifications item
     
     // Social section
     {
@@ -78,7 +69,8 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose, hasUnreadN
       label: 'Znajomi',
       icon: <FontAwesome5 name="user-friends" size={22} color="#666" />,
       section: 'social',
-      requiresAuth: true
+      requiresAuth: true,
+      disabled: true
     },
     {
       id: 'stalking',
@@ -152,10 +144,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose, hasUnreadN
                   isDisabled && styles.iconContainerDisabled
                 ]}>
                   {item.icon}
-                  {/* Add red dot for notifications if unread notifications exist */}
-                  {item.id === 'notifications' && hasUnreadNotifications && (
-                    <View style={styles.notificationDot} />
-                  )}
                 </View>
                 <Text style={[
                   styles.menuItemText,
@@ -277,15 +265,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     fontStyle: 'italic',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: 'red',
   },
 });
 

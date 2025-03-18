@@ -244,6 +244,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingTop: 36,
   },
   title: {
     fontSize: 24,
