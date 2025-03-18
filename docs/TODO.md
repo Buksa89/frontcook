@@ -1,6 +1,4 @@
 Issues:
-    problem z writerem przy local sync
-    problem z sortowaniem/filtrowaniem
     Obsluga bledow z api
     sync przed wylogowaniem
 

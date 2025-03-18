@@ -32,20 +32,48 @@ class LocalSyncService {
    */
   public async assignLocalDataToUser(username: string): Promise<boolean> {
     try {
-      await database.write(async () => {
-        for (const table of this.tables) {
+      // Zbierz wszystkie rekordy do aktualizacji przed zapisem
+      const recordsToUpdate = [];
+      
+      // Najpierw pobierz wszystkie rekordy do aktualizacji (operacja odczytu)
+      for (const table of this.tables) {
+        try {
           const localData = await database.get(table).query(
             Q.where('owner', null),
             Q.where('is_deleted', false)
           ).fetch();
-
-          for (const record of localData) {
-            await record.update((item: any) => {
-              item.owner = username;
-            });
+          
+          if (localData.length > 0) {
+            console.log(`Znaleziono ${localData.length} rekordów do aktualizacji w tabeli ${table}`);
+            recordsToUpdate.push(...localData);
           }
+        } catch (readError) {
+          console.error(`Błąd podczas odczytu danych z tabeli ${table}:`, readError);
+          // Kontynuuj z następną tabelą
         }
-      });
+      }
+      
+      if (recordsToUpdate.length === 0) {
+        console.log('Brak lokalnych danych do zaktualizowania');
+        return true;
+      }
+      
+      // Przygotuj operacje aktualizacji
+      const updateOperations = recordsToUpdate.map(record => 
+        record.prepareUpdate(item => {
+          item.owner = username;
+        })
+      );
+      
+      // Wykonaj wszystkie aktualizacje w jednej transakcji
+      if (updateOperations.length > 0) {
+        await database.write(async () => {
+          await database.batch(...updateOperations);
+        });
+        
+        console.log(`Zaktualizowano ${updateOperations.length} rekordów, przypisując właściciela: ${username}`);
+      }
+      
       return true;
     } catch (error) {
       console.error('Błąd podczas przypisywania lokalnych danych:', error);
