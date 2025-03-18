@@ -21,7 +21,7 @@ import { useAuth } from '../../context';
 interface EnhanceRecipeListProps {
   sortBy: SortOption['key'] | null;
   filters: FilterState;
-  username: string | null;
+  username?: string | null;
 }
 
 const sortOptions: SortOption[] = [
@@ -49,66 +49,90 @@ const RecipeList = ({ recipes }: { recipes: Recipe[] }) => (
   </>
 );
 
-const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, filters }: EnhanceRecipeListProps) => ({
-  recipes: Recipe.observeAll(database).pipe(
-    map(recipes => {
-      // Najpierw filtrujemy
-      let filteredRecipes = recipes.filter(recipe => {
-        const matchesSearch = !filters.searchPhrase || 
-          recipe.name.toLowerCase().includes(filters.searchPhrase.toLowerCase());
-        const matchesRating = !filters.minRating || 
-          (recipe.rating || 0) >= filters.minRating;
-        const matchesPrepTime = !filters.maxPrepTime || 
-          recipe.prepTime <= filters.maxPrepTime;
-        
-        // Jeśli nie ma wybranych tagów, przepis przechodzi filtr
-        if (filters.selectedTags.length === 0) {
-          return matchesSearch && matchesRating && matchesPrepTime;
+const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, filters }: EnhanceRecipeListProps) => {
+  // Obserwuj wszystkie przepisy z bazy danych
+  let recipesObservable = Recipe.observeAll(database);
+  
+  // Jeśli są wybrane tagi, potrzebujemy zmodyfikować zapytanie
+  if (filters.selectedTags.length > 0) {
+    const tagIds = filters.selectedTags.map(tag => tag.id);
+    
+    // Obserwujemy tylko przepisy, które mają któryś z wybranych tagów
+    recipesObservable = database.get<Recipe>('recipes')
+      .query(
+        Q.experimentalJoinTables(['recipe_tags']),
+        Q.and(
+          Q.where('is_deleted', false),
+          Q.where('is_approved', true),
+          Q.or(
+            ...tagIds.map(tagId => 
+              Q.on('recipe_tags', 'tag_id', tagId)
+            )
+          )
+        )
+      )
+      .observe();
+  }
+  
+  return {
+    recipes: recipesObservable.pipe(
+      map(recipes => {
+        // Filtrujemy przepisy po pozostałych kryteriach
+        let filteredRecipes = recipes.filter(recipe => {
+          const matchesSearch = !filters.searchPhrase || 
+            recipe.name.toLowerCase().includes(filters.searchPhrase.toLowerCase());
+          
+          const matchesRating = !filters.minRating || 
+            (recipe.rating || 0) >= filters.minRating;
+          
+          // Sprawdzanie czasu przygotowania - przepisy z czasem=0 powinny być odfiltrowane
+          const matchesPrepTime = !filters.maxPrepTime || 
+            ((recipe.prepTime || 0) > 0 && (recipe.prepTime || 0) <= filters.maxPrepTime);
+          
+          // Dodanie filtrowania po całkowitym czasie - przepisy z czasem=0 powinny być odfiltrowane
+          const matchesTotalTime = !filters.maxTotalTime || 
+            ((recipe.totalTime || 0) > 0 && (recipe.totalTime || 0) <= filters.maxTotalTime);
+          
+          return matchesSearch && matchesRating && matchesPrepTime && matchesTotalTime;
+        });
+
+        // Następnie sortujemy
+        switch (sortBy) {
+          case 'name':
+            filteredRecipes.sort((a, b) => a.name.localeCompare(b.name));
+            break;
+          case 'rating':
+            filteredRecipes.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            break;
+          case 'prepTime':
+            filteredRecipes.sort((a, b) => {
+              if (a.prepTime === 0 && b.prepTime === 0) return 0;
+              if (a.prepTime === 0) return 1;
+              if (b.prepTime === 0) return -1;
+              return (a.prepTime || 0) - (b.prepTime || 0);
+            });
+            break;
+          case 'totalTime':
+            filteredRecipes.sort((a, b) => {
+              if (a.totalTime === 0 && b.totalTime === 0) return 0;
+              if (a.totalTime === 0) return 1;
+              if (b.totalTime === 0) return -1;
+              return (a.totalTime || 0) - (b.totalTime || 0);
+            });
+            break;
         }
 
-        // Sprawdź czy przepis ma którykolwiek z wybranych tagów
-        const hasSelectedTag = filters.selectedTags.some(selectedTag => 
-          recipe.recipeTags.find(rt => rt.tagId === selectedTag.id)
-        );
-
-        return matchesSearch && matchesRating && matchesPrepTime && hasSelectedTag;
-      });
-
-      // Następnie sortujemy
-      switch (sortBy) {
-        case 'name':
-          filteredRecipes.sort((a, b) => a.name.localeCompare(b.name));
-          break;
-        case 'rating':
-          filteredRecipes.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-          break;
-        case 'prepTime':
-          filteredRecipes.sort((a, b) => {
-            if (a.prepTime === 0 && b.prepTime === 0) return 0;
-            if (a.prepTime === 0) return 1;
-            if (b.prepTime === 0) return -1;
-            return (a.prepTime || 0) - (b.prepTime || 0);
-          });
-          break;
-        case 'totalTime':
-          filteredRecipes.sort((a, b) => {
-            if (a.totalTime === 0 && b.totalTime === 0) return 0;
-            if (a.totalTime === 0) return 1;
-            if (b.totalTime === 0) return -1;
-            return (a.totalTime || 0) - (b.totalTime || 0);
-          });
-          break;
-      }
-
-      return filteredRecipes;
-    })
-  )
-}));
+        return filteredRecipes;
+      })
+    )
+  };
+});
 
 const EnhancedRecipeList = enhance(RecipeList);
 
 export default function RecipeListScreen() {
-  const { username } = useAuth();
+  const auth = useAuth();
+  const username = auth.active_user;
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -129,11 +153,13 @@ export default function RecipeListScreen() {
   }, []);
 
   // Handle task creation (scan or import)
-  const handleTaskCreated = useCallback((taskId: string, taskType: 'scan' | 'import') => {
+  const handleTaskCreated = useCallback((taskId: string, taskType: 'scan' | 'import' | 'pdf') => {
     // Show a toast or notification to the user
     const message = taskType === 'scan' 
       ? 'Rozpoczęto analizowanie przepisu ze zdjęcia. Otrzymasz powiadomienie, gdy będzie gotowy.'
-      : 'Rozpoczęto importowanie przepisu. Otrzymasz powiadomienie, gdy będzie gotowy.';
+      : taskType === 'import'
+        ? 'Rozpoczęto importowanie przepisu. Otrzymasz powiadomienie, gdy będzie gotowy.'
+        : 'Rozpoczęto importowanie przepisu z PDF. Otrzymasz powiadomienie, gdy będzie gotowy.';
     
     // You could use a toast library here, for now we'll just log
     console.log(`[Task Created] ${message} Task ID: ${taskId}`);
