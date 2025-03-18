@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Pressable, StyleSheet, FlatList } from 'react-native';
-import { MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Alert } from 'react-native';
+import { MaterialIcons, AntDesign, Feather } from '@expo/vector-icons';
 import Tag from '../../../database/models/Tag';
+import database from '../../../database';
 
 interface TagsSelectorProps {
   label: string;
@@ -16,7 +17,12 @@ export const TagsSelector = ({
   selectedTags,
   onTagsChange,
 }: TagsSelectorProps) => {
-  const [showTagsModal, setShowTagsModal] = useState(false);
+  const [isAddTagModalVisible, setAddTagModalVisible] = useState(false);
+  const [isTagMenuVisible, setTagMenuVisible] = useState(false);
+  const [isEditTagModalVisible, setEditTagModalVisible] = useState(false);
+  const [newTagText, setNewTagText] = useState('');
+  const [editTagText, setEditTagText] = useState('');
+  const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
 
   const handleTagSelect = (tag: Tag) => {
     const isSelected = selectedTags.some(t => t.id === tag.id);
@@ -27,91 +33,232 @@ export const TagsSelector = ({
     }
   };
 
-  return (
-    <>
-      <View style={styles.field}>
-        <Text style={styles.label}>{label}</Text>
-        
-        {/* Przycisk otwierający modal z wyborem tagów */}
-        <TouchableOpacity
-          style={styles.tagsButton}
-          onPress={() => setShowTagsModal(true)}
-        >
-          <View style={styles.selectedTags}>
-            {selectedTags.length > 0 ? (
-              <View style={styles.tagsChipsContainer}>
-                {selectedTags.map(tag => (
-                  <View key={tag.id} style={styles.tagChip}>
-                    <Text style={styles.tagChipText}>{tag.name}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.tagsPlaceholder}>Wybierz tagi</Text>
-            )}
-          </View>
-          <MaterialIcons name="chevron-right" size={24} color="#666" />
-        </TouchableOpacity>
-      </View>
+  const showTagMenu = (tag: Tag) => {
+    setSelectedTag(tag);
+    setTagMenuVisible(true);
+  };
 
+  const startEdit = (tag: Tag) => {
+    setSelectedTag(tag);
+    setEditTagText(tag.name);
+    setTagMenuVisible(false);
+    setEditTagModalVisible(true);
+  };
+
+  const saveEdit = async () => {
+    if (!selectedTag || !editTagText.trim()) return;
+
+    try {
+      await selectedTag.update(record => {
+        record.name = editTagText.trim();
+      });
+      
+      setEditTagModalVisible(false);
+      setEditTagText('');
+      setSelectedTag(null);
+    } catch (error) {
+      console.error(`Error updating tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      Alert.alert('Błąd', 'Nie udało się zaktualizować tagu');
+    }
+  };
+
+  const deleteTag = async (tag: Tag) => {
+    try {
+      await tag.markAsDeleted();
+      setTagMenuVisible(false);
+      setSelectedTag(null);
+      // Usuń tag z wybranych tagów
+      if (selectedTags.some(t => t.id === tag.id)) {
+        onTagsChange(selectedTags.filter(t => t.id !== tag.id));
+      }
+    } catch (error) {
+      console.error(`Error deleting tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      Alert.alert('Błąd', 'Nie udało się usunąć tagu');
+    }
+  };
+
+  const addNewTag = async () => {
+    if (!newTagText.trim()) return;
+
+    try {
+      const newTag = await Tag.createTag(database, newTagText);
+      setNewTagText('');
+      setAddTagModalVisible(false);
+      // Automatycznie dodaj nowy tag do wybranych
+      onTagsChange([...selectedTags, newTag]);
+    } catch (error) {
+      console.error(`Error adding tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      Alert.alert('Błąd', 'Nie udało się dodać tagu');
+    }
+  };
+
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      
+      <View style={styles.tagsContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tagsScrollContent}
+        >
+          {availableTags.map(tag => {
+            const isSelected = selectedTags.some(t => t.id === tag.id);
+            return (
+              <TouchableOpacity
+                key={tag.id}
+                style={[
+                  styles.tagChip,
+                  isSelected && styles.tagChipSelected
+                ]}
+                onPress={() => handleTagSelect(tag)}
+                onLongPress={() => showTagMenu(tag)} 
+                delayLongPress={500}
+              >
+                <Text style={[
+                  styles.tagChipText,
+                  isSelected && styles.tagChipTextSelected
+                ]}>
+                  {tag.name}
+                </Text>
+                {isSelected && (
+                  <MaterialIcons name="check" size={16} color="#fff" style={styles.checkIcon} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={styles.addTagButton}
+            onPress={() => setAddTagModalVisible(true)}
+          >
+            <AntDesign name="plus" size={14} color="#666" />
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+      
+      {/* Modal dodawania nowego tagu */}
       <Modal
-        visible={showTagsModal}
+        visible={isAddTagModalVisible}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowTagsModal(false)}
+        onRequestClose={() => setAddTagModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Wybierz tagi</Text>
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => setShowTagsModal(false)}
-              >
-                <AntDesign name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            
-            <FlatList
-              data={availableTags}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => {
-                const isSelected = selectedTags.some(t => t.id === item.id);
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.tagItem,
-                      isSelected && styles.tagItemSelected
-                    ]}
-                    onPress={() => handleTagSelect(item)}
-                  >
-                    <Text style={[
-                      styles.tagItemText,
-                      isSelected && styles.tagItemTextSelected
-                    ]}>
-                      {item.name}
-                    </Text>
-                    {isSelected ? (
-                      <MaterialIcons name="check" size={20} color="#2196F3" />
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              }}
-              contentContainerStyle={styles.tagsList}
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Dodaj nowy tag</Text>
+            <TextInput
+              style={styles.input}
+              value={newTagText}
+              onChangeText={setNewTagText}
+              placeholder="Nazwa tagu"
+              placeholderTextColor="#999"
+              returnKeyType="done"
+              onSubmitEditing={addNewTag}
+              autoFocus
             />
-            
-            <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={styles.doneButton}
-                onPress={() => setShowTagsModal(false)}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setAddTagModalVisible(false);
+                  setNewTagText('');
+                }}
               >
-                <Text style={styles.doneButtonText}>Gotowe</Text>
+                <Text style={styles.buttonText}>Anuluj</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  !newTagText.trim() && styles.buttonDisabled
+                ]}
+                onPress={addNewTag}
+                disabled={!newTagText.trim()}
+              >
+                <Text style={styles.buttonText}>Dodaj</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </>
+
+      {/* Menu kontekstowe dla tagu */}
+      <Modal
+        visible={isTagMenuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setTagMenuVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setTagMenuVisible(false)}
+        >
+          <View style={styles.tagMenuModal}>
+            <TouchableOpacity
+              style={styles.tagMenuItem}
+              onPress={() => selectedTag && startEdit(selectedTag)}
+            >
+              <Feather name="edit" size={18} color="#333" />
+              <Text style={styles.tagMenuItemText}>Edytuj</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tagMenuItem, styles.tagMenuItemDelete]}
+              onPress={() => selectedTag && deleteTag(selectedTag)}
+            >
+              <Feather name="trash-2" size={18} color="#ff4444" />
+              <Text style={[styles.tagMenuItemText, styles.tagMenuItemTextDelete]}>Usuń</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal edycji tagu */}
+      <Modal
+        visible={isEditTagModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setEditTagModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edytuj tag</Text>
+            <TextInput
+              style={styles.input}
+              value={editTagText}
+              onChangeText={setEditTagText}
+              placeholder="Nazwa tagu"
+              placeholderTextColor="#999"
+              returnKeyType="done"
+              onSubmitEditing={saveEdit}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setEditTagModalVisible(false);
+                  setEditTagText('');
+                }}
+              >
+                <Text style={styles.buttonText}>Anuluj</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  !editTagText.trim() && styles.buttonDisabled
+                ]}
+                onPress={saveEdit}
+                disabled={!editTagText.trim()}
+              >
+                <Text style={styles.buttonText}>Zapisz</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 };
 
@@ -125,106 +272,126 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '500',
   },
-  tagsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  tagsContainer: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#fff',
+    padding: 8,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 8,
   },
-  selectedTags: {
-    flex: 1,
-  },
-  tagsChipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  tagsScrollContent: {
+    paddingVertical: 4,
     gap: 8,
+    flexDirection: 'row',
   },
   tagChip: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#f5f5f5',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tagChipSelected: {
+    backgroundColor: '#2196F3',
   },
   tagChipText: {
-    color: '#2196F3',
+    color: '#666',
     fontSize: 14,
   },
-  tagsPlaceholder: {
-    color: '#999',
-    fontSize: 16,
+  tagChipTextSelected: {
+    color: '#fff',
+  },
+  checkIcon: {
+    marginLeft: 4,
+  },
+  addTagButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderStyle: 'dashed',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    maxHeight: '80%',
-    minHeight: '50%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    width: '90%',
+    maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#333',
+    marginBottom: 16,
   },
-  closeButton: {
-    padding: 4,
+  input: {
+    height: 48,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 16,
   },
-  tagsList: {
-    padding: 8,
-  },
-  tagItem: {
+  modalButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  modalButton: {
+    paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    marginVertical: 4,
+    minWidth: 80,
+    alignItems: 'center',
   },
-  tagItemSelected: {
+  cancelButton: {
     backgroundColor: '#f5f5f5',
   },
-  tagItemText: {
+  saveButton: {
+    backgroundColor: '#2196F3',
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  buttonText: {
     fontSize: 16,
     color: '#333',
-  },
-  tagItemTextSelected: {
-    color: '#2196F3',
     fontWeight: '500',
   },
-  modalFooter: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    alignItems: 'center',
-  },
-  doneButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  tagMenuModal: {
+    backgroundColor: 'white',
     borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
+    padding: 8,
+    minWidth: 200,
   },
-  doneButtonText: {
-    color: '#fff',
+  tagMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 4,
+  },
+  tagMenuItemDelete: {
+    marginTop: 4,
+  },
+  tagMenuItemText: {
     fontSize: 16,
-    fontWeight: '600',
+    marginLeft: 12,
+    color: '#333',
+  },
+  tagMenuItemTextDelete: {
+    color: '#ff4444',
   },
 }); 

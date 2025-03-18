@@ -31,9 +31,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
     };
 
     switch (id) {
-      case 'tags':
-        navigate('/(screens)/TagManagementScreen/TagManagementScreen');
-        break;
       case 'notifications':
         navigate('/(screens)/NotificationScreen/NotificationScreen');
         break;
@@ -67,12 +64,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
 
   const menuItems: MenuItem[] = [
     // Main section
-    {
-      id: 'tags',
-      label: 'Zarządzanie tagami',
-      icon: <MaterialIcons name="local-offer" size={24} color="#666" />,
-      section: 'main'
-    },
     {
       id: 'notifications',
       label: 'Powiadomienia',

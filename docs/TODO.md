@@ -30,7 +30,7 @@ Improvements:
     Włączenie opcji pro
     włączenie 1 pdf/tydz
     Dodanie reklam
-    Kolejnosc tagow/shopping items
+    reorder tagow/shopping items
     checkAndAssignLocalDataToUser - edge cases, obsluz duplikaty z manytomany
     Jesli przepis nie ma zdjecia a ma filmik, uzyj miniaturki jako zdjecia
 

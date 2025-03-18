@@ -10,7 +10,6 @@ declare module "expo-router" {
     | "/(screens)/RecipeListScreen/RecipeListScreen"
     | "/(screens)/RecipeManagementScreen/RecipeManagementScreen"
     | "/(screens)/ShoppingListScreen/ShoppingListScreen"
-    | "/(screens)/TagManagementScreen/TagManagementScreen"
     | "/(screens)/NotificationScreen/NotificationScreen"
     | "/(screens)/FriendsScreen/FriendsScreen"
     | "/(screens)/SettingsScreen/SettingsScreen"

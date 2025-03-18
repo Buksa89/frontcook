@@ -15,7 +15,6 @@ type RootStackParamList = {
   '(screens)/RecipeManagementScreen/RecipeManagementScreen': { recipeId?: string };
   '(screens)/RecipeDetailScreen/RecipeDetailScreen': { recipeId?: string };
   '(screens)/ShoppingListScreen/ShoppingListScreen': undefined;
-  '(screens)/TagManagementScreen/TagManagementScreen': undefined;
   '(screens)/NotificationScreen/NotificationScreen': undefined;
   '(screens)/FriendsScreen/FriendsScreen': undefined;
   '(screens)/SettingsScreen/SettingsScreen': undefined;
@@ -288,22 +287,6 @@ export default function RootLayout() {
             name="(screens)/ShoppingListScreen/ShoppingListScreen" 
             options={{ 
               headerTitle: "Lista zakupów",
-              headerBackTitle: "Wróć",
-              headerStyle: {
-                backgroundColor: '#fff'
-              },
-              headerTitleStyle: {
-                fontSize: 20,
-                fontWeight: '600',
-                color: '#333'
-              },
-              headerShadowVisible: false
-            }} 
-          />
-          <Stack.Screen 
-            name="(screens)/TagManagementScreen/TagManagementScreen" 
-            options={{ 
-              headerTitle: "Zarządzanie tagami",
               headerBackTitle: "Wróć",
               headerStyle: {
                 backgroundColor: '#fff'
