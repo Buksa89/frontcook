@@ -6,7 +6,10 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   FlatList,
-  Alert
+  Alert,
+  StatusBar,
+  SafeAreaView,
+  Dimensions
 } from 'react-native';
 import { AntDesign, MaterialIcons, Feather } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -22,6 +25,8 @@ interface AddShopingItemMenuProps {
   ingredients: Ingredient[];
   recipeName: string;
 }
+
+const { height: screenHeight } = Dimensions.get('window');
 
 export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
   visible,
@@ -162,12 +167,8 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
         await ShoppingItem.createOrUpdate(database, itemText);
       }
 
-      // Informujemy użytkownika o sukcesie
-      Alert.alert(
-        'Dodano do listy',
-        `Dodano ${selectedItems.length} ${selectedItems.length === 1 ? 'produkt' : 'produkty'} do listy zakupów.`,
-        [{ text: 'OK', onPress: onClose }]
-      );
+      // Zamykamy modal bez wyświetlania powiadomienia
+      onClose();
     } catch (error) {
       console.error('Błąd podczas dodawania do listy zakupów:', error);
       Alert.alert('Błąd', 'Nie udało się dodać produktów do listy zakupów.');
@@ -225,7 +226,7 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      <View style={styles.modalContainer}>
         <View style={styles.menuContainer}>
           <View style={styles.menuHeader}>
             <Text style={styles.menuTitle}>Dodaj do listy zakupów</Text>
@@ -319,17 +320,23 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
 export default AddShopingItemMenu;
 
 const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   menuContainer: {
+    height: screenHeight,
     backgroundColor: 'white',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-    minHeight: '50%',
   },
   menuHeader: {
     flexDirection: 'row',
