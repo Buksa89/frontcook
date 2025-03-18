@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import database from '../../../database';
 import Notification from '../../../database/models/Notification';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 type NotificationItem = {
   id: string;
@@ -12,6 +12,7 @@ type NotificationItem = {
   link: string | null;
   isReaded: boolean;
   lastUpdate: string | null;
+  isNew?: boolean; // Local flag to track new notifications visually
 };
 
 export default function NotificationScreen() {
@@ -22,8 +23,8 @@ export default function NotificationScreen() {
 
   // Obliczamy te wartości na podstawie aktualnego stanu powiadomień
   const hasReadNotifications = notifications.some(notification => notification.isReaded);
-  const hasUnreadNotifications = notifications.some(notification => !notification.isReaded);
 
+  // Load notifications and mark which ones are new (unread)
   useEffect(() => {
     const subscription = Notification.observeAll(database).subscribe(
       (notificationsList) => {
@@ -34,6 +35,7 @@ export default function NotificationScreen() {
           link: notification.link,
           isReaded: notification.isReaded,
           lastUpdate: notification.lastUpdate,
+          isNew: !notification.isReaded, // Mark as new if not read
         }));
         setNotifications(mappedNotifications);
         setLoading(false);
@@ -45,19 +47,27 @@ export default function NotificationScreen() {
     };
   }, []);
 
+  // Mark all notifications as read when LEAVING the screen
   useEffect(() => {
-    // Dodajemy przyciski do paska nawigacji
+    // This cleanup function runs when the component unmounts (user leaves the screen)
+    return () => {
+      const markAllAsRead = async () => {
+        try {
+          await Notification.markAllAsRead(database);
+        } catch (error) {
+          console.error('Error marking all notifications as read:', error);
+        }
+      };
+      
+      markAllAsRead();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Add delete button to navigation header
     navigation.setOptions({
       headerRight: () => (
         <View style={styles.headerRightContainer}>
-          {hasUnreadNotifications && (
-            <TouchableOpacity
-              style={styles.headerIconButton}
-              onPress={handleMarkAllAsRead}
-            >
-              <MaterialIcons name="done-all" size={24} color="#007aff" />
-            </TouchableOpacity>
-          )}
           {hasReadNotifications && (
             <TouchableOpacity
               style={styles.headerIconButton}
@@ -69,24 +79,7 @@ export default function NotificationScreen() {
         </View>
       ),
     });
-  }, [navigation, hasReadNotifications, hasUnreadNotifications]);
-
-  const handleMarkAllAsRead = async () => {
-    if (notifications.length === 0) return;
-    
-    try {
-      await Notification.markAllAsRead(database);
-      
-      // Aktualizujemy lokalny stan, aby natychmiast odzwierciedlić zmianę
-      setNotifications(prevNotifications => 
-        prevNotifications.map(item => 
-          !item.isReaded ? { ...item, isReaded: true } : item
-        )
-      );
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-    }
-  };
+  }, [navigation, hasReadNotifications]);
 
   const handleDeleteAllRead = async () => {
     const readNotifications = notifications.filter(notification => notification.isReaded);
@@ -123,29 +116,19 @@ export default function NotificationScreen() {
 
   const handleNotificationPress = async (notification: NotificationItem) => {
     try {
-      // Znajdź i oznacz powiadomienie jako przeczytane
-      const notificationRecord = await database
-        .get<Notification>('notifications')
-        .find(notification.id);
-      
-      if (!notification.isReaded) {
-        await notificationRecord.markAsRead();
-        
-        // Aktualizujemy lokalny stan, aby natychmiast odzwierciedlić zmianę
-        setNotifications(prevNotifications => 
-          prevNotifications.map(item => 
-            item.id === notification.id 
-              ? { ...item, isReaded: true } 
-              : item
-          )
-        );
-      }
-      
-      // Jeśli jest link, nawiguj do odpowiedniego ekranu
+      // If notification has a link, navigate to that screen
       if (notification.link) {
-        // Tutaj można dodać logikę nawigacji na podstawie linku
         console.log(`Navigating to: ${notification.link}`);
       }
+
+      // Mark as not new locally (visually)
+      setNotifications(prevNotifications => 
+        prevNotifications.map(item => 
+          item.id === notification.id 
+            ? { ...item, isNew: false } 
+            : item
+        )
+      );
     } catch (error) {
       console.error('Error handling notification press:', error);
     }
@@ -161,40 +144,6 @@ export default function NotificationScreen() {
         {
           text: "Anuluj",
           style: "cancel"
-        },
-        {
-          text: notification.isReaded ? "Oznacz jako nieprzeczytane" : "Oznacz jako przeczytane",
-          onPress: async () => {
-            try {
-              const notificationRecord = await database
-                .get<Notification>('notifications')
-                .find(notification.id);
-              
-              if (notification.isReaded) {
-                await notificationRecord.markAsUnread();
-                // Aktualizujemy lokalny stan, aby natychmiast odzwierciedlić zmianę
-                setNotifications(prevNotifications => 
-                  prevNotifications.map(item => 
-                    item.id === notification.id 
-                      ? { ...item, isReaded: false } 
-                      : item
-                  )
-                );
-              } else {
-                await notificationRecord.markAsRead();
-                // Aktualizujemy lokalny stan, aby natychmiast odzwierciedlić zmianę
-                setNotifications(prevNotifications => 
-                  prevNotifications.map(item => 
-                    item.id === notification.id 
-                      ? { ...item, isReaded: true } 
-                      : item
-                  )
-                );
-              }
-            } catch (error) {
-              console.error('Error changing notification read status:', error);
-            }
-          }
         },
         { 
           text: "Usuń", 
@@ -225,7 +174,7 @@ export default function NotificationScreen() {
     <TouchableOpacity
       style={[
         styles.notificationItem,
-        !item.isReaded && styles.notificationItemUnread
+        item.isNew && styles.notificationItemNew
       ]}
       onPress={() => handleNotificationPress(item)}
       onLongPress={() => handleNotificationLongPress(item)}
@@ -245,7 +194,7 @@ export default function NotificationScreen() {
           </Text>
         )}
       </View>
-      {!item.isReaded && <View style={styles.unreadIndicator} />}
+      {item.isNew && <View style={styles.newIndicator} />}
     </TouchableOpacity>
   );
 
@@ -309,7 +258,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  notificationItemUnread: {
+  notificationItemNew: {
     backgroundColor: '#f0f7ff',
   },
   notificationIcon: {
@@ -328,7 +277,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
   },
-  unreadIndicator: {
+  newIndicator: {
     width: 10,
     height: 10,
     borderRadius: 5,

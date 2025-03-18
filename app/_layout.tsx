@@ -1,13 +1,15 @@
 import { Stack } from "expo-router/stack";
 import { TouchableOpacity, Animated, TextInput, View, Dimensions, Text } from 'react-native';
-import { AntDesign, Entypo, MaterialIcons } from '@expo/vector-icons';
-import React, { useRef, useState, createContext } from 'react';
+import { AntDesign, Entypo, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import React, { useRef, useState, createContext, useEffect } from 'react';
 import type { NativeStackNavigationOptions, NativeStackHeaderProps } from '@react-navigation/native-stack';
 import type { ParamListBase } from '@react-navigation/native';
 import { MainMenu } from './components/MainMenu';
 import { AuthProvider } from './context';
 import { router } from 'expo-router';
 import { DEBUG } from './constants/env';
+import Notification from '../database/models/Notification';
+import database from '../database';
 
 type RootStackParamList = {
   index: undefined;
@@ -51,6 +53,20 @@ export default function RootLayout() {
   const [resetFunction, setResetFunction] = useState<ResetFunction | null>(null);
   const [searchFunction, setSearchFunction] = useState<SearchFunction | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+
+  // Add useEffect for monitoring unread notifications
+  useEffect(() => {
+    const subscription = Notification.observeUnread(database).subscribe(
+      (notifications) => {
+        setHasUnreadNotifications(notifications.length > 0);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleSetResetFunction = (fn: ResetFunction) => {
     console.log('Setting reset function');
@@ -211,6 +227,27 @@ export default function RootLayout() {
                       } as any)}
                     >
                       <MaterialIcons name="developer-mode" size={24} color="#333" />
+                    </TouchableOpacity>
+                  )}
+                  {hasUnreadNotifications && (
+                    <TouchableOpacity 
+                      style={{ marginRight: 20 }}
+                      onPress={() => router.push({
+                        pathname: '/(screens)/NotificationScreen/NotificationScreen'
+                      } as any)}
+                    >
+                      <View>
+                        <Ionicons name="notifications-outline" size={24} color="#333" />
+                        <View style={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          width: 10,
+                          height: 10,
+                          borderRadius: 5,
+                          backgroundColor: 'red',
+                        }} />
+                      </View>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
@@ -384,6 +421,7 @@ export default function RootLayout() {
         <MainMenu 
           visible={isMenuVisible}
           onClose={() => setIsMenuVisible(false)}
+          hasUnreadNotifications={hasUnreadNotifications}
         />
       </ResetFiltersContext.Provider>
     </AuthProvider>

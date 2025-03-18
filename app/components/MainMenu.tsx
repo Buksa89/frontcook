@@ -7,6 +7,7 @@ import { useAuth } from '../context';
 interface MainMenuProps {
   visible: boolean;
   onClose: () => void;
+  hasUnreadNotifications?: boolean;
 }
 
 interface MenuItem {
@@ -20,7 +21,7 @@ interface MenuItem {
   hideWhenNotAuth?: boolean;
 }
 
-export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
+export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose, hasUnreadNotifications = false }) => {
   const { isAuthenticated, logout } = useAuth();
 
   const handleMenuItemPress = async (id: string) => {
@@ -151,6 +152,10 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
                   isDisabled && styles.iconContainerDisabled
                 ]}>
                   {item.icon}
+                  {/* Add red dot for notifications if unread notifications exist */}
+                  {item.id === 'notifications' && hasUnreadNotifications && (
+                    <View style={styles.notificationDot} />
+                  )}
                 </View>
                 <Text style={[
                   styles.menuItemText,
@@ -272,6 +277,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     fontStyle: 'italic',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'red',
   },
 });
 

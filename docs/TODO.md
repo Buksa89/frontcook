@@ -6,7 +6,6 @@ Quick wins:
     popraw prompt, zeby byl w formacie json
     popraw prompt zeby ulamki byly z kropką
     lepsze powiadomienie w przypadku nieprzetworzenia
-    dodaj dodawanie tagow w trakcie tworzeni/edycji przpeisu
     react-toastify - moze pomoc z wygladem alertow
     Reset hasła
     Filmik w widoku przepisu
