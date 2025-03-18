@@ -106,18 +106,26 @@ const enhance = withObservables(['sortBy', 'filters', 'username'], ({ sortBy, fi
             break;
           case 'prepTime':
             filteredRecipes.sort((a, b) => {
-              if (a.prepTime === 0 && b.prepTime === 0) return 0;
-              if (a.prepTime === 0) return 1;
-              if (b.prepTime === 0) return -1;
-              return (a.prepTime || 0) - (b.prepTime || 0);
+              // Jeśli oba czasy są null lub 0, to są równoważne
+              if ((!a.prepTime || a.prepTime === 0) && (!b.prepTime || b.prepTime === 0)) return 0;
+              // Jeśli czas a jest null lub 0, to a powinien być na końcu (b jest "mniejszy")
+              if (!a.prepTime || a.prepTime === 0) return 1;
+              // Jeśli czas b jest null lub 0, to b powinien być na końcu (a jest "mniejszy")
+              if (!b.prepTime || b.prepTime === 0) return -1;
+              // Normalnie sortujemy rosnąco po czasie
+              return a.prepTime - b.prepTime;
             });
             break;
           case 'totalTime':
             filteredRecipes.sort((a, b) => {
-              if (a.totalTime === 0 && b.totalTime === 0) return 0;
-              if (a.totalTime === 0) return 1;
-              if (b.totalTime === 0) return -1;
-              return (a.totalTime || 0) - (b.totalTime || 0);
+              // Jeśli oba czasy są null lub 0, to są równoważne
+              if ((!a.totalTime || a.totalTime === 0) && (!b.totalTime || b.totalTime === 0)) return 0;
+              // Jeśli czas a jest null lub 0, to a powinien być na końcu (b jest "mniejszy")
+              if (!a.totalTime || a.totalTime === 0) return 1;
+              // Jeśli czas b jest null lub 0, to b powinien być na końcu (a jest "mniejszy")
+              if (!b.totalTime || b.totalTime === 0) return -1;
+              // Normalnie sortujemy rosnąco po czasie
+              return a.totalTime - b.totalTime;
             });
             break;
         }
