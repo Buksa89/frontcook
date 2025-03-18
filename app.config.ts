@@ -20,13 +20,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     '**/*'
   ],
   ios: {
-    supportsTablet: true
+    supportsTablet: true,
+    bundleIdentifier: 'com.adamdelezuch89.przepisy'
   },
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#FFFFFF'
-    }
+    },
+    package: 'com.adamdelezuch89.przepisy'
   },
   web: {
     favicon: './assets/favicon.png'

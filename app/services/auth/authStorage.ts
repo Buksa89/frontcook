@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import EncryptedStorage from 'react-native-secure-storage';
+import * as SecureStore from 'expo-secure-store';
 import { DEBUG } from '../../constants/env';
 
 // Klucze do przechowywania danych
 const STORAGE_KEYS = {
   ACCESS_TOKEN: '@auth/access_token',
-  REFRESH_TOKEN: '@auth/refresh_token',
+  REFRESH_TOKEN: 'auth_refresh_token',
   ACTIVE_USER: '@auth/active_user',
 };
 
@@ -42,7 +42,7 @@ const AuthStorage = {
       if (DEBUG) {
         await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
       } else {
-        await EncryptedStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
+        await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, token);
       }
     } catch (error) {
       console.error('[AuthStorage] Błąd zapisu refresh tokena:', error);
@@ -57,7 +57,7 @@ const AuthStorage = {
     try {
       return DEBUG
         ? await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)
-        : await EncryptedStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+        : await SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
     } catch (error) {
       console.error('[AuthStorage] Błąd pobierania refresh tokena:', error);
       throw error;
@@ -108,7 +108,7 @@ const AuthStorage = {
       if (DEBUG) {
         await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       } else {
-        await EncryptedStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+        await SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
       }
     } catch (error) {
       console.error('[AuthStorage] Błąd czyszczenia refresh tokena:', error);
