@@ -133,7 +133,6 @@ export const RecipeForm = ({
             label="Liczba porcji"
             value={parseInt(data.servings) || 1}
             onChange={handleServingsChange}
-            required
           />
 
           <FormField

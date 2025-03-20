@@ -38,7 +38,7 @@ export const ServingsInput = ({
   return (
     <View style={[styles.field, style]}>
       <Text style={styles.label}>
-        {label}{required && <Text style={styles.requiredStar}>*</Text>}
+        {label}
       </Text>
       
       <View style={[

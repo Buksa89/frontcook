@@ -18,6 +18,7 @@ import ShoppingItem from '../../database/models/ShoppingItem';
 import database from '../../database';
 import { useServings } from '../(screens)/RecipeDetailScreen/ServingsContext';
 import { isIngredientScalable, scaleValue, formatScaledValue, calculateScaleFactor } from '../utils/scaling';
+import Toast, { showToast } from '../components/Toast';
 
 interface AddShopingItemMenuProps {
   visible: boolean;
@@ -102,11 +103,14 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
                 await item.markAsDeleted();
               }
               
-              Alert.alert(
-                "Lista wyczyszczona",
-                "Wszystkie produkty zostały usunięte z listy zakupów.",
-                [{ text: "OK" }]
-              );
+              // Pokaż toast informujący o wyczyszczeniu listy
+              showToast({
+                type: 'success',
+                text1: 'Gotowe!',
+                text2: 'Lista zakupów została wyczyszczona',
+                visibilityTime: 2000,
+                position: 'bottom'
+              });
             } catch (error) {
               console.error('Błąd podczas czyszczenia listy zakupów:', error);
               Alert.alert("Błąd", "Nie udało się wyczyścić listy zakupów.");
@@ -313,6 +317,7 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
           </View>
         </View>
       </View>
+      <Toast />
     </Modal>
   );
 };

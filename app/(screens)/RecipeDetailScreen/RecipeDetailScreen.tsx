@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Share } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ interface RecipeDetailsScreenProps {
 }
 
 const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenProps) => {
+  const navigation = useNavigation();
   const [isStepChecked, setIsStepChecked] = useState<boolean[]>([]);
   
   useEffect(() => {
@@ -31,8 +33,13 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
         .filter(instruction => instruction.length > 0)
         .length;
       setIsStepChecked(new Array(stepsCount).fill(false));
+      
+      // Ustaw tytuł ekranu
+      navigation.setOptions({
+        headerTitle: recipe.name
+      });
     }
-  }, [recipe]);
+  }, [recipe, navigation]);
 
   const toggleStep = (index: number) => {
     setIsStepChecked(prev => {

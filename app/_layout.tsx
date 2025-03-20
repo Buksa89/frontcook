@@ -306,7 +306,7 @@ export default function RootLayout() {
             <Stack.Screen 
               name="(screens)/RecipeDetailScreen/RecipeDetailScreen" 
               options={{ 
-                headerTitle: "Przepis",
+                headerTitle: "",
                 headerBackTitle: "Wróć",
                 headerStyle: {
                   backgroundColor: '#fff'

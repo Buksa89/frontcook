@@ -80,9 +80,14 @@ const EditRecipeScreen = ({
       // Jeśli przepis istnieje i nie jest jeszcze zatwierdzony, zatwierdzamy go
       if (existingRecipe && !existingRecipe.isApproved) {
         await existingRecipe.toggleApproval();
+        // Przekierowujemy na listę przepisów po zaakceptowaniu
+        router.push({
+          pathname: '/(screens)/RecipeListScreen/RecipeListScreen'
+        });
+      } else {
+        // W innych przypadkach wracamy do poprzedniego ekranu
+        router.back();
       }
-      
-      router.back();
     } catch (error) {
       console.error('Error saving recipe:', error);
       Alert.alert('Błąd', existingRecipe ? 'Nie udało się zaktualizować przepisu' : 'Nie udało się dodać przepisu');

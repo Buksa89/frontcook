@@ -18,7 +18,6 @@ const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
   const handleApprove = async () => {
     try {
       await recipe.toggleApproval();
-      Alert.alert('Sukces', 'Przepis został zaakceptowany.');
     } catch (error) {
       console.error('Błąd podczas akceptowania przepisu:', error);
       Alert.alert('Błąd', 'Nie udało się zaakceptować przepisu.');
@@ -40,7 +39,6 @@ const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
           onPress: async () => {
             try {
               await recipe.markAsDeleted();
-              Alert.alert('Sukces', 'Przepis został usunięty.');
             } catch (error) {
               console.error('Błąd podczas usuwania przepisu:', error);
               Alert.alert('Błąd', 'Nie udało się usunąć przepisu.');

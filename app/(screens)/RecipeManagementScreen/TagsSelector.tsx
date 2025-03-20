@@ -97,11 +97,7 @@ export const TagsSelector = ({
       <Text style={styles.label}>{label}</Text>
       
       <View style={styles.tagsContainer}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagsScrollContent}
-        >
+        <View style={styles.tagsContent}>
           {availableTags.map(tag => {
             const isSelected = selectedTags.some(t => t.id === tag.id);
             return (
@@ -133,7 +129,7 @@ export const TagsSelector = ({
           >
             <AntDesign name="plus" size={14} color="#666" />
           </TouchableOpacity>
-        </ScrollView>
+        </View>
       </View>
       
       {/* Modal dodawania nowego tagu */}
@@ -280,10 +276,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     marginBottom: 8,
   },
-  tagsScrollContent: {
-    paddingVertical: 4,
-    gap: 8,
+  tagsContent: {
+    flexWrap: 'wrap',
     flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
   },
   tagChip: {
     backgroundColor: '#f5f5f5',
@@ -292,6 +289,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
   },
   tagChipSelected: {
     backgroundColor: '#2196F3',
@@ -316,6 +314,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     borderStyle: 'dashed',
+    marginBottom: 8,
   },
   modalOverlay: {
     flex: 1,
