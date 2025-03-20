@@ -3,6 +3,7 @@ import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable, 
 import { MaterialIcons } from '@expo/vector-icons';
 import { webImportRecipeApi } from '../../api';
 import type { WebImportRecipeResponse } from '../../api/webImportRecipe';
+import Toast, { showToast } from '../../components/Toast';
 
 interface WebImportModalProps {
   visible: boolean;
@@ -12,23 +13,29 @@ interface WebImportModalProps {
 
 export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportModalProps) => {
   const [url, setUrl] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   const handleImport = async () => {
-    // Reset states
-    setError('');
-    setSuccessMessage('');
-    
     // Validate URL
     if (!url.trim()) {
-      setError('Wpisz adres strony z przepisem');
+      showToast({
+        type: 'warning',
+        text1: 'Brak adresu URL',
+        text2: 'Wpisz adres strony z przepisem',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       return;
     }
 
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      setError('Ten adres nie wygląda na poprawny. Upewnij się, że zaczyna się od http:// lub https://');
+      showToast({
+        type: 'warning',
+        text1: 'Niepoprawny adres',
+        text2: 'Ten adres nie wygląda na poprawny. Upewnij się, że zaczyna się od http:// lub https://',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       return;
     }
 
@@ -39,32 +46,44 @@ export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportM
       // Call API to import recipe from URL using the dedicated API module
       const response = await webImportRecipeApi.importFromUrl(url.trim());
       
-      // Handle success
-      setSuccessMessage('Super! Zaczęliśmy pobierać przepis. Damy Ci znać, gdy będzie gotowy!');
+      // Show success toast
+      showToast({
+        type: 'success',
+        text1: 'Sukces!',
+        text2: 'Zaczęliśmy pobierać przepis. Damy Ci znać, gdy będzie gotowy! W tym czasie możesz dodać kolejny.',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
       
       // Call success callback if provided
       if (onImportSuccess && response.task_id) {
         onImportSuccess(response.task_id);
       }
       
-      // Reset form and close modal after a delay
-      setTimeout(() => {
-        setUrl('');
-        setSuccessMessage('');
-        onClose();
-      }, 2000);
+      // Reset form but don't close modal (allow adding more)
+      setUrl('');
       
     } catch (err: any) {
       // Handle API error
+      let errorMessage = 'Coś poszło nie tak. Może spróbuj ponownie za chwilę?';
+      
       if (err.status === 401) {
-        setError('Hej, musisz się najpierw zalogować, żeby dodać przepis');
+        errorMessage = 'Hej, musisz się najpierw zalogować, żeby dodać przepis';
       } else if (err.data && err.data.error) {
-        setError(err.data.error);
+        errorMessage = err.data.error;
       } else if (err.status === 404) {
-        setError('Ups! Nie możemy znaleźć tej strony. Sprawdź, czy adres jest poprawny.');
-      } else {
-        setError('Coś poszło nie tak. Może spróbuj ponownie za chwilę?');
-      }
+        errorMessage = 'Ups! Nie możemy znaleźć tej strony. Sprawdź, czy adres jest poprawny.';
+      } 
+      
+      // Show error toast
+      showToast({
+        type: 'error',
+        text1: 'Wystąpił błąd',
+        text2: errorMessage,
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
+      
       console.error('Import recipe error:', err);
     } finally {
       setIsLoading(false);
@@ -92,20 +111,15 @@ export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportM
 
           <Text style={styles.label}>Adres URL przepisu</Text>
           <TextInput
-            style={[styles.input, error ? styles.inputError : null]}
+            style={styles.input}
             value={url}
-            onChangeText={(text) => {
-              setUrl(text);
-              if (error) setError('');
-            }}
+            onChangeText={setUrl}
             placeholder="https://example.com/recipe"
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
             editable={!isLoading}
           />
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
           <TouchableOpacity 
             style={[styles.importButton, isLoading ? styles.importButtonDisabled : null]}
@@ -123,6 +137,7 @@ export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportM
           </TouchableOpacity>
         </View>
       </Pressable>
+      <Toast />
     </Modal>
   );
 };
@@ -164,19 +179,6 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: '#fff',
-  },
-  inputError: {
-    borderColor: '#dc3545',
-  },
-  errorText: {
-    color: '#dc3545',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  successText: {
-    color: '#28a745',
-    fontSize: 14,
-    marginTop: 4,
   },
   importButton: {
     backgroundColor: '#2196F3',

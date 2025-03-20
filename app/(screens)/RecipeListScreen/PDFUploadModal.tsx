@@ -3,6 +3,7 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, ActivityInd
 import { MaterialIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { pdfUploadApi } from '../../api/pdfUpload';
+import Toast, { showToast } from '../../components/Toast';
 
 interface PDFUploadModalProps {
   visible: boolean;
@@ -12,15 +13,10 @@ interface PDFUploadModalProps {
 
 export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModalProps) => {
   const [pdfDocument, setPdfDocument] = useState<DocumentPicker.DocumentPickerResult | null>(null);
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   // Function to pick a PDF document
   const pickDocument = async () => {
-    // Reset states
-    setError('');
-    
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
@@ -31,14 +27,26 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
         // Check if it's a valid PDF file
         const fileType = result.assets[0].mimeType;
         if (fileType !== 'application/pdf') {
-          setError('Wybrany plik nie jest dokumentem PDF. Wybierz plik PDF.');
+          showToast({
+            type: 'error',
+            text1: 'Niepoprawny format pliku',
+            text2: 'Wybrany plik nie jest dokumentem PDF. Wybierz plik PDF.',
+            visibilityTime: 4000,
+            position: 'bottom'
+          });
           return;
         }
         
         // Check if file size is too large (20MB limit)
         const fileSize = result.assets[0].size || 0;
         if (fileSize > 20 * 1024 * 1024) {
-          setError('Wybrany plik jest zbyt duży. Maksymalny rozmiar to 20MB.');
+          showToast({
+            type: 'error',
+            text1: 'Plik zbyt duży',
+            text2: 'Wybrany plik jest zbyt duży. Maksymalny rozmiar to 20MB.',
+            visibilityTime: 4000,
+            position: 'bottom'
+          });
           return;
         }
         
@@ -47,20 +55,28 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
       }
     } catch (err) {
       console.error('Error picking document:', err);
-      setError('Wystąpił błąd podczas wybierania dokumentu. Spróbuj ponownie.');
+      showToast({
+        type: 'error',
+        text1: 'Wystąpił błąd',
+        text2: 'Wystąpił błąd podczas wybierania dokumentu. Spróbuj ponownie.',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
     }
   };
 
   // Function to upload the PDF document
   const handleUpload = async () => {
     if (!pdfDocument || pdfDocument.canceled) {
-      setError('Najpierw wybierz plik PDF');
+      showToast({
+        type: 'warning',
+        text1: 'Brak pliku PDF',
+        text2: 'Najpierw wybierz plik PDF',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       return;
     }
-
-    // Reset states
-    setError('');
-    setSuccessMessage('');
     
     // Start loading
     setIsLoading(true);
@@ -80,34 +96,46 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
       // Call API to upload PDF
       const response = await pdfUploadApi.uploadPDF(fileUri, fileName);
       
-      // Handle success
-      setSuccessMessage('Super! Zaczęliśmy analizować przepis z PDF. Damy Ci znać, gdy będzie gotowy!');
+      // Show success toast
+      showToast({
+        type: 'success',
+        text1: 'Sukces!',
+        text2: 'Zaczęliśmy analizować przepisy z PDF. Damy Ci znać, gdy będą gotowe! W tym czasie możesz dodać kolejne.',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
       
       // Call success callback if provided
       if (onPDFSuccess && response.task_id) {
         onPDFSuccess(response.task_id);
       }
       
-      // Reset form and close modal after a delay
-      setTimeout(() => {
-        setPdfDocument(null);
-        setSuccessMessage('');
-        onClose();
-      }, 2000);
+      // Reset form but don't close modal (allow adding more)
+      setPdfDocument(null);
       
     } catch (err: any) {
       // Handle API error
+      let errorMessage = 'Coś poszło nie tak. Może spróbuj ponownie za chwilę?';
+      
       if (err.status === 401) {
-        setError('Hej, musisz się najpierw zalogować, żeby dodać przepis');
+        errorMessage = 'Hej, musisz się najpierw zalogować, żeby dodać przepis';
       } else if (err.data && err.data.error) {
-        setError(err.data.error);
+        errorMessage = err.data.error;
       } else if (err.data && err.data.errors && err.data.errors.pdf_file) {
-        setError(`Błąd pliku: ${err.data.errors.pdf_file.join(', ')}`);
+        errorMessage = `Błąd pliku: ${err.data.errors.pdf_file.join(', ')}`;
       } else if (err.message) {
-        setError(err.message);
-      } else {
-        setError('Coś poszło nie tak. Może spróbuj ponownie za chwilę?');
+        errorMessage = err.message;
       }
+      
+      // Show error toast
+      showToast({
+        type: 'error',
+        text1: 'Wystąpił błąd',
+        text2: errorMessage,
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
+      
       console.error('PDF upload error:', err);
     } finally {
       setIsLoading(false);
@@ -117,7 +145,6 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
   // Function to clear selected PDF
   const clearSelectedPDF = () => {
     setPdfDocument(null);
-    setError('');
   };
 
   return (
@@ -171,9 +198,6 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
             </TouchableOpacity>
           )}
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
-
           {pdfDocument && !pdfDocument.canceled && (
             <TouchableOpacity 
               style={[styles.uploadButton, isLoading ? styles.uploadButtonDisabled : null]}
@@ -200,6 +224,7 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
           </View>
         </View>
       </Pressable>
+      <Toast />
     </Modal>
   );
 };
@@ -295,18 +320,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  errorText: {
-    color: '#dc3545',
-    fontSize: 14,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  successText: {
-    color: '#28a745',
-    fontSize: 14,
-    marginTop: 16,
-    marginBottom: 8,
   },
   infoContainer: {
     flexDirection: 'row',

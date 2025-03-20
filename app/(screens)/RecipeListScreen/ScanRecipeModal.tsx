@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { scanRecipeApi } from '../../api';
 import type { ScanRecipeResponse } from '../../api/scanRecipe';
+import Toast, { showToast } from '../../components/Toast';
 
 interface ScanRecipeModalProps {
   visible: boolean;
@@ -13,24 +14,25 @@ interface ScanRecipeModalProps {
 
 export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeModalProps) => {
   const [image, setImage] = useState<string | null>(null);
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   const pickImage = async () => {
-    // Reset states
-    setError('');
-    
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (status !== 'granted') {
-      setError('Przepraszamy, potrzebujemy uprawnień do galerii aby kontynuować!');
+      showToast({
+        type: 'error',
+        text1: 'Brak uprawnień',
+        text2: 'Potrzebujemy uprawnień do galerii aby kontynuować!',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
+      allowsMultipleSelection: false,
       quality: 1,
     });
 
@@ -40,19 +42,23 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
   };
 
   const takePhoto = async () => {
-    // Reset states
-    setError('');
-    
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     
     if (status !== 'granted') {
-      setError('Przepraszamy, potrzebujemy uprawnień do kamery aby kontynuować!');
+      showToast({
+        type: 'error',
+        text1: 'Brak uprawnień',
+        text2: 'Potrzebujemy uprawnień do kamery aby kontynuować!',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
       return;
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
       quality: 1,
+      aspect: [4, 3],
+      allowsMultipleSelection: false,
     });
 
     if (!result.canceled) {
@@ -62,13 +68,15 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
 
   const handleScan = async () => {
     if (!image) {
-      setError('Najpierw wybierz lub zrób zdjęcie przepisu');
+      showToast({
+        type: 'warning',
+        text1: 'Brak zdjęcia',
+        text2: 'Najpierw wybierz lub zrób zdjęcie przepisu',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       return;
     }
-
-    // Reset states
-    setError('');
-    setSuccessMessage('');
     
     // Start loading
     setIsLoading(true);
@@ -77,32 +85,47 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
       // Call API to scan recipe from image using the dedicated API module
       const response = await scanRecipeApi.scanFromImage(image);
       
-      // Handle success
-      setSuccessMessage('Super! Zaczęliśmy analizować przepis. Damy Ci znać, gdy będzie gotowy!');
+      // Show toast notification
+      showToast({
+        type: 'success',
+        text1: 'Sukces!',
+        text2: 'Zaczęliśmy analizować przepis. Damy Ci znać, gdy będzie gotowy! W tym czasie możesz dodać kolejny.',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
       
       // Call success callback if provided
       if (onScanSuccess && response.task_id) {
         onScanSuccess(response.task_id);
       }
       
-      // Reset form and close modal after a delay
-      setTimeout(() => {
-        setImage(null);
-        setSuccessMessage('');
-        onClose();
-      }, 2000);
+      // Reset image after success to allow adding another
+      setImage(null);
+      
+      // No longer closing the modal automatically
+      // Modal stays open so user can add another recipe
       
     } catch (err: any) {
       // Handle API error
+      let errorMessage = 'Coś poszło nie tak. Może spróbuj ponownie za chwilę?';
+      
       if (err.status === 401) {
-        setError('Hej, musisz się najpierw zalogować, żeby dodać przepis');
+        errorMessage = 'Hej, musisz się najpierw zalogować, żeby dodać przepis';
       } else if (err.data && err.data.error) {
-        setError(err.data.error);
+        errorMessage = err.data.error;
       } else if (err.data && err.data.errors && err.data.errors.screenshot) {
-        setError(`Błąd zdjęcia: ${err.data.errors.screenshot.join(', ')}`);
-      } else {
-        setError('Coś poszło nie tak. Może spróbuj ponownie za chwilę?');
+        errorMessage = `Błąd zdjęcia: ${err.data.errors.screenshot.join(', ')}`;
       }
+      
+      // Show toast notification
+      showToast({
+        type: 'error',
+        text1: 'Wystąpił błąd',
+        text2: errorMessage,
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
+      
       console.error('Scan recipe error:', err);
     } finally {
       setIsLoading(false);
@@ -161,9 +184,6 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
             </View>
           )}
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
-
           {image && (
             <TouchableOpacity 
               style={[styles.scanButton, isLoading ? styles.scanButtonDisabled : null]}
@@ -182,6 +202,7 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
           )}
         </View>
       </Pressable>
+      <Toast />
     </Modal>
   );
 };
@@ -270,17 +291,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  errorText: {
-    color: '#dc3545',
-    fontSize: 14,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  successText: {
-    color: '#28a745',
-    fontSize: 14,
-    marginTop: 16,
-    marginBottom: 8,
   },
 }); 

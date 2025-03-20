@@ -1,6 +1,7 @@
 Issues:
     Obsluga bledow z api
     sync przed wylogowaniem
+    Sprawdz czy zdjecie jest poprawnie przyciete
 
 Quick wins:
     popraw prompt, zeby byl w formacie json
