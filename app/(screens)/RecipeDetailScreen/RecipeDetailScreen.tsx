@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
-import { MaterialIcons, Feather } from '@expo/vector-icons';
+import { MaterialIcons, Feather, AntDesign } from '@expo/vector-icons';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
 import Ingredient from '../../../database/models/Ingredient';
@@ -84,8 +84,8 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
 
   return (
     <ServingsProvider>
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: recipe.isApproved ? 16 : 80 }}>
-        <RecipeHeader recipe={recipe} />
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: recipe.isApproved ? 80 : 50 }}>
+        <RecipeHeader recipe={recipe} ingredients={ingredients} />
         
         <View style={styles.content}>
           {tags.length > 0 && (
@@ -117,15 +117,16 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
             )}
           </View>
 
-          {recipe.isApproved && (
+          {recipe.rating !== null && (
             <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
           )}
 
-          {recipe.isApproved && recipe.servings !== null && recipe.servings > 0 && (
+          {recipe.servings !== null && recipe.servings > 0 && (
             <ServingsAdjuster 
               originalServings={recipe.servings} 
               ingredients={ingredients}
               recipeName={recipe.name}
+              isApproved={recipe.isApproved}
             />
           )}
 
@@ -133,15 +134,7 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
             <Text style={styles.sectionTitle}>Składniki</Text>
             {ingredients.map((ingredient, index) => (
               <View key={index} style={styles.ingredientRow}>
-                {recipe.isApproved ? (
-                  <ScaledIngredient key={index} ingredient={ingredient} />
-                ) : (
-                  <Text style={styles.sectionContent}>
-                    {ingredient.amount !== null && ingredient.amount !== 0 && `${ingredient.amount} `}
-                    {ingredient.unit && `${ingredient.unit} `}
-                    {ingredient.name || ingredient.originalStr}
-                  </Text>
-                )}
+                <ScaledIngredient key={index} ingredient={ingredient} />
               </View>
             ))}
           </View>
@@ -214,6 +207,19 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
           >
             <MaterialIcons name="check-circle" size={20} color="#fff" style={styles.approveIcon} />
             <Text style={styles.approveButtonText}>Zaakceptuj przepis</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {recipe.isApproved && (
+        <View style={styles.fabContainer}>
+          <TouchableOpacity 
+            style={styles.fab}
+            onPress={() => router.push({
+              pathname: '/(screens)/ShoppingListScreen/ShoppingListScreen'
+            })}
+          >
+            <AntDesign name="shoppingcart" size={24} color="white" />
           </TouchableOpacity>
         </View>
       )}
@@ -385,5 +391,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    flexDirection: 'row',
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 }); 

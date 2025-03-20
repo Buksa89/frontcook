@@ -34,23 +34,35 @@ const sortOptions: SortOption[] = [
 ];
 
 const RecipeList = ({ recipes, pendingRecipes }: { recipes: Recipe[], pendingRecipes: Recipe[] }) => {
+  // Ensure recipes and pendingRecipes are arrays
+  const safeRecipes = Array.isArray(recipes) ? recipes : [];
+  const safePendingRecipes = Array.isArray(pendingRecipes) ? pendingRecipes : [];
+  
   // Sprawdzenie, czy mamy zarówno oczekujące jak i zwykłe przepisy
-  const hasBothTypes = pendingRecipes.length > 0 && recipes.length > 0;
+  const hasBothTypes = safePendingRecipes.length > 0 && safeRecipes.length > 0;
   
   // Tworzymy listę wszystkich przepisów bez modyfikowania oryginalnych obiektów
-  const allRecipes = [...pendingRecipes, ...recipes];
+  const allRecipes = [...safePendingRecipes, ...safeRecipes];
 
   return (
     <>
       <FlatList
         data={allRecipes}
         renderItem={({ item, index }) => {
+          // Skip rendering if item is invalid
+          if (!item || typeof item !== 'object') {
+            return null;
+          }
+          
           // Separator po wszystkich pending recipes
-          const showSeparator = hasBothTypes && index === pendingRecipes.length - 1;
+          const showSeparator = hasBothTypes && index === safePendingRecipes.length - 1;
+          
+          // Safely determine if the item is approved
+          const isApproved = item.isApproved === true;
           
           return (
             <View>
-              {item.isApproved ? 
+              {isApproved ? 
                 <EnhancedRecipeCard recipe={item} /> : 
                 <EnhancedPendingRecipeCard recipe={item} />
               }
@@ -60,7 +72,7 @@ const RecipeList = ({ recipes, pendingRecipes }: { recipes: Recipe[], pendingRec
             </View>
           );
         }}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item?.id || Math.random().toString()}
         contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>

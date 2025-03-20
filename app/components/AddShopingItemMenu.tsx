@@ -182,23 +182,35 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
   };
   
   const renderIngredientItem = ({ item }: { item: Ingredient }) => {
-    const isSelected = selectedIngredients.has(item.id);
+    // Skip rendering if item is invalid
+    if (!item || typeof item !== 'object') {
+      return null;
+    }
+    
+    const safeItem = {
+      id: item?.id || '',
+      name: item?.name || '',
+      amount: item?.amount || null,
+      unit: item?.unit || null
+    };
+    
+    const isSelected = selectedIngredients.has(safeItem.id);
     
     // Sprawdzamy, czy składnik powinien być skalowany
-    const scalable = isIngredientScalable(item.amount);
+    const scalable = isIngredientScalable(safeItem.amount);
     
     // Obliczamy przeskalowaną ilość
     const scaledAmount = scalable 
-      ? scaleValue(item.amount, scaleFactor)
-      : item.amount;
+      ? scaleValue(safeItem.amount, scaleFactor)
+      : safeItem.amount;
     
     // Formatujemy wartość do wyświetlenia
-    const displayAmount = formatScaledValue(scaledAmount);
+    const displayAmount = formatScaledValue(scaledAmount || null);
     
     return (
       <TouchableOpacity
         style={[styles.ingredientItem, isSelected && styles.ingredientItemSelected]}
-        onPress={() => toggleIngredient(item.id)}
+        onPress={() => toggleIngredient(safeItem.id)}
       >
         <View style={styles.checkboxContainer}>
           {isSelected ? (
@@ -211,12 +223,12 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
         <View style={styles.ingredientContent}>
           <Text style={styles.ingredientText}>
             {scaledAmount !== null && displayAmount !== '' && (
-              <Text style={styles.amount}>{displayAmount} </Text>
+              <Text style={styles.amount}>{displayAmount}{' '}</Text>
             )}
-            {item.unit && (
-              <Text style={styles.unit}>{item.unit} </Text>
+            {safeItem.unit && (
+              <Text style={styles.unit}>{safeItem.unit}{' '}</Text>
             )}
-            <Text>{item.name}</Text>
+            <Text>{safeItem.name}</Text>
           </Text>
         </View>
       </TouchableOpacity>

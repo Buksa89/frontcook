@@ -39,7 +39,6 @@ export default function DebugScreen() {
             style: 'destructive',
             onPress: async () => {
               await AsyncStorage.removeItem('last_sync');
-              Alert.alert('Sukces', 'Czas ostatniej synchronizacji został zresetowany');
               await loadLastSyncTime();
             }
           }

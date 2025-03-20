@@ -10,12 +10,14 @@ interface ServingsAdjusterProps {
   originalServings: number | null;
   ingredients: Ingredient[];
   recipeName: string;
+  isApproved?: boolean;
 }
 
 export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({ 
   originalServings,
   ingredients,
-  recipeName
+  recipeName,
+  isApproved = true
 }) => {
   const { 
     setScaleFactor, 
@@ -34,6 +36,7 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
   }, [originalServings, setOriginalServings, setCurrentServings]);
 
   const handleDecrease = () => {
+    if (!isApproved) return;
     if (currentServings > 1) {
       const newServings = currentServings - 1;
       setCurrentServings(newServings);
@@ -44,6 +47,7 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
   };
 
   const handleIncrease = () => {
+    if (!isApproved) return;
     const newServings = currentServings + 1;
     setCurrentServings(newServings);
     
@@ -52,6 +56,7 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
   };
   
   const openAddShopingItemMenu = () => {
+    if (!isApproved) return;
     setMenuVisible(true);
   };
   
@@ -72,33 +77,40 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
         <View style={styles.rightSection}>
           <View style={styles.adjustContainer}>
             <TouchableOpacity
-              style={[styles.button, currentServings <= 1 && styles.buttonDisabled]}
+              style={[styles.button, (currentServings <= 1 || !isApproved) && styles.buttonDisabled]}
               onPress={handleDecrease}
-              disabled={currentServings <= 1}
+              disabled={currentServings <= 1 || !isApproved}
             >
               <AntDesign 
                 name="minus" 
                 size={16} 
-                color={currentServings <= 1 ? '#ccc' : '#2196F3'} 
+                color={(currentServings <= 1 || !isApproved) ? '#ccc' : '#2196F3'} 
               />
             </TouchableOpacity>
             
             <Text style={styles.servingsText}>{currentServings}</Text>
             
             <TouchableOpacity
-              style={styles.button}
+              style={[styles.button, !isApproved && styles.buttonDisabled]}
               onPress={handleIncrease}
+              disabled={!isApproved}
             >
-              <AntDesign name="plus" size={16} color="#2196F3" />
+              <AntDesign 
+                name="plus" 
+                size={16} 
+                color={!isApproved ? '#ccc' : '#2196F3'} 
+              />
             </TouchableOpacity>
           </View>
           
-          <TouchableOpacity 
-            style={styles.cartIconContainer}
-            onPress={openAddShopingItemMenu}
-          >
-            <AntDesign name="shoppingcart" size={30} color="#2196F3" />
-          </TouchableOpacity>
+          {isApproved && (
+            <TouchableOpacity 
+              style={styles.cartIconContainer}
+              onPress={openAddShopingItemMenu}
+            >
+              <AntDesign name="shoppingcart" size={30} color="#2196F3" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
       

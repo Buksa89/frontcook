@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
 import { withObservables } from '@nozbe/watermelondb/react';
-import { AntDesign, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { AntDesign, MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { switchMap, map } from 'rxjs/operators';
 import { Observable, from } from 'rxjs';
@@ -47,6 +47,19 @@ interface RecipeCardProps {
 
 const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
   const [menuVisible, setMenuVisible] = useState(false);
+  const [contextMenuVisible, setContextMenuVisible] = useState(false);
+  const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
+  
+  // Ensure recipe object has all required properties to prevent rendering issues
+  const safeRecipe = {
+    id: recipe?.id || '',
+    name: recipe?.name || '',
+    image: recipe?.image || null,
+    rating: recipe?.rating || 0,
+    prepTime: recipe?.prepTime || null,
+    totalTime: recipe?.totalTime || null,
+    servings: recipe?.servings || null,
+  };
   
   const openAddShopingItemMenu = () => {
     setMenuVisible(true);
@@ -56,29 +69,82 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
     setMenuVisible(false);
   };
 
+  const handleEdit = () => {
+    setContextMenuVisible(false);
+    router.push({
+      pathname: "/(screens)/RecipeManagementScreen/RecipeManagementScreen",
+      params: { recipeId: safeRecipe.id }
+    });
+  };
+
+  const handleDelete = () => {
+    if (isDeletingRecipe) return;
+    
+    setContextMenuVisible(false);
+    Alert.alert(
+      "Usuń przepis",
+      "Czy na pewno chcesz usunąć ten przepis? Tej operacji nie można cofnąć.",
+      [
+        {
+          text: "Anuluj",
+          style: "cancel",
+          onPress: () => setIsDeletingRecipe(false)
+        },
+        {
+          text: "Usuń",
+          onPress: async () => {
+            try {
+              setIsDeletingRecipe(true);
+              await recipe.markAsDeleted();
+            } catch (error) {
+              console.error("Błąd podczas usuwania przepisu:", error);
+              setIsDeletingRecipe(false);
+            }
+          },
+          style: "destructive"
+        }
+      ]
+    );
+  };
+
+  const showContextMenu = () => {
+    setContextMenuVisible(true);
+  };
+
+  // If recipe object is not properly initialized, render a safe fallback
+  if (!recipe || typeof recipe !== 'object') {
+    return null;
+  }
+
   return (
     <>
       <TouchableOpacity 
         style={styles.card}
         onPress={() => router.push({
           pathname: '/(screens)/RecipeDetailScreen/RecipeDetailScreen',
-          params: { recipeId: recipe.id }
+          params: { recipeId: safeRecipe.id }
         })}
+        onLongPress={showContextMenu}
+        delayLongPress={500}
       >
         <View style={[styles.imageContainer, styles.imagePlaceholder]}>
-          <Image
-            source={{ uri: recipe.image }}
-            style={styles.image}
-            onError={(e) => console.log('Błąd ładowania zdjęcia:', recipe.name)}
-          />
+          {safeRecipe.image ? (
+            <Image
+              source={{ uri: safeRecipe.image }}
+              style={styles.image}
+              onError={() => console.log('Błąd ładowania zdjęcia:', safeRecipe.name)}
+            />
+          ) : (
+            <AntDesign name="picture" size={24} color="#bbb" />
+          )}
         </View>
         <View style={styles.cardContent}>
-          <Text style={styles.title}>{recipe.name}</Text>
-          {tags.length > 0 && (
+          <Text style={styles.title}>{safeRecipe.name}</Text>
+          {Array.isArray(tags) && tags.length > 0 && (
             <View style={styles.recipeTags}>
               {tags.map(tag => (
-                <View key={tag.id} style={styles.recipeTag}>
-                  <Text style={styles.recipeTagText}>{tag.name}</Text>
+                <View key={tag?.id || Math.random().toString()} style={styles.recipeTag}>
+                  <Text style={styles.recipeTagText}>{tag?.name || ''}</Text>
                 </View>
               ))}
             </View>
@@ -88,25 +154,27 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
               {[1, 2, 3, 4, 5].map(star => (
                 <Ionicons 
                   key={star}
-                  name={star <= (recipe.rating || 0) ? "star" : "star-outline"}
+                  name={star <= (safeRecipe.rating || 0) ? "star" : "star-outline"}
                   size={14} 
-                  color={star <= (recipe.rating || 0) ? "#FFA41C" : "#D4D4D4"}
+                  color={star <= (safeRecipe.rating || 0) ? "#FFA41C" : "#D4D4D4"}
                   style={styles.starIcon}
                 />
               ))}
-              {recipe.rating > 0 && (
-                <Text style={styles.ratingText}>{recipe.rating.toFixed(1)}</Text>
+              {safeRecipe.rating > 0 && (
+                <Text style={styles.ratingText}>{safeRecipe.rating.toFixed(1)}</Text>
               )}
             </View>
-            {recipe.prepTime > 0 && (
-              <Text style={styles.timeInfo}>
-                <MaterialIcons name="timer" size={14} color="#666" /> {formatTime(recipe.prepTime)}
-              </Text>
+            {safeRecipe.prepTime !== null && safeRecipe.prepTime > 0 && (
+              <View style={styles.timeInfo}>
+                <MaterialIcons name="timer" size={14} color="#666" />
+                <Text style={styles.timeText}> {formatTime(safeRecipe.prepTime || 0)}</Text>
+              </View>
             )}
-            {recipe.totalTime > 0 && (
-              <Text style={styles.timeInfo}>
-                <MaterialIcons name="schedule" size={14} color="#666" /> {formatTime(recipe.totalTime)}
-              </Text>
+            {safeRecipe.totalTime !== null && safeRecipe.totalTime > 0 && (
+              <View style={styles.timeInfo}>
+                <MaterialIcons name="schedule" size={14} color="#666" />
+                <Text style={styles.timeText}> {formatTime(safeRecipe.totalTime || 0)}</Text>
+              </View>
             )}
           </View>
         </View>
@@ -118,14 +186,45 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
         </TouchableOpacity>
       </TouchableOpacity>
       
-      <ServingsProviderWithInitialValue servings={recipe.servings}>
+      <ServingsProviderWithInitialValue servings={safeRecipe.servings}>
         <AddShopingItemMenu 
           visible={menuVisible}
           onClose={closeAddShopingItemMenu}
-          ingredients={ingredients}
-          recipeName={recipe.name}
+          ingredients={Array.isArray(ingredients) ? ingredients : []}
+          recipeName={safeRecipe.name}
         />
       </ServingsProviderWithInitialValue>
+
+      {/* Menu kontekstowe */}
+      <Modal
+        visible={contextMenuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setContextMenuVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setContextMenuVisible(false)}
+        >
+          <View style={styles.menuModal}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleEdit}
+            >
+              <Feather name="edit" size={20} color="#333" />
+              <Text style={styles.menuItemText}>Edytuj</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemDelete]}
+              onPress={handleDelete}
+            >
+              <Feather name="trash-2" size={20} color="#ff4444" />
+              <Text style={[styles.menuItemText, styles.menuItemTextDelete]}>Usuń</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </>
   );
 };
@@ -223,8 +322,42 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   timeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     fontSize: 12,
     color: '#666',
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  menuModal: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 8,
+    minWidth: 200,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 4,
+  },
+  menuItemDelete: {
+    marginTop: 4,
+  },
+  menuItemText: {
+    fontSize: 16,
+    marginLeft: 12,
+    color: '#333',
+  },
+  menuItemTextDelete: {
+    color: '#ff4444',
   },
 }); 

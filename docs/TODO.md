@@ -1,7 +1,28 @@
+next steps:
+    Import przepisow z innych apek
+    Dodawanie tagow/przepisow od gory
+    reorder tagow/shopping items
+    Wszytskie alerty jako Toast
+    Architektura pod pro
+    Last sync w bazie danych zamiast kv
+    reset/zmiana hasla
+    grafiki
+    forced sync wywolany przez server - architektura
+    zwykly share
+
+
 Issues:
     Obsluga bledow z api
     sync przed wylogowaniem
     Sprawdz czy zdjecie jest poprawnie przyciete
+    brak settings przy pierwszym uruchomieniu!
+    Brak zrodel w przepisie, kiedy url
+
+
+Pilnuj:
+    Przytrzymanie na listach jako menu kontekstowe
+    last update - test
+
 
 Quick wins:
     popraw prompt, zeby byl w formacie json
@@ -10,9 +31,8 @@ Quick wins:
     react-toastify - moze pomoc z wygladem alertow
     Reset hasła
     Filmik w widoku przepisu
-    Dodawanie tagow/przepisow od gory
-    obsluga przytrzymywania, swapu elementu na liscie (usuwanie/menu kosteekstowe, zaznaczanie)
     Info o synchronizacji
+    pogrubienie skladnikow w tekscie
 
 Dev:
     Mierzenie czasu api calli
@@ -28,7 +48,6 @@ Improvements:
     Włączenie opcji pro
     włączenie 1 pdf/tydz
     Dodanie reklam
-    reorder tagow/shopping items
     checkAndAssignLocalDataToUser - edge cases, obsluz duplikaty z manytomany
     Jesli przepis nie ma zdjecia a ma filmik, uzyj miniaturki jako zdjecia
 
@@ -41,13 +60,13 @@ Final:
 Future improvement:
     Shopping list sharing
     Multiple shoppinmg lists
-    Import przepisow z innych apek
     Przepisy z filmikow
     Oauth
     Multilanguage
     Domyslny jezyk na bazie telefonu
     Szablony graficzne
     Synchronizacja w tle (bez wlaczania apki)
+    ksiazka do druku
 
 
 testy:

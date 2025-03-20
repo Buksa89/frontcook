@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { MaterialIcons, AntDesign, Ionicons } from '@expo/vector-icons';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
@@ -99,12 +99,12 @@ const FilterMenu = ({ visible, onClose, filters, onFiltersChange, availableTags 
                       ...filters,
                       minRating: filters.minRating === rating ? null : rating
                     })}
+                    style={styles.filterStar}
                   >
-                    <AntDesign
-                      name={rating <= (filters.minRating || 0) ? "star" : "staro"}
+                    <Ionicons
+                      name={rating <= (filters.minRating || 0) ? "star" : "star-outline"}
                       size={32}
-                      color="#FFD700"
-                      style={styles.filterStar}
+                      color={rating <= (filters.minRating || 0) ? "#FFA41C" : "#D4D4D4"}
                     />
                   </TouchableOpacity>
                 ))}
@@ -257,6 +257,7 @@ const styles = StyleSheet.create({
   },
   filterStar: {
     marginHorizontal: 2,
+    padding: 2,
   },
   timeFilter: {
     flexDirection: 'row',

@@ -1,37 +1,140 @@
-import React from 'react';
-import { View, Image, TouchableOpacity, StyleSheet, Share, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Image, TouchableOpacity, StyleSheet, Share, Alert, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Recipe from '../../../database/models/Recipe';
+import Ingredient from '../../../database/models/Ingredient';
+import { formatTime } from '../../../app/utils/timeFormat';
 
 interface RecipeHeaderProps {
   recipe: Recipe;
+  ingredients?: Ingredient[];
 }
 
-export const RecipeHeader = ({ recipe }: RecipeHeaderProps) => {
+export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) => {
+  // Add a deletion tracking state
+  const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
+  
   const handleRejectRecipe = () => {
+    // Check if already in deletion process to avoid duplicate alerts
+    if (isDeletingRecipe) return;
+    
     Alert.alert(
       'Usuń przepis',
       'Czy na pewno chcesz usunąć ten przepis?',
       [
         {
           text: 'Anuluj',
-          style: 'cancel'
+          style: 'cancel',
+          onPress: () => setIsDeletingRecipe(false)
         },
         {
           text: 'Usuń',
           style: 'destructive',
           onPress: async () => {
             try {
+              // Set deletion flag to prevent multiple alerts
+              setIsDeletingRecipe(true);
               await recipe.markAsDeleted();
               router.back();
             } catch (error) {
               console.error('Błąd podczas usuwania przepisu:', error);
+              // Reset deletion flag if there was an error
+              setIsDeletingRecipe(false);
             }
           }
         }
       ]
     );
+  };
+
+  const handleShareRecipe = async () => {
+    try {
+      // Create a nicely formatted recipe to share
+      let shareText = `🍳 ${recipe.name} 🍳\n\n`;
+      
+      // Add description if available
+      if (recipe.description) {
+        shareText += `${recipe.description}\n\n`;
+      }
+      
+      // Add prep and total time if available
+      if (recipe.prepTime) {
+        shareText += `⏱️ Czas przygotowania: ${formatTime(recipe.prepTime)}\n`;
+      }
+      if (recipe.totalTime) {
+        shareText += `⏱️ Całkowity czas: ${formatTime(recipe.totalTime)}\n`;
+      }
+      
+      // Add servings if available
+      if (recipe.servings) {
+        shareText += `👥 Porcje: ${recipe.servings}\n`;
+      }
+      
+      // Add rating if available
+      if (recipe.rating && recipe.rating > 0) {
+        const stars = '★'.repeat(Math.floor(recipe.rating)) + '☆'.repeat(5 - Math.floor(recipe.rating));
+        shareText += `${stars} (${recipe.rating.toFixed(1)})\n`;
+      }
+      
+      shareText += '\n';
+      
+      // Add ingredients
+      if (ingredients && ingredients.length > 0) {
+        shareText += '📋 SKŁADNIKI:\n';
+        ingredients.forEach(ingredient => {
+          let ingredientText = '';
+          if (ingredient.amount) {
+            ingredientText += `${ingredient.amount} `;
+          }
+          if (ingredient.unit) {
+            ingredientText += `${ingredient.unit} `;
+          }
+          ingredientText += ingredient.name;
+          shareText += `• ${ingredientText}\n`;
+        });
+        shareText += '\n';
+      }
+      
+      // Add instructions
+      if (recipe.instructions) {
+        shareText += '📝 INSTRUKCJE:\n';
+        
+        const instructionSteps = recipe.instructions
+          .split('\n')
+          .map(step => step.trim())
+          .filter(step => step.length > 0);
+        
+        instructionSteps.forEach((step, index) => {
+          shareText += `${index + 1}. ${step}\n`;
+        });
+        shareText += '\n';
+      }
+      
+      // Add notes if available
+      if (recipe.notes) {
+        shareText += '📌 NOTATKI:\n';
+        shareText += `${recipe.notes}\n\n`;
+      }
+      
+      // Add source if available
+      if (recipe.source) {
+        shareText += `Źródło: ${recipe.source}\n`;
+      }
+      
+      // Use the Share API to share the recipe
+      const result = await Share.share({
+        message: shareText,
+        title: recipe.name
+      });
+      
+      if (result.action === Share.sharedAction) {
+        console.log('Recipe shared successfully');
+      }
+    } catch (error) {
+      console.error('Error sharing recipe:', error);
+      Alert.alert('Błąd', 'Nie udało się udostępnić przepisu.');
+    }
   };
 
   return (
@@ -49,9 +152,12 @@ export const RecipeHeader = ({ recipe }: RecipeHeaderProps) => {
       )}
 
       {recipe.isApproved ? (
-        <View style={styles.shareButton}>
-          <MaterialIcons name="share" size={24} color="#ccc" />
-        </View>
+        <TouchableOpacity 
+          style={styles.shareButton}
+          onPress={handleShareRecipe}
+        >
+          <MaterialIcons name="share" size={24} color="#2196F3" />
+        </TouchableOpacity>
       ) : (
         <TouchableOpacity 
           style={styles.rejectButton}
@@ -96,7 +202,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
@@ -107,7 +213,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    opacity: 0.6,
   },
   rejectButton: {
     position: 'absolute',

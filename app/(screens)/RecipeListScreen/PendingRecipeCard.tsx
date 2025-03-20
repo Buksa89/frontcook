@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Text, Alert, Image } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { withObservables } from '@nozbe/watermelondb/react';
 import Recipe from '../../../database/models/Recipe';
@@ -15,38 +15,48 @@ interface PendingRecipeCardProps {
 }
 
 const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
+  // Add a deletion tracking state
+  const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
+  
+  // Create a safe recipe object with all required fields
+  const safeRecipe = {
+    id: recipe?.id || '',
+    name: recipe?.name || '',
+    image: recipe?.image || null,
+    prepTime: recipe?.prepTime || null,
+    totalTime: recipe?.totalTime || null
+  };
+
+  // Skip rendering if recipe is invalid
+  if (!recipe || typeof recipe !== 'object') {
+    return null;
+  }
+
   const handleApprove = async () => {
     try {
+      // Perform approval immediately without confirmation
       await recipe.toggleApproval();
     } catch (error) {
       console.error('Błąd podczas akceptowania przepisu:', error);
-      Alert.alert('Błąd', 'Nie udało się zaakceptować przepisu.');
+      // No alert, just log the error
     }
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Potwierdź usunięcie',
-      `Czy na pewno chcesz usunąć przepis "${recipe.name}"?`,
-      [
-        {
-          text: 'Anuluj',
-          style: 'cancel'
-        },
-        {
-          text: 'Usuń',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await recipe.markAsDeleted();
-            } catch (error) {
-              console.error('Błąd podczas usuwania przepisu:', error);
-              Alert.alert('Błąd', 'Nie udało się usunąć przepisu.');
-            }
-          }
-        }
-      ]
-    );
+  const handleDelete = async () => {
+    // Check if already in deletion process to avoid duplicate processing
+    if (isDeletingRecipe) return;
+    
+    try {
+      // Set deletion flag to prevent multiple calls
+      setIsDeletingRecipe(true);
+      
+      // Delete immediately without confirmation
+      await recipe.markAsDeleted();
+    } catch (error) {
+      console.error('Błąd podczas usuwania przepisu:', error);
+      // Reset deletion flag if there was an error
+      setIsDeletingRecipe(false);
+    }
   };
 
   return (
@@ -54,39 +64,43 @@ const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
       style={styles.card}
       onPress={() => router.push({
         pathname: '/(screens)/RecipeDetailScreen/RecipeDetailScreen',
-        params: { recipeId: recipe.id }
+        params: { recipeId: safeRecipe.id }
       })}
     >
       <View style={[styles.imageContainer, styles.imagePlaceholder]}>
-        {recipe.image && (
+        {safeRecipe.image ? (
           <Image
-            source={{ uri: recipe.image }}
+            source={{ uri: safeRecipe.image }}
             style={styles.image}
-            onError={(e) => console.log('Błąd ładowania zdjęcia:', recipe.name)}
+            onError={() => console.log('Błąd ładowania zdjęcia:', safeRecipe.name)}
           />
+        ) : (
+          <AntDesign name="picture" size={24} color="#bbb" />
         )}
       </View>
       <View style={styles.cardContent}>
-        <Text style={styles.title}>{recipe.name}</Text>
-        {tags.length > 0 && (
+        <Text style={styles.title}>{safeRecipe.name}</Text>
+        {Array.isArray(tags) && tags.length > 0 && (
           <View style={styles.recipeTags}>
             {tags.map(tag => (
-              <View key={tag.id} style={styles.recipeTag}>
-                <Text style={styles.recipeTagText}>{tag.name}</Text>
+              <View key={tag?.id || Math.random().toString()} style={styles.recipeTag}>
+                <Text style={styles.recipeTagText}>{tag?.name || ''}</Text>
               </View>
             ))}
           </View>
         )}
         <View style={styles.recipeInfo}>
-          {recipe.prepTime !== null && recipe.prepTime > 0 && (
-            <Text style={styles.timeInfo}>
-              <MaterialIcons name="timer" size={14} color="#666" /> {formatTime(recipe.prepTime)}
-            </Text>
+          {safeRecipe.prepTime !== null && safeRecipe.prepTime > 0 && (
+            <View style={styles.timeInfo}>
+              <MaterialIcons name="timer" size={14} color="#666" />
+              <Text style={styles.timeText}> {formatTime(safeRecipe.prepTime || 0)}</Text>
+            </View>
           )}
-          {recipe.totalTime !== null && recipe.totalTime > 0 && (
-            <Text style={styles.timeInfo}>
-              <MaterialIcons name="schedule" size={14} color="#666" /> {formatTime(recipe.totalTime)}
-            </Text>
+          {safeRecipe.totalTime !== null && safeRecipe.totalTime > 0 && (
+            <View style={styles.timeInfo}>
+              <MaterialIcons name="schedule" size={14} color="#666" />
+              <Text style={styles.timeText}> {formatTime(safeRecipe.totalTime || 0)}</Text>
+            </View>
           )}
         </View>
       </View>
@@ -172,9 +186,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   timeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     fontSize: 12,
     color: '#666',
-    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#666',
   },
   cardActions: {
     flexDirection: 'row',
