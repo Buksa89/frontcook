@@ -21,6 +21,22 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "DEBUG": true,
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "fac020bc-db25-4082-acd5-34e83f847290"
+      }
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adamdelezuch89.przepisy",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }

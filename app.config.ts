@@ -21,7 +21,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.adamdelezuch89.przepisy'
+    bundleIdentifier: 'com.adamdelezuch89.przepisy',
+    config: {
+      usesNonExemptEncryption: false
+    },
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false
+    }
   },
   android: {
     adaptiveIcon: {
@@ -34,6 +40,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/favicon.png'
   },
   extra: {
+    ...config.extra,
     API_URL: process.env.API_URL,
     DEBUG: process.env.DEBUG ? process.env.DEBUG.toLowerCase() === 'true' : true,
   }
