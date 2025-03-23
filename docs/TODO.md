@@ -1,4 +1,7 @@
 next steps:
+    poprawa promptow importow i flow (usun header, footer ze stron, deeepsek, pdfy tekstowe jako tekst)
+    alerty w auth
+
     Import przepisow z innych apek
     Dodawanie tagow/przepisow od gory
     reorder tagow/shopping items
@@ -10,6 +13,9 @@ next steps:
     forced sync wywolany przez server - architektura
     zwykly share
 
+rozwiazania:
+    beautiful dnd
+    react query
 
 Issues:
     Obsluga bledow z api
@@ -67,6 +73,8 @@ Future improvement:
     Szablony graficzne
     Synchronizacja w tle (bez wlaczania apki)
     ksiazka do druku
+    reparsing przepisu
+    wersja web dietetykow, z mozliwoscia importu do apki
 
 
 testy:
