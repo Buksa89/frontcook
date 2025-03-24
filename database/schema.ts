@@ -62,9 +62,6 @@ const ingredientsSchema: TableSchema = tableSchema({
     { name: 'order', type: 'number' },
     { name: 'original_str', type: 'string' },
     ...syncColumns
-  ],
-  columnIndexes: [
-    { columns: ['recipe_id', 'order'], unique: true }
   ]
 })
 
@@ -104,6 +101,15 @@ const notificationsSchema: TableSchema = tableSchema({
   ]
 })
 
+// Schema for user data (including last sync per user)
+const userDataSchema: TableSchema = tableSchema({
+  name: 'user_data',
+  columns: [
+    { name: 'user', type: 'string', isIndexed: true },
+    { name: 'last_sync', type: 'number', isOptional: true }
+  ]
+})
+
 const schema: AppSchema = appSchema({
   version: 8, // Increasing version number for adding order field to notifications
   tables: [
@@ -113,7 +119,8 @@ const schema: AppSchema = appSchema({
     ingredientsSchema,
     shoppingItemsSchema,
     localUserSettingsSchema,
-    notificationsSchema
+    notificationsSchema,
+    userDataSchema
   ]
 })
 

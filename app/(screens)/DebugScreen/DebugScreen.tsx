@@ -2,48 +2,45 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import database from '../../../database';
 import { Q } from '@nozbe/watermelondb';
-import { asyncStorageService } from '../../services/storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AuthService from '../../services/auth/authService';
+import UserData from '../../../database/models/UserData';
 
 export default function DebugScreen() {
   const [tables, setTables] = useState<{ [key: string]: any[] }>({});
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [activeUser, setActiveUser] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllData();
-    loadLastSyncTime();
+    loadUserAndLastSyncTime();
   }, []);
 
-  const loadLastSyncTime = async () => {
+  const loadUserAndLastSyncTime = async () => {
     try {
-      const time = await asyncStorageService.getLastSync();
-      setLastSyncTime(time);
+      const user = await AuthService.getActiveUser();
+      setActiveUser(user);
+      
+      if (user) {
+        const time = await UserData.getLastSyncByUser(database, user);
+        setLastSyncTime(time);
+      } else {
+        setLastSyncTime(null);
+      }
     } catch (error) {
-      console.error('Error loading last sync time:', error);
+      console.error('Error loading user or last sync time:', error);
     }
   };
 
   const resetLastSyncTime = async () => {
+    if (!activeUser) {
+      Alert.alert('Błąd', 'Brak aktywnego użytkownika');
+      return;
+    }
+
     try {
-      Alert.alert(
-        'Potwierdzenie',
-        'Czy na pewno chcesz zresetować czas ostatniej synchronizacji? Spowoduje to pobranie wszystkich danych od początku przy następnej synchronizacji.',
-        [
-          {
-            text: 'Anuluj',
-            style: 'cancel'
-          },
-          {
-            text: 'Resetuj',
-            style: 'destructive',
-            onPress: async () => {
-              await AsyncStorage.removeItem('last_sync');
-              await loadLastSyncTime();
-            }
-          }
-        ]
-      );
+      await UserData.updateLastSyncByUser(database, activeUser, new Date(0).toISOString());
+      await loadUserAndLastSyncTime();
     } catch (error) {
       console.error('Error resetting last sync time:', error);
       Alert.alert('Błąd', 'Nie udało się zresetować czasu ostatniej synchronizacji');
@@ -52,7 +49,7 @@ export default function DebugScreen() {
 
   const loadAllData = async () => {
     try {
-      const tableNames = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings', 'notifications'];
+      const tableNames = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings', 'notifications', 'user_data'];
       const tablesData: { [key: string]: any[] } = {};
 
       for (const tableName of tableNames) {
@@ -167,7 +164,10 @@ export default function DebugScreen() {
 
       <TouchableOpacity
         style={styles.refreshButton}
-        onPress={loadAllData}
+        onPress={() => {
+          loadAllData();
+          loadUserAndLastSyncTime();
+        }}
       >
         <Text style={styles.refreshButtonText}>Odśwież</Text>
       </TouchableOpacity>

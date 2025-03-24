@@ -1,9 +1,7 @@
 import authService from './auth';
-import { asyncStorageService } from './storage';
 
-export { authService, asyncStorageService };
+export { authService };
 
 export default {
   auth: authService,
-  asyncStorage: asyncStorageService
 }; 

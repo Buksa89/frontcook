@@ -4,7 +4,6 @@ import { Model } from '@nozbe/watermelondb';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
-import { asyncStorageService } from '../storage';
 import api from '../../api/api';
 import BaseModel from '../../../database/models/BaseModel';
 import Recipe from '../../../database/models/Recipe';
@@ -14,6 +13,7 @@ import Ingredient from '../../../database/models/Ingredient';
 import ShoppingItem from '../../../database/models/ShoppingItem';
 import UserSettings from '../../../database/models/UserSettings';
 import Notification from '../../../database/models/Notification';
+import UserData from '../../../database/models/UserData';
 
 // Interface for the pull response items
 interface PullResponseItem {
@@ -138,8 +138,15 @@ class SyncService {
     try {
       this.isSyncing = true;
 
+      // Get active user for last sync operations
+      const activeUser = await this.activeUserGetter?.();
+      if (!activeUser) {
+        console.error('[Sync Service] No active user found');
+        return;
+      }
+
       // Pobierz timestamp ostatniej synchronizacji
-      const lastSync = await asyncStorageService.getLastSync() || new Date(0).toISOString();
+      const lastSync = await UserData.getLastSyncByUser(database, activeUser);
       console.log('[Sync Service] Last sync timestamp:', lastSync);
 
       // First push local changes to server
@@ -151,7 +158,7 @@ class SyncService {
       // Only update the last sync time if both push and pull completed successfully
       // and we have a valid most recent update time
       if (mostRecentUpdate) {
-        await asyncStorageService.storeLastSync(mostRecentUpdate);
+        await UserData.updateLastSyncByUser(database, activeUser, mostRecentUpdate);
         this.lastSyncTime = Date.now();
       }
       
