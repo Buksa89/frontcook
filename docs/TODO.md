@@ -3,15 +3,11 @@ next steps:
     alerty w auth
 
     Import przepisow z innych apek
-    Dodawanie tagow/przepisow od gory
     reorder tagow/shopping items
-    Wszytskie alerty jako Toast
     Architektura pod pro
-    Last sync w bazie danych zamiast kv
     reset/zmiana hasla
     grafiki
     forced sync wywolany przez server - architektura
-    zwykly share
 
 rozwiazania:
     beautiful dnd
