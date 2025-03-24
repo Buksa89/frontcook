@@ -49,7 +49,7 @@ export default class ShoppingItem extends BaseModel {
             )
           )
           .observe()
-          .pipe(map(items => items.sort((a, b) => a.order - b.order)))
+          .pipe(map(items => items.sort((a, b) => b.order - a.order)))
           .subscribe(subscriber);
       });
 
@@ -76,7 +76,7 @@ export default class ShoppingItem extends BaseModel {
             )
           )
           .observe()
-          .pipe(map(items => items.sort((a, b) => a.order - b.order)))
+          .pipe(map(items => items.sort((a, b) => b.order - a.order)))
           .subscribe(subscriber);
       });
 

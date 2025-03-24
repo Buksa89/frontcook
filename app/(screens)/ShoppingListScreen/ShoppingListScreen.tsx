@@ -50,7 +50,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
             confirmClearAll();
           }}
         >
-          <MaterialIcons name="delete-sweep" size={24} color="#ff4444" />
+          <MaterialIcons name="delete-sweep" size={22} color="#ff4444" />
         </TouchableOpacity>
       ),
     });
@@ -139,7 +139,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
       <View style={styles.checkboxContainer}>
         <MaterialIcons
           name={item.isChecked ? "check-box" : "check-box-outline-blank"}
-          size={24}
+          size={20}
           color={item.isChecked ? "#2196F3" : "#999"}
         />
       </View>
@@ -161,7 +161,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
         style={styles.menuButton}
         onPress={() => showItemMenu(item)}
       >
-        <Feather name="more-vertical" size={20} color="#666" />
+        <Feather name="more-vertical" size={18} color="#666" />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -193,7 +193,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
               <View style={styles.checkedHeaderLeft}>
                 <MaterialIcons
                   name={isCheckedListVisible ? "expand-less" : "expand-more"}
-                  size={24}
+                  size={20}
                   color="#666"
                 />
                 <Text style={styles.checkedHeaderText}>
@@ -204,7 +204,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
                 style={styles.clearButton}
                 onPress={clearCheckedItems}
               >
-                <MaterialIcons name="delete-outline" size={20} color="#666" />
+                <MaterialIcons name="delete-outline" size={18} color="#666" />
                 <Text style={styles.clearButtonText}>Wyczyść</Text>
               </TouchableOpacity>
             </TouchableOpacity>
@@ -239,7 +239,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
           onPress={addNewItem}
           disabled={!newItemText.trim()}
         >
-          <AntDesign name="plus" size={24} color="white" />
+          <AntDesign name="plus" size={20} color="white" />
         </TouchableOpacity>
       </View>
 
@@ -326,17 +326,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 100,
+    padding: 10,
+    paddingBottom: 80,
   },
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 8,
+    borderRadius: 6,
+    marginBottom: 4,
     borderWidth: 1,
     borderColor: '#f0f0f0',
   },
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
   },
   checkboxContainer: {
-    marginRight: 12,
+    marginRight: 8,
   },
   itemContent: {
     flex: 1,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    padding: 16,
+    padding: 12,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
@@ -393,17 +393,17 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 48,
+    height: 40,
     backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 16,
+    borderRadius: 6,
+    paddingHorizontal: 12,
     fontSize: 16,
     color: '#333',
   },
   addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 6,
     backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
   },
   checkedSection: {
-    marginTop: 16,
+    marginTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   checkedHeaderLeft: {
     flexDirection: 'row',
@@ -429,23 +429,23 @@ const styles = StyleSheet.create({
   checkedHeaderText: {
     fontSize: 16,
     color: '#666',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
+    padding: 6,
   },
   clearButtonText: {
     fontSize: 14,
     color: '#666',
-    marginLeft: 4,
+    marginLeft: 2,
   },
   checkedList: {
-    marginTop: 8,
+    marginTop: 4,
   },
   menuButton: {
-    padding: 8,
+    padding: 6,
   },
   modalOverlay: {
     flex: 1,
@@ -455,22 +455,22 @@ const styles = StyleSheet.create({
   },
   menuModal: {
     backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 8,
-    minWidth: 200,
+    borderRadius: 6,
+    padding: 6,
+    minWidth: 180,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     borderRadius: 4,
   },
   menuItemDelete: {
-    marginTop: 4,
+    marginTop: 2,
   },
   menuItemText: {
     fontSize: 16,
-    marginLeft: 12,
+    marginLeft: 10,
     color: '#333',
   },
   menuItemTextDelete: {
@@ -478,36 +478,36 @@ const styles = StyleSheet.create({
   },
   editModal: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
     width: '90%',
-    maxWidth: 400,
+    maxWidth: 380,
   },
   editModalTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   editInput: {
-    height: 48,
+    height: 40,
     backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 16,
+    borderRadius: 6,
+    paddingHorizontal: 12,
     fontSize: 16,
     color: '#333',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   editButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 8,
+    gap: 6,
   },
   editButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    minWidth: 80,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    minWidth: 70,
     alignItems: 'center',
   },
   editButtonCancel: {
@@ -525,8 +525,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   headerButton: {
-    padding: 8,
-    marginRight: 8,
+    padding: 6,
+    marginRight: 6,
   },
 });
 
