@@ -6,6 +6,7 @@ import api from '../api';
 import LocalSyncService from '../services/sync/LocalSyncService';
 import { Alert } from 'react-native';
 import syncService from '../services/sync/syncService';
+import Toast, { showToast } from '../components/Toast';
 
 interface AuthContextType {
   active_user: string | null;
@@ -89,10 +90,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               onPress: async () => {
                 try {
                   await LocalSyncService.assignLocalDataToUser(response.username);
-                  Alert.alert('Sukces', 'Lokalne dane zostały przypisane do Twojego konta.');
+                  showToast({
+                    type: 'success',
+                    text1: 'Sukces',
+                    text2: 'Lokalne dane zostały przypisane do Twojego konta.',
+                    visibilityTime: 3000,
+                    position: 'bottom'
+                  });
                 } catch (error) {
                   console.error('[AuthContext] Błąd podczas przypisywania lokalnych danych:', error);
-                  Alert.alert('Błąd', 'Nie udało się przypisać lokalnych danych do Twojego konta.');
+                  showToast({
+                    type: 'error',
+                    text1: 'Błąd',
+                    text2: 'Nie udało się przypisać lokalnych danych do Twojego konta.',
+                    visibilityTime: 4000,
+                    position: 'bottom'
+                  });
                 }
               }
             }
@@ -121,7 +134,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       // Zwracamy informację o konieczności aktywacji konta
-      alert('Rejestracja przebiegła pomyślnie. Na podany adres email został wysłany link aktywacyjny. Aktywuj konto, aby się zalogować.');
+      showToast({
+        type: 'success',
+        text1: 'Rejestracja udana',
+        text2: 'Na podany adres email został wysłany link aktywacyjny. Aktywuj konto, aby się zalogować.',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
     } catch (error) {
       console.error('[AuthContext] Błąd podczas rejestracji:', error);
       throw error;
@@ -185,7 +204,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await AuthStorage.clearRefreshToken();
       setAccessToken(null);
       
-      alert('Twoja sesja wygasła. Zaloguj się ponownie.');
+      showToast({
+        type: 'error',
+        text1: 'Sesja wygasła',
+        text2: 'Twoja sesja wygasła. Zaloguj się ponownie.',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
       return null;
     }
   };
@@ -193,7 +218,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const resetPassword = async (email: string) => {
     try {
       await AuthApi.resetPassword({ email });
-      alert('Link do resetowania hasła został wysłany na podany adres email.');
+      showToast({
+        type: 'success',
+        text1: 'Link wysłany',
+        text2: 'Link do resetowania hasła został wysłany na podany adres email.',
+        visibilityTime: 3000,
+        position: 'bottom'
+      });
     } catch (error) {
       console.error('[AuthContext] Błąd podczas resetowania hasła:', error);
       throw error;
@@ -212,6 +243,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       resetPassword 
     }}>
       {children}
+      <Toast />
     </AuthContext.Provider>
   );
 };

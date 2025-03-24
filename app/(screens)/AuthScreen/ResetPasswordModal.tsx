@@ -9,11 +9,11 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
-  Alert
+  ActivityIndicator
 } from 'react-native';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { useAuth } from '../../context';
+import Toast, { showToast } from '../../components/Toast';
 
 interface ResetPasswordModalProps {
   visible: boolean;
@@ -30,10 +30,22 @@ export default function ResetPasswordModal({ visible, onClose }: ResetPasswordMo
 
   const validateEmail = () => {
     if (!email.trim()) {
-      setEmailError('Wprowadź adres email');
+      showToast({
+        type: 'warning',
+        text1: 'Brak adresu email',
+        text2: 'Wprowadź adres email',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       return false;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError('Wprowadź poprawny adres email');
+      showToast({
+        type: 'warning',
+        text1: 'Niepoprawny email',
+        text2: 'Wprowadź poprawny adres email',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       return false;
     }
     setEmailError('');
@@ -49,6 +61,13 @@ export default function ResetPasswordModal({ visible, onClose }: ResetPasswordMo
     try {
       await resetPassword(email);
       setIsSent(true);
+      showToast({
+        type: 'success',
+        text1: 'Link wysłany',
+        text2: `Sprawdź swoją skrzynkę email. Wysłaliśmy link do resetowania hasła na adres ${email}.`,
+        visibilityTime: 3000,
+        position: 'bottom'
+      });
     } catch (error: any) {
       console.error("Reset password error:", error);
       
@@ -60,38 +79,42 @@ export default function ResetPasswordModal({ visible, onClose }: ResetPasswordMo
           const errorMessage = Array.isArray(apiErrors.email) 
             ? apiErrors.email.join(', ') 
             : apiErrors.email;
-          setEmailError(errorMessage);
-          Alert.alert(
-            "Błąd resetowania hasła",
-            errorMessage,
-            [{ text: "OK" }]
-          );
+          showToast({
+            type: 'error',
+            text1: 'Błąd resetowania hasła',
+            text2: errorMessage,
+            visibilityTime: 4000,
+            position: 'bottom'
+          });
         } else if (apiErrors.non_field_errors) {
           const errorMessage = Array.isArray(apiErrors.non_field_errors)
             ? apiErrors.non_field_errors.join(', ')
             : apiErrors.non_field_errors;
-          setEmailError(errorMessage);
-          Alert.alert(
-            "Błąd resetowania hasła",
-            errorMessage,
-            [{ text: "OK" }]
-          );
+          showToast({
+            type: 'error',
+            text1: 'Błąd resetowania hasła',
+            text2: errorMessage,
+            visibilityTime: 4000,
+            position: 'bottom'
+          });
         } else {
-          setEmailError('Nie udało się wysłać linku resetującego. Spróbuj ponownie.');
-          Alert.alert(
-            "Błąd resetowania hasła",
-            'Nie udało się wysłać linku resetującego. Spróbuj ponownie.',
-            [{ text: "OK" }]
-          );
+          showToast({
+            type: 'error',
+            text1: 'Błąd resetowania hasła',
+            text2: 'Nie udało się wysłać linku resetującego. Spróbuj ponownie.',
+            visibilityTime: 4000,
+            position: 'bottom'
+          });
         }
       } else {
         const errorMessage = error.message || 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.';
-        setEmailError(errorMessage);
-        Alert.alert(
-          "Błąd resetowania hasła",
-          errorMessage,
-          [{ text: "OK" }]
-        );
+        showToast({
+          type: 'error',
+          text1: 'Błąd resetowania hasła',
+          text2: errorMessage,
+          visibilityTime: 4000,
+          position: 'bottom'
+        });
       }
     } finally {
       setIsLoading(false);
@@ -188,6 +211,7 @@ export default function ResetPasswordModal({ visible, onClose }: ResetPasswordMo
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
+      <Toast />
     </Modal>
   );
 }

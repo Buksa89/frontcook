@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView, 
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
@@ -16,6 +15,7 @@ import { router } from 'expo-router';
 import RegisterModal from './RegisterModal';
 import ResetPasswordModal from './ResetPasswordModal';
 import { useAuth } from '../../context';
+import Toast, { showToast } from '../../components/Toast';
 
 export default function AuthScreen() {
   const [identifier, setIdentifier] = useState('');
@@ -35,7 +35,13 @@ export default function AuthScreen() {
 
     // Walidacja identyfikatora (username lub email)
     if (!identifier.trim()) {
-      setIdentifierError('Wprowadź nazwę użytkownika lub email');
+      showToast({
+        type: 'warning',
+        text1: 'Brak danych',
+        text2: 'Wprowadź nazwę użytkownika lub email',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       isValid = false;
     } else {
       setIdentifierError('');
@@ -43,10 +49,26 @@ export default function AuthScreen() {
 
     // Walidacja hasła
     if (!password) {
-      setPasswordError('Wprowadź hasło');
+      if (isValid) { // Show only if no previous toast is shown
+        showToast({
+          type: 'warning',
+          text1: 'Brak hasła',
+          text2: 'Wprowadź hasło',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError('Hasło musi mieć co najmniej 6 znaków');
+      if (isValid) { // Show only if no previous toast is shown
+        showToast({
+          type: 'warning',
+          text1: 'Zbyt krótkie hasło',
+          text2: 'Hasło musi mieć co najmniej 6 znaków',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
       isValid = false;
     } else {
       setPasswordError('');
@@ -64,17 +86,28 @@ export default function AuthScreen() {
     try {
       await login(identifier, password);
       
+      // Show success toast
+      showToast({
+        type: 'success',
+        text1: 'Zalogowano pomyślnie',
+        text2: 'Witamy w aplikacji!',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
+      
       // Jeśli login nie rzucił błędu, znaczy że się udało
       router.push({
         pathname: "/(screens)/RecipeListScreen/RecipeListScreen"
       });
     } catch (error: any) {
       console.error('Login error:', error);
-      setErrorMessage('Nieprawidłowe dane logowania');
-      Alert.alert(
-        'Błąd logowania',
-        error?.message || 'Nieprawidłowa nazwa użytkownika lub hasło'
-      );
+      showToast({
+        type: 'error',
+        text1: 'Błąd logowania',
+        text2: error?.message || 'Nieprawidłowa nazwa użytkownika lub hasło',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -194,6 +227,7 @@ export default function AuthScreen() {
         visible={resetPasswordModalVisible} 
         onClose={closeResetPasswordModal} 
       />
+      <Toast />
     </KeyboardAvoidingView>
   );
 }

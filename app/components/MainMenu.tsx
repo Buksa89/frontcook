@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { MaterialIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../context';
+import Toast, { showToast } from '../components/Toast';
 
 interface MainMenuProps {
   visible: boolean;
@@ -43,7 +44,13 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
       case 'logout':
         try {
           await logout();
-          Alert.alert("Wylogowano", "Zostałeś pomyślnie wylogowany");
+          showToast({
+            type: 'success',
+            text1: 'Wylogowano',
+            text2: 'Zostałeś pomyślnie wylogowany',
+            visibilityTime: 3000,
+            position: 'bottom'
+          });
           // Najpierw przekieruj do ekranu logowania
           navigate('/(screens)/AuthScreen/AuthScreen');
           // A następnie po krótkim opóźnieniu wróć do listy przepisów
@@ -51,7 +58,13 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
             navigate('/(screens)/RecipeListScreen/RecipeListScreen');
           }, 100);
         } catch (error) {
-          Alert.alert("Błąd", "Wystąpił nieoczekiwany błąd podczas wylogowywania");
+          showToast({
+            type: 'error',
+            text1: 'Błąd',
+            text2: 'Wystąpił nieoczekiwany błąd podczas wylogowywania',
+            visibilityTime: 4000,
+            position: 'bottom'
+          });
           console.error("Logout error:", error);
         }
         break;
@@ -133,7 +146,13 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
                 if (!isDisabled) {
                   handleMenuItemPress(item.id);
                 } else if (item.requiresAuth && !isAuthenticated) {
-                  Alert.alert("Wymagane logowanie", "Zaloguj się, aby uzyskać dostęp do tej funkcji");
+                  showToast({
+                    type: 'warning',
+                    text1: 'Wymagane logowanie',
+                    text2: 'Zaloguj się, aby uzyskać dostęp do tej funkcji',
+                    visibilityTime: 3000,
+                    position: 'bottom'
+                  });
                 }
               }}
               disabled={isDisabled}
@@ -190,6 +209,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ visible, onClose }) => {
           </ScrollView>
         </View>
       </Pressable>
+      <Toast />
     </Modal>
   );
 };

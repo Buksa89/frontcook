@@ -10,11 +10,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { useAuth } from '../../context';
+import Toast, { showToast } from '../../components/Toast';
 
 interface RegisterModalProps {
   visible: boolean;
@@ -53,37 +53,97 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
 
     // Walidacja nazwy użytkownika
     if (!username.trim()) {
-      newErrors.username = 'Wprowadź nazwę użytkownika';
+      showToast({
+        type: 'warning',
+        text1: 'Brak nazwy użytkownika',
+        text2: 'Wprowadź nazwę użytkownika',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       isValid = false;
     } else if (username.length < 3) {
-      newErrors.username = 'Nazwa użytkownika musi mieć co najmniej 3 znaki';
+      showToast({
+        type: 'warning',
+        text1: 'Zbyt krótka nazwa',
+        text2: 'Nazwa użytkownika musi mieć co najmniej 3 znaki',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
       isValid = false;
     }
 
     // Walidacja email
     if (!email.trim()) {
-      newErrors.email = 'Wprowadź adres email';
+      if (isValid) { // Show only if no previous toast is shown
+        showToast({
+          type: 'warning',
+          text1: 'Brak adresu email',
+          text2: 'Wprowadź adres email',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
       isValid = false;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Wprowadź poprawny adres email';
+      if (isValid) { // Show only if no previous toast is shown
+        showToast({
+          type: 'warning',
+          text1: 'Niepoprawny email',
+          text2: 'Wprowadź poprawny adres email',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
       isValid = false;
     }
 
     // Walidacja hasła
     if (!password) {
-      newErrors.password = 'Wprowadź hasło';
+      if (isValid) { // Show only if no previous toast is shown
+        showToast({
+          type: 'warning',
+          text1: 'Brak hasła',
+          text2: 'Wprowadź hasło',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
       isValid = false;
     } else if (password.length < 6) {
-      newErrors.password = 'Hasło musi mieć co najmniej 6 znaków';
+      if (isValid) { // Show only if no previous toast is shown
+        showToast({
+          type: 'warning',
+          text1: 'Zbyt krótkie hasło',
+          text2: 'Hasło musi mieć co najmniej 6 znaków',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
       isValid = false;
     }
 
     // Walidacja potwierdzenia hasła
     if (!confirmPassword) {
-      newErrors.confirmPassword = 'Potwierdź hasło';
+      if (isValid) { // Show only if no previous toast is shown
+        showToast({
+          type: 'warning',
+          text1: 'Brak potwierdzenia',
+          text2: 'Potwierdź hasło',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
       isValid = false;
     } else if (confirmPassword !== password) {
-      newErrors.confirmPassword = 'Hasła nie są identyczne';
+      if (isValid) { // Show only if no previous toast is shown
+        showToast({
+          type: 'warning',
+          text1: 'Hasła nie pasują',
+          text2: 'Hasła nie są identyczne',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
       isValid = false;
     }
 
@@ -108,6 +168,13 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
     try {
       await register(username, email, password, confirmPassword);
       // Jeśli nie było błędu, rejestracja się powiodła
+      showToast({
+        type: 'success',
+        text1: 'Rejestracja udana',
+        text2: 'Możesz teraz zalogować się na swoje konto',
+        visibilityTime: 3000,
+        position: 'bottom'
+      });
       onClose();
     } catch (error: any) {
       console.error('Błąd rejestracji:', error);
@@ -116,35 +183,35 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
       if (error.response?.data) {
         const apiErrors = error.response.data;
         const newErrors = { ...errors };
-        const alertMessages: string[] = [];
+        const errorMessages: string[] = [];
 
         // Mapowanie błędów z API na pola formularza
         if (apiErrors.username) {
           newErrors.username = Array.isArray(apiErrors.username) 
             ? apiErrors.username.join(', ') 
             : apiErrors.username;
-          alertMessages.push(`Nazwa użytkownika: ${newErrors.username}`);
+          errorMessages.push(`Nazwa użytkownika: ${newErrors.username}`);
         }
 
         if (apiErrors.email) {
           newErrors.email = Array.isArray(apiErrors.email) 
             ? apiErrors.email.join(', ') 
             : apiErrors.email;
-          alertMessages.push(`Email: ${newErrors.email}`);
+          errorMessages.push(`Email: ${newErrors.email}`);
         }
 
         if (apiErrors.password) {
           newErrors.password = Array.isArray(apiErrors.password) 
             ? apiErrors.password.join(', ') 
             : apiErrors.password;
-          alertMessages.push(`Hasło: ${newErrors.password}`);
+          errorMessages.push(`Hasło: ${newErrors.password}`);
         }
 
         if (apiErrors.password2) {
           newErrors.confirmPassword = Array.isArray(apiErrors.password2) 
             ? apiErrors.password2.join(', ') 
             : apiErrors.password2;
-          alertMessages.push(`Potwierdzenie hasła: ${newErrors.confirmPassword}`);
+          errorMessages.push(`Potwierdzenie hasła: ${newErrors.confirmPassword}`);
         }
 
         // Błędy niezwiązane z konkretnym polem
@@ -153,28 +220,32 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
             ? apiErrors.non_field_errors.join(', ') 
             : apiErrors.non_field_errors;
           setErrorMessage(nonFieldError);
-          alertMessages.push(nonFieldError);
+          errorMessages.push(nonFieldError);
         }
 
         setErrors(newErrors);
 
-        // Wyświetl alert z błędami
-        if (alertMessages.length > 0) {
-          Alert.alert(
-            "Błąd rejestracji",
-            alertMessages.join('\n\n'),
-            [{ text: "OK" }]
-          );
+        // Wyświetl toast z błędami zamiast alert
+        if (errorMessages.length > 0) {
+          showToast({
+            type: 'error',
+            text1: 'Błąd rejestracji',
+            text2: errorMessages.join(' | '),
+            visibilityTime: 5000,
+            position: 'bottom'
+          });
         }
       } else {
         // Ogólny błąd
         const errorMessage = error.message || 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.';
         setErrorMessage(errorMessage);
-        Alert.alert(
-          "Błąd rejestracji",
-          errorMessage,
-          [{ text: "OK" }]
-        );
+        showToast({
+          type: 'error',
+          text1: 'Błąd rejestracji',
+          text2: errorMessage,
+          visibilityTime: 4000,
+          position: 'bottom'
+        });
       }
     } finally {
       setIsLoading(false);
@@ -294,6 +365,7 @@ export default function RegisterModal({ visible, onClose }: RegisterModalProps) 
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
+      <Toast />
     </Modal>
   );
 }
