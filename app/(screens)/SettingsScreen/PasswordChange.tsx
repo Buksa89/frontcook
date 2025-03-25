@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     top: 12,
   },
   changeButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,

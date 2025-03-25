@@ -140,7 +140,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
         <MaterialIcons
           name={item.isChecked ? "check-box" : "check-box-outline-blank"}
           size={20}
-          color={item.isChecked ? "#2196F3" : "#999"}
+          color={item.isChecked ? "#5c7ba9" : "#999"}
         />
       </View>
       <View style={styles.itemContent}>
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 6,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   editButtonSave: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
   },
   editButtonDisabled: {
     backgroundColor: '#ccc',

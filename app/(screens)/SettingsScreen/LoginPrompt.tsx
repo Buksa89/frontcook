@@ -8,20 +8,20 @@ export const LoginPrompt: React.FC = () => {
     <View style={styles.loginPromptSection}>
       <View style={styles.loginPromptCard}>
         <View style={styles.loginPromptHeader}>
-          <MaterialIcons name="account-circle" size={32} color="#2196F3" />
+          <MaterialIcons name="account-circle" size={32} color="#5c7ba9" />
           <Text style={styles.loginPromptTitle}>Zyskaj więcej możliwości</Text>
         </View>
         <View style={styles.loginPromptFeatures}>
           <View style={styles.loginPromptFeature}>
-            <MaterialIcons name="sync" size={20} color="#2196F3" />
+            <MaterialIcons name="sync" size={20} color="#5c7ba9" />
             <Text style={styles.loginPromptFeatureText}>Synchronizacja między urządzeniami</Text>
           </View>
           <View style={styles.loginPromptFeature}>
-            <MaterialIcons name="people" size={20} color="#2196F3" />
+            <MaterialIcons name="people" size={20} color="#5c7ba9" />
             <Text style={styles.loginPromptFeatureText}>Funkcje społecznościowe</Text>
           </View>
           <View style={styles.loginPromptFeature}>
-            <MaterialIcons name="camera-alt" size={20} color="#2196F3" />
+            <MaterialIcons name="camera-alt" size={20} color="#5c7ba9" />
             <Text style={styles.loginPromptFeatureText}>Dodawanie przepisów ze zdjęć i stron internetowych</Text>
           </View>
         </View>
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loginButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,

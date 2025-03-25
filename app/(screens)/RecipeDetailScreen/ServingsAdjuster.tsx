@@ -84,7 +84,7 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
               <AntDesign 
                 name="minus" 
                 size={16} 
-                color={(currentServings <= 1 || !isApproved) ? '#ccc' : '#2196F3'} 
+                color={(currentServings <= 1 || !isApproved) ? '#ccc' : '#5c7ba9'} 
               />
             </TouchableOpacity>
             
@@ -98,7 +98,7 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
               <AntDesign 
                 name="plus" 
                 size={16} 
-                color={!isApproved ? '#ccc' : '#2196F3'} 
+                color={!isApproved ? '#ccc' : '#5c7ba9'} 
               />
             </TouchableOpacity>
           </View>
@@ -108,7 +108,7 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
               style={styles.cartIconContainer}
               onPress={openAddShopingItemMenu}
             >
-              <AntDesign name="shoppingcart" size={30} color="#2196F3" />
+              <AntDesign name="shoppingcart" size={30} color="#5c7ba9" />
             </TouchableOpacity>
           )}
         </View>

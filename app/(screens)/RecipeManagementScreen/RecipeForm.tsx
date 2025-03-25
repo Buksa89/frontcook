@@ -27,7 +27,6 @@ interface RecipeFormProps {
   onDataChange: (field: keyof RecipeFormData, value: string | Tag[]) => void;
   availableTags: Tag[];
   onSubmit: () => void;
-  onDelete?: () => void;
   isEditing: boolean;
   isApproved?: boolean;
 }
@@ -37,28 +36,9 @@ export const RecipeForm = ({
   onDataChange, 
   availableTags, 
   onSubmit,
-  onDelete,
   isEditing,
   isApproved = true
 }: RecipeFormProps) => {
-  const handleDelete = () => {
-    Alert.alert(
-      'Usuń przepis',
-      'Czy na pewno chcesz usunąć ten przepis? Tej operacji nie można cofnąć.',
-      [
-        {
-          text: 'Anuluj',
-          style: 'cancel'
-        },
-        {
-          text: 'Usuń',
-          onPress: onDelete,
-          style: 'destructive'
-        }
-      ]
-    );
-  };
-
   const handleTimeChange = (field: 'prepTime' | 'totalTime', minutes: number) => {
     onDataChange(field, minutes.toString());
   };
@@ -71,18 +51,6 @@ export const RecipeForm = ({
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.form}>
-          {onDelete && (
-            <View style={styles.headerContainer}>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity 
-                style={styles.deleteButton}
-                onPress={handleDelete}
-              >
-                <MaterialIcons name="delete" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          )}
-
           <FormField
             label="Nazwa"
             value={data.name}
@@ -224,12 +192,6 @@ const styles = StyleSheet.create({
   form: {
     padding: 16,
   },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
   row: {
     flexDirection: 'row',
     marginBottom: 16,
@@ -273,7 +235,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   submitButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -292,22 +254,6 @@ const styles = StyleSheet.create({
   },
   saveIcon: {
     marginRight: 8,
-  },
-  deleteButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F44336',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   bottomSpace: {
     height: 80,

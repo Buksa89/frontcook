@@ -72,7 +72,7 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
             >
               <View style={styles.menuItemContent}>
                 <View style={styles.iconContainer}>
-                  <MaterialIcons name="edit" size={24} color="#2196F3" />
+                  <MaterialIcons name="edit" size={24} color="#5c7ba9" />
                 </View>
                 <Text style={styles.menuItemText}>Dodaj ręcznie</Text>
               </View>
@@ -93,7 +93,7 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
             >
               <View style={styles.menuItemContent}>
                 <View style={[styles.iconContainer, !isAuthenticated && styles.iconContainerDisabled]}>
-                  <MaterialIcons name="camera-alt" size={24} color={isAuthenticated ? "#2196F3" : "#999"} />
+                  <MaterialIcons name="camera-alt" size={24} color={isAuthenticated ? "#5c7ba9" : "#999"} />
                 </View>
                 <Text style={isAuthenticated ? styles.menuItemText : styles.menuItemTextDisabled}>Zeskanuj</Text>
               </View>
@@ -117,7 +117,7 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
             >
               <View style={styles.menuItemContent}>
                 <View style={[styles.iconContainer, !isAuthenticated && styles.iconContainerDisabled]}>
-                  <MaterialIcons name="language" size={24} color={isAuthenticated ? "#2196F3" : "#999"} />
+                  <MaterialIcons name="language" size={24} color={isAuthenticated ? "#5c7ba9" : "#999"} />
                 </View>
                 <Text style={isAuthenticated ? styles.menuItemText : styles.menuItemTextDisabled}>Z internetu</Text>
               </View>
@@ -141,7 +141,7 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
             >
               <View style={styles.menuItemContent}>
                 <View style={[styles.iconContainer, !isAuthenticated && styles.iconContainerDisabled]}>
-                  <MaterialIcons name="picture-as-pdf" size={24} color={isAuthenticated ? "#2196F3" : "#999"} />
+                  <MaterialIcons name="picture-as-pdf" size={24} color={isAuthenticated ? "#5c7ba9" : "#999"} />
                 </View>
                 <Text style={isAuthenticated ? styles.menuItemText : styles.menuItemTextDisabled}>Cały PDF</Text>
               </View>

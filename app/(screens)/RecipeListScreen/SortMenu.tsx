@@ -61,7 +61,7 @@ export const SortMenu = ({ visible, onClose, currentSort, onSortChange, sortOpti
               </Text>
             </View>
             {currentSort === option.key && (
-              <MaterialIcons name="check" size={24} color="#2196F3" />
+              <MaterialIcons name="check" size={24} color="#5c7ba9" />
             )}
           </TouchableOpacity>
         ))}
@@ -124,10 +124,10 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   menuItemTextSelected: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontWeight: '600',
   },
   iconContainerSelected: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
   },
 }); 

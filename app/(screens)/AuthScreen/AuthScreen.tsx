@@ -140,7 +140,7 @@ export default function AuthScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          <AntDesign name="login" size={80} color="#2196F3" style={styles.icon} />
+          <AntDesign name="login" size={80} color="#5c7ba9" style={styles.icon} />
           <Text style={styles.title}>Logowanie</Text>
           
           <View style={styles.formContainer}>
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   loginButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     borderRadius: 8,
     height: 50,
     justifyContent: 'center',
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   },
   registerLinkTextBold: {
     fontWeight: '600',
-    color: '#2196F3',
+    color: '#5c7ba9',
   },
   forgotPasswordLink: {
     marginTop: 16,
@@ -324,6 +324,6 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 15,
-    color: '#2196F3',
+    color: '#5c7ba9',
   },
 }); 

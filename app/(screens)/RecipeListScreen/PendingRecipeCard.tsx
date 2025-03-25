@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   recipeTagText: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontSize: 12,
   },
   recipeInfo: {

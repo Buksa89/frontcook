@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   filterTagSelected: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
   },
   filterTagText: {
     fontSize: 14,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   timeButtonSelected: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
   },
   timeButtonText: {
     fontSize: 14,

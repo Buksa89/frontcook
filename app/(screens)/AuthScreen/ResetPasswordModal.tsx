@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   sendButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     borderRadius: 8,
     height: 50,
     justifyContent: 'center',

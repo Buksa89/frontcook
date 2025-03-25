@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   tagButtonSelected: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
   },
   tagText: {
     fontSize: 14,
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   saveButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,

@@ -193,7 +193,7 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
               onPress={pickDocument}
               disabled={isLoading}
             >
-              <MaterialIcons name="file-upload" size={32} color="#2196F3" style={styles.buttonIcon} />
+              <MaterialIcons name="file-upload" size={32} color="#5c7ba9" style={styles.buttonIcon} />
               <Text style={styles.buttonLabel}>Wybierz plik PDF</Text>
             </TouchableOpacity>
           )}
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   uploadButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

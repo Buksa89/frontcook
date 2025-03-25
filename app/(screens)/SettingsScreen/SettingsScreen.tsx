@@ -147,7 +147,7 @@ export default function SettingsScreen() {
             >
               <Text style={styles.languageText}>Polski</Text>
               {language === 'pl' && (
-                <MaterialIcons name="check" size={20} color="#2196F3" />
+                <MaterialIcons name="check" size={20} color="#5c7ba9" />
               )}
             </TouchableOpacity>
             
@@ -183,7 +183,7 @@ export default function SettingsScreen() {
               value={autoTranslate}
               onValueChange={updateAutoTranslate}
               trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
-              thumbColor={autoTranslate ? '#2196F3' : '#f4f3f4'}
+              thumbColor={autoTranslate ? '#5c7ba9' : '#f4f3f4'}
               disabled={apiLoading}
             />
           </View>

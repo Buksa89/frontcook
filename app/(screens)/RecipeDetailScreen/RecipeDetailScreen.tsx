@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Share, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { withObservables } from '@nozbe/watermelondb/react';
@@ -34,9 +34,19 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
         .length;
       setIsStepChecked(new Array(stepsCount).fill(false));
       
-      // Ustaw tytuł ekranu
+      // Ustaw tytuł ekranu i dodaj przycisk usuwania w nagłówku
       navigation.setOptions({
-        headerTitle: recipe.name
+        headerTitle: recipe.name,
+        headerRight: () => !recipe.isApproved ? (
+          <TouchableOpacity onPress={handleDeleteConfirmation}>
+            <MaterialIcons 
+              name="delete" 
+              size={24} 
+              color="#F44336" 
+              style={{ marginRight: 16 }}
+            />
+          </TouchableOpacity>
+        ) : null
       });
     }
   }, [recipe, navigation]);
@@ -47,6 +57,35 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
       newState[index] = !newState[index];
       return newState;
     });
+  };
+
+  const handleDeleteConfirmation = () => {
+    if (!recipe) return;
+    
+    Alert.alert(
+      'Usuń przepis',
+      'Czy na pewno chcesz usunąć ten przepis? Tej operacji nie można cofnąć.',
+      [
+        {
+          text: 'Anuluj',
+          style: 'cancel'
+        },
+        {
+          text: 'Usuń',
+          onPress: handleDeleteRecipe,
+          style: 'destructive'
+        }
+      ]
+    );
+  };
+
+  const handleDeleteRecipe = async () => {
+    try {
+      await recipe?.markAsDeleted();
+      router.back();
+    } catch (error) {
+      console.error('Błąd podczas usuwania przepisu:', error);
+    }
   };
 
   const handleRatingChange = async (newRating: number) => {
@@ -188,10 +227,10 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
               onPress={handleOpenVideo}
             >
               <View style={styles.linkContent}>
-                <Feather name="video" size={20} color="#2196F3" />
+                <Feather name="video" size={20} color="#5c7ba9" />
                 <Text style={styles.linkText}>Obejrzyj wideo</Text>
               </View>
-              <Feather name="external-link" size={18} color="#2196F3" />
+              <Feather name="external-link" size={18} color="#5c7ba9" />
             </TouchableOpacity>
           )}
 
@@ -204,7 +243,7 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
                   onPress={handleOpenSource}
                 >
                   <Text style={styles.linkText}>{recipe.source}</Text>
-                  <Feather name="external-link" size={16} color="#2196F3" />
+                  <Feather name="external-link" size={16} color="#5c7ba9" />
                 </TouchableOpacity>
               ) : (
                 <Text style={styles.sectionContent}>{recipe.source}</Text>
@@ -347,7 +386,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   linkText: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontSize: 16,
     marginLeft: 8,
   },
@@ -372,7 +411,7 @@ const styles = StyleSheet.create({
   },
   stepNumber: {
     fontWeight: '500',
-    color: '#2196F3',
+    color: '#5c7ba9',
   },
   textChecked: {
     color: '#fff',
@@ -394,7 +433,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   approveButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     borderRadius: 8,
     padding: 16,
     flexDirection: 'row',
@@ -419,7 +458,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,

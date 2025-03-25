@@ -286,7 +286,7 @@ export default function RecipeListScreen() {
             <MaterialIcons 
               name="sort" 
               size={20} 
-              color={sortBy ? "#2196F3" : "#666"} 
+              color={sortBy ? "#5c7ba9" : "#666"} 
             />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -307,7 +307,7 @@ export default function RecipeListScreen() {
                  filters.minRating !== null || 
                  filters.maxPrepTime !== null || 
                  filters.maxTotalTime !== null) 
-                  ? "#2196F3" 
+                  ? "#5c7ba9" 
                   : "#666"
               } 
             />
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,

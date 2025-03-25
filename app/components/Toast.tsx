@@ -27,7 +27,7 @@ const toastConfig: ToastConfig = {
     <BaseToast
       {...props}
       style={{ 
-        backgroundColor: '#28a745', 
+        backgroundColor: '#5c7ba9', 
         borderLeftWidth: 0, 
         borderRadius: 8,
         width: '90%',
@@ -97,7 +97,7 @@ const toastConfig: ToastConfig = {
     <BaseToast
       {...props}
       style={{ 
-        backgroundColor: '#17a2b8', 
+        backgroundColor: '#5c7ba9', 
         borderLeftWidth: 0, 
         borderRadius: 8,
         width: '90%',
@@ -172,7 +172,7 @@ export const ToastComponent = () => (
   <Toast 
     config={toastConfig} 
     position="bottom" 
-    bottomOffset={120}
+    bottomOffset={20}
   />
 );
 
@@ -187,7 +187,7 @@ export const showToast = ({
   visibilityTime = 8000,
   autoHide = true,
   topOffset = 40,
-  bottomOffset = 120
+  bottomOffset = 20
 }: ToastMessage) => {
   setTimeout(() => {
     Toast.show({

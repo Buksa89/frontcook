@@ -50,7 +50,7 @@ export const ServingsInput = ({
           onPress={handleDecrease}
           disabled={value <= min}
         >
-          <AntDesign name="minus" size={20} color={value <= min ? '#ccc' : '#2196F3'} />
+          <AntDesign name="minus" size={20} color={value <= min ? '#ccc' : '#5c7ba9'} />
         </TouchableOpacity>
         
         <View style={styles.valueContainer}>
@@ -63,7 +63,7 @@ export const ServingsInput = ({
           onPress={handleIncrease}
           disabled={value >= max}
         >
-          <AntDesign name="plus" size={20} color={value >= max ? '#ccc' : '#2196F3'} />
+          <AntDesign name="plus" size={20} color={value >= max ? '#ccc' : '#5c7ba9'} />
         </TouchableOpacity>
       </View>
       
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   requiredStar: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     marginLeft: 2,
   },
   container: {
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   requiredInput: {
-    borderColor: '#2196F3',
+    borderColor: '#5c7ba9',
     backgroundColor: '#f8f9ff',
   },
   requiredIndicator: {
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
   requiredIndicatorText: {
     fontSize: 12,
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontStyle: 'italic',
   },
 }); 

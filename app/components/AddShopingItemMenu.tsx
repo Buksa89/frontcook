@@ -214,7 +214,7 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
       >
         <View style={styles.checkboxContainer}>
           {isSelected ? (
-            <MaterialIcons name="check-box" size={24} color="#2196F3" />
+            <MaterialIcons name="check-box" size={24} color="#5c7ba9" />
           ) : (
             <MaterialIcons name="check-box-outline-blank" size={24} color="#999" />
           )}
@@ -267,7 +267,7 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
                 <AntDesign 
                   name="minus" 
                   size={16} 
-                  color={currentServings <= 1 ? '#ccc' : '#2196F3'} 
+                  color={currentServings <= 1 ? '#ccc' : '#5c7ba9'} 
                 />
               </TouchableOpacity>
               
@@ -277,7 +277,7 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
                 style={styles.servingsButton}
                 onPress={handleIncrease}
               >
-                <AntDesign name="plus" size={16} color="#2196F3" />
+                <AntDesign name="plus" size={16} color="#5c7ba9" />
               </TouchableOpacity>
             </View>
           </View>
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   selectionButtonText: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
   },
   addButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -12,42 +12,6 @@ interface RecipeHeaderProps {
 }
 
 export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) => {
-  // Add a deletion tracking state
-  const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
-  
-  const handleRejectRecipe = () => {
-    // Check if already in deletion process to avoid duplicate alerts
-    if (isDeletingRecipe) return;
-    
-    Alert.alert(
-      'Usuń przepis',
-      'Czy na pewno chcesz usunąć ten przepis?',
-      [
-        {
-          text: 'Anuluj',
-          style: 'cancel',
-          onPress: () => setIsDeletingRecipe(false)
-        },
-        {
-          text: 'Usuń',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Set deletion flag to prevent multiple alerts
-              setIsDeletingRecipe(true);
-              await recipe.markAsDeleted();
-              router.back();
-            } catch (error) {
-              console.error('Błąd podczas usuwania przepisu:', error);
-              // Reset deletion flag if there was an error
-              setIsDeletingRecipe(false);
-            }
-          }
-        }
-      ]
-    );
-  };
-
   const handleShareRecipe = async () => {
     try {
       // Create a nicely formatted recipe to share
@@ -151,19 +115,12 @@ export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) =>
         </View>
       )}
 
-      {recipe.isApproved ? (
+      {recipe.isApproved && (
         <TouchableOpacity 
           style={styles.shareButton}
           onPress={handleShareRecipe}
         >
-          <MaterialIcons name="share" size={24} color="#2196F3" />
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity 
-          style={styles.rejectButton}
-          onPress={handleRejectRecipe}
-        >
-          <MaterialIcons name="delete" size={24} color="#fff" />
+          <MaterialIcons name="share" size={24} color="#5c7ba9" />
         </TouchableOpacity>
       )}
 
@@ -214,25 +171,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
-  rejectButton: {
-    position: 'absolute',
-    right: 84,
-    bottom: -20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F44336',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
   editButton: {
     position: 'absolute',
     right: 16,
@@ -240,7 +178,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,

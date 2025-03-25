@@ -169,7 +169,7 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
                 onPress={takePhoto}
                 disabled={isLoading}
               >
-                <MaterialIcons name="camera-alt" size={32} color="#2196F3" style={styles.buttonIcon} />
+                <MaterialIcons name="camera-alt" size={32} color="#5c7ba9" style={styles.buttonIcon} />
                 <Text style={styles.buttonLabel}>Zrób zdjęcie</Text>
               </TouchableOpacity>
 
@@ -178,7 +178,7 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
                 onPress={pickImage}
                 disabled={isLoading}
               >
-                <MaterialIcons name="photo-library" size={32} color="#2196F3" style={styles.buttonIcon} />
+                <MaterialIcons name="photo-library" size={32} color="#5c7ba9" style={styles.buttonIcon} />
                 <Text style={styles.buttonLabel}>Wybierz z galerii</Text>
               </TouchableOpacity>
             </View>
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   scanButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

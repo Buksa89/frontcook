@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   requiredStar: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     marginLeft: 2,
   },
   input: {
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   requiredInput: {
-    borderColor: '#2196F3',
+    borderColor: '#5c7ba9',
     backgroundColor: '#f8f9ff',
   },
   requiredIndicator: {
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
   requiredIndicatorText: {
     fontSize: 12,
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontStyle: 'italic',
   }
 }); 

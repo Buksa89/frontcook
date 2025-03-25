@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tagChipSelected: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
   },
   tagChipText: {
     color: '#666',
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   saveButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
   },
   buttonDisabled: {
     backgroundColor: '#ccc',

@@ -9,6 +9,8 @@ import { of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import Ingredient from '../../../database/models/Ingredient'
 import { RecipeForm } from './RecipeForm';
+import { useNavigation } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface EditRecipeScreenProps {
   existingRecipe: Recipe | null;
@@ -27,6 +29,7 @@ const EditRecipeScreen = ({
   selectedTags: initialSelectedTags,
   ingredients: initialIngredients 
 }: EditRecipeScreenProps) => {
+  const navigation = useNavigation();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -58,14 +61,50 @@ const EditRecipeScreen = ({
         video: existingRecipe.video || '',
         source: existingRecipe.source || ''
       });
+      
+      // Set up the navigation header with delete button
+      if (navigation.setOptions) {
+        navigation.setOptions({
+          headerTitle: existingRecipe ? 'Edytuj przepis' : 'Dodaj przepis',
+          headerRight: () => existingRecipe ? (
+            <MaterialIcons 
+              name="delete" 
+              size={24} 
+              color="#F44336" 
+              style={{ marginRight: 16 }}
+              onPress={handleDeleteConfirmation}
+            />
+          ) : null
+        });
+      }
     }
-  }, [existingRecipe, initialSelectedTags, initialIngredients]);
+  }, [existingRecipe, initialSelectedTags, initialIngredients, navigation]);
 
   const handleFieldChange = (field: keyof typeof formData, value: string | Tag[]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleDeleteConfirmation = () => {
+    if (!existingRecipe) return;
+    
+    Alert.alert(
+      'Usuń przepis',
+      'Czy na pewno chcesz usunąć ten przepis? Tej operacji nie można cofnąć.',
+      [
+        {
+          text: 'Anuluj',
+          style: 'cancel'
+        },
+        {
+          text: 'Usuń',
+          onPress: handleDelete,
+          style: 'destructive'
+        }
+      ]
+    );
   };
 
   const handleSubmit = async () => {
@@ -114,7 +153,6 @@ const EditRecipeScreen = ({
       onDataChange={handleFieldChange}
       availableTags={availableTags}
       onSubmit={handleSubmit}
-      onDelete={existingRecipe ? handleDelete : undefined}
       isEditing={!!existingRecipe}
       isApproved={existingRecipe?.isApproved || false}
     />

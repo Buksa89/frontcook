@@ -182,7 +182,7 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
           style={styles.cardShopCart}
           onPress={openAddShopingItemMenu}
         >
-          <AntDesign name="shoppingcart" size={24} color="#2196F3" />
+          <AntDesign name="shoppingcart" size={24} color="#5c7ba9" />
         </TouchableOpacity>
       </TouchableOpacity>
       
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   recipeTagText: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontSize: 12,
   },
   rating: {

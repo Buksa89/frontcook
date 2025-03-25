@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   importButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

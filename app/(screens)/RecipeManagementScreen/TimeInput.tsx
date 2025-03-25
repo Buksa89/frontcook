@@ -186,7 +186,7 @@ export const TimeInput = ({
                   <MaterialIcons 
                     name={category.icon} 
                     size={20} 
-                    color={activeCategory === category.name ? '#2196F3' : '#666'} 
+                    color={activeCategory === category.name ? '#5c7ba9' : '#666'} 
                   />
                   <Text style={[
                     styles.categoryTabText,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   requiredStar: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     marginLeft: 2,
   },
   container: {
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   requiredInput: {
-    borderColor: '#2196F3',
+    borderColor: '#5c7ba9',
     backgroundColor: '#f8f9ff',
   },
   requiredIndicator: {
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   },
   requiredIndicatorText: {
     fontSize: 12,
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontStyle: 'italic',
   },
   modalOverlay: {
@@ -322,14 +322,14 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#2196F3',
+    borderBottomColor: '#5c7ba9',
   },
   categoryTabText: {
     fontSize: 14,
     color: '#666',
   },
   activeTabText: {
-    color: '#2196F3',
+    color: '#5c7ba9',
     fontWeight: '500',
   },
   noneOption: {
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   selectedOption: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5c7ba9',
   },
   optionText: {
     fontSize: 16,
