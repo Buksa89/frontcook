@@ -3,13 +3,11 @@ import api from './api';
 // Interface for user settings from API
 export interface UserSettingsApiResponse {
   auto_translate_recipes: boolean;
-  allow_friends_view_recipes: boolean;
 }
 
 // Interface for updating user settings
 export interface UserSettingsUpdateRequest {
   auto_translate_recipes?: boolean;
-  allow_friends_view_recipes?: boolean;
 }
 
 /**

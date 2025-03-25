@@ -15,7 +15,6 @@ export default function SettingsScreen() {
   const [apiLoading, setApiLoading] = useState(false);
   const [language, setLanguage] = useState<'pl' | 'en'>('pl');
   const [autoTranslate, setAutoTranslate] = useState(false);
-  const [allowFriendsViews, setAllowFriendsViews] = useState(false);
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
   const { isAuthenticated } = useAuth();
 
@@ -33,7 +32,6 @@ export default function SettingsScreen() {
         } else {
           // Default values when not authenticated
           setAutoTranslate(false);
-          setAllowFriendsViews(false);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Nie udało się załadować ustawień';
@@ -56,7 +54,6 @@ export default function SettingsScreen() {
       const response = await UserSettingsApi.getUserSettings();
       setApiSettings(response);
       setAutoTranslate(response.auto_translate_recipes);
-      setAllowFriendsViews(response.allow_friends_view_recipes);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udało się załadować ustawień z API';
       console.error('Błąd podczas ładowania ustawień z API:', error);
@@ -98,23 +95,6 @@ export default function SettingsScreen() {
       handleError(error, 'aktualizacji ustawień tłumaczenia');
       // Przywróć poprzednią wartość w przypadku błędu
       setAutoTranslate(autoTranslate);
-    } finally {
-      setApiLoading(false);
-    }
-  };
-
-  const updateAllowFriendsViews = async (value: boolean) => {
-    if (!isAuthenticated) return;
-    
-    setApiLoading(true);
-    try {
-      const response = await UserSettingsApi.updateSetting('allow_friends_view_recipes', value);
-      setAllowFriendsViews(response.allow_friends_view_recipes);
-      setApiSettings(response);
-    } catch (error) {
-      handleError(error, 'aktualizacji ustawień widoczności przepisów');
-      // Przywróć poprzednią wartość w przypadku błędu
-      setAllowFriendsViews(allowFriendsViews);
     } finally {
       setApiLoading(false);
     }
@@ -204,20 +184,6 @@ export default function SettingsScreen() {
               onValueChange={updateAutoTranslate}
               trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
               thumbColor={autoTranslate ? '#2196F3' : '#f4f3f4'}
-              disabled={apiLoading}
-            />
-          </View>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <MaterialIcons name="people" size={24} color="#666" />
-              <Text style={styles.settingText}>Pozwól znajomym przeglądać moje przepisy</Text>
-            </View>
-            <Switch
-              value={allowFriendsViews}
-              onValueChange={updateAllowFriendsViews}
-              trackColor={{ false: '#d3d3d3', true: '#bbd6fb' }}
-              thumbColor={allowFriendsViews ? '#2196F3' : '#f4f3f4'}
               disabled={apiLoading}
             />
           </View>

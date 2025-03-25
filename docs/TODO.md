@@ -1,6 +1,8 @@
 next steps:
+    brak settings przy pierwszym uruchomieniu!
+    zdebuguj dlaczego klawiatura wyswietla sie na recipe list po otwarciu
+
     poprawa promptow importow i flow (usun header, footer ze stron, deeepsek, pdfy tekstowe jako tekst)
-    alerty w auth
 
     Import przepisow z innych apek
     reorder tagow/shopping items
@@ -17,7 +19,6 @@ Issues:
     Obsluga bledow z api
     sync przed wylogowaniem
     Sprawdz czy zdjecie jest poprawnie przyciete
-    brak settings przy pierwszym uruchomieniu!
     Brak zrodel w przepisie, kiedy url
 
 
@@ -30,7 +31,6 @@ Quick wins:
     popraw prompt, zeby byl w formacie json
     popraw prompt zeby ulamki byly z kropką
     lepsze powiadomienie w przypadku nieprzetworzenia
-    react-toastify - moze pomoc z wygladem alertow
     Reset hasła
     Filmik w widoku przepisu
     Info o synchronizacji
