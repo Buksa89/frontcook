@@ -47,9 +47,9 @@ export const ScaledIngredient: React.FC<ScaledIngredientProps> = ({ ingredient }
 const styles = StyleSheet.create({
   ingredientLine: {
     width: '100%',
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 16,
-    marginBottom: 1,
+    marginBottom: 0,
   },
   ingredientLineChecked: {
     backgroundColor: '#CCCCCC',
@@ -60,10 +60,11 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   amount: {
-    fontWeight: '500',
+    fontWeight: 'bold',
   },
   unit: {
     color: '#666',
+    fontWeight: 'bold',
   },
   ingredientName: {
     color: '#444',

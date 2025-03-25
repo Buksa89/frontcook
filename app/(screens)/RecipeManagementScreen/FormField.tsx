@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 
 interface FormFieldProps {
@@ -24,6 +24,14 @@ export const FormField = ({
 }: FormFieldProps) => {
   const isEmpty = value.trim() === '';
   const showRequiredIndicator = required && isEmpty;
+  const [inputHeight, setInputHeight] = useState<number | undefined>(multiline ? 100 : undefined);
+  
+  // Reset height when value is cleared
+  useEffect(() => {
+    if (multiline && value === '') {
+      setInputHeight(100);
+    }
+  }, [value, multiline]);
   
   return (
     <View style={[styles.field, style]}>
@@ -34,7 +42,7 @@ export const FormField = ({
         <TextInput
           style={[
             styles.input,
-            multiline && styles.textArea,
+            multiline && {...styles.textArea, height: inputHeight},
             showRequiredIndicator && styles.requiredInput
           ]}
           value={value}
@@ -42,6 +50,9 @@ export const FormField = ({
           placeholder={placeholder}
           multiline={multiline}
           keyboardType={keyboardType}
+          onContentSizeChange={multiline ? (event) => {
+            setInputHeight(Math.max(100, event.nativeEvent.contentSize.height + 20));
+          } : undefined}
         />
         {showRequiredIndicator && (
           <View style={styles.requiredIndicator}>
@@ -76,7 +87,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   textArea: {
-    height: 100,
+    minHeight: 100,
     textAlignVertical: 'top',
   },
   requiredInput: {

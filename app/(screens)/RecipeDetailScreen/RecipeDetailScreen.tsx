@@ -145,11 +145,13 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Składniki</Text>
-            {ingredients.map((ingredient, index) => (
-              <View key={index} style={styles.ingredientRow}>
-                <ScaledIngredient key={index} ingredient={ingredient} />
-              </View>
-            ))}
+            <View style={styles.ingredientsContainer}>
+              {ingredients.map((ingredient, index) => (
+                <View key={index} style={styles.ingredientRow}>
+                  <ScaledIngredient key={index} ingredient={ingredient} />
+                </View>
+              ))}
+            </View>
           </View>
 
           <View style={styles.section}>
@@ -198,7 +200,7 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
               <Text style={styles.sectionTitle}>Źródło</Text>
               {recipe.source.startsWith('http') ? (
                 <TouchableOpacity 
-                  style={styles.linkContent} 
+                  style={[styles.linkContent, { paddingHorizontal: 16, paddingVertical: 12 }]} 
                   onPress={handleOpenSource}
                 >
                   <Text style={styles.linkText}>{recipe.source}</Text>
@@ -329,6 +331,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: '#444',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   linkSection: {
     backgroundColor: '#f5f5f5',
@@ -350,7 +354,7 @@ const styles = StyleSheet.create({
   ingredientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 0,
   },
   instructionRow: {
     width: '100%',
@@ -430,5 +434,8 @@ const styles = StyleSheet.create({
   rating: {
     flexDirection: 'row',
     marginBottom: 16,
+  },
+  ingredientsContainer: {
+    paddingLeft: 0,
   },
 }); 

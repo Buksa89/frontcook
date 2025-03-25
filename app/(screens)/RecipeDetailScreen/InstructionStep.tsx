@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface InstructionStepProps {
   step: string;
@@ -9,6 +9,33 @@ interface InstructionStepProps {
 export const InstructionStep: React.FC<InstructionStepProps> = ({ step, stepNumber }) => {
   const [isChecked, setIsChecked] = useState(false);
   
+  // Parse the step text to find and format text in square brackets
+  const renderFormattedText = () => {
+    // If there are no square brackets, return the text as is
+    if (!step.includes('[') || !step.includes(']')) {
+      return <Text>{step}</Text>;
+    }
+
+    // Split the text by square brackets pattern
+    const regex = /(\[[^\]]*\])|([^\[\]]+)/g;
+    const parts = step.match(regex) || [];
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('[') && part.endsWith(']')) {
+        // Text inside square brackets - make it bold and remove the brackets
+        const innerText = part.substring(1, part.length - 1);
+        return (
+          <Text key={index} style={styles.boldText}>
+            {innerText}
+          </Text>
+        );
+      } else {
+        // Regular text
+        return <Text key={index}>{part}</Text>;
+      }
+    });
+  };
+  
   return (
     <TouchableOpacity 
       style={[styles.instructionRow, isChecked && styles.instructionRowChecked]}
@@ -17,7 +44,10 @@ export const InstructionStep: React.FC<InstructionStepProps> = ({ step, stepNumb
     >
       <Text style={[styles.instructionContent, isChecked && styles.textChecked]}>
         <Text style={[styles.stepNumber, isChecked && styles.textChecked]}>Krok {stepNumber}</Text>
-        {'\n'}{step}
+        {'\n'}
+      </Text>
+      <Text style={[styles.instructionContent, isChecked && styles.textChecked]}>
+        {renderFormattedText()}
       </Text>
     </TouchableOpacity>
   );
@@ -45,4 +75,7 @@ const styles = StyleSheet.create({
   textChecked: {
     color: '#fff',
   },
+  boldText: {
+    fontWeight: 'bold',
+  }
 }); 
