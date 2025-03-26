@@ -113,7 +113,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         );
       }
     } catch (error) {
-      console.error('[AuthContext] Błąd podczas logowania:', error);
+      // Don't log authentication errors to the console
+      // Instead, we just propagate them to the UI component
       throw error; // Przekazujemy błąd dalej, aby komponent mógł go obsłużyć
     }
   };

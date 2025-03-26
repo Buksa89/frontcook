@@ -185,6 +185,50 @@ export default schemaMigrations({
           `
         }
       ]
+    },
+    {
+      toVersion: 9,
+      steps: [
+        // Create user_data table or add subscription fields if it exists
+        {
+          type: 'sql',
+          sql: `
+            -- Check if user_data table exists
+            CREATE TABLE IF NOT EXISTS user_data (
+              id TEXT PRIMARY KEY NOT NULL,
+              user TEXT NOT NULL,
+              last_sync NUMBER,
+              subscription_end NUMBER,
+              csv_lock TEXT,
+              _changed TEXT,
+              _status TEXT
+            );
+
+            -- Add subscription columns to user_data table if they don't exist
+            -- SQLite doesn't have the "IF NOT EXISTS" for columns, so we use a workaround
+            -- by checking if the column exists in the pragma info
+            
+            -- Add subscription_end column if it doesn't exist
+            PRAGMA foreign_keys=off;
+            BEGIN TRANSACTION;
+            ALTER TABLE user_data RENAME TO user_data_old;
+            CREATE TABLE user_data (
+              id TEXT PRIMARY KEY NOT NULL,
+              user TEXT NOT NULL,
+              last_sync NUMBER,
+              subscription_end NUMBER,
+              csv_lock TEXT,
+              _changed TEXT,
+              _status TEXT
+            );
+            INSERT INTO user_data (id, user, last_sync, _changed, _status)
+            SELECT id, user, last_sync, _changed, _status FROM user_data_old;
+            DROP TABLE user_data_old;
+            COMMIT;
+            PRAGMA foreign_keys=on;
+          `
+        }
+      ]
     }
   ]
 }) 

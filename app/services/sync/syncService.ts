@@ -14,6 +14,7 @@ import ShoppingItem from '../../../database/models/ShoppingItem';
 import UserSettings from '../../../database/models/UserSettings';
 import Notification from '../../../database/models/Notification';
 import UserData from '../../../database/models/UserData';
+import { SubscriptionApi } from '../../api/subscription';
 
 // Interface for the pull response items
 interface PullResponseItem {
@@ -161,6 +162,9 @@ class SyncService {
         await UserData.updateLastSyncByUser(database, activeUser, mostRecentUpdate);
         this.lastSyncTime = Date.now();
       }
+      
+      // Update subscription status after successful sync
+      await this.updateSubscriptionStatus(activeUser);
       
       console.log('[Sync Service] Sync process completed successfully');
     } catch (error) {
@@ -813,14 +817,47 @@ class SyncService {
 
     if (this.appStateSubscription) {
       this.appStateSubscription.remove();
+      this.appStateSubscription = null;
     }
 
     // Czyścimy subskrypcję NetInfo tylko jeśli była utworzona
     if (!IS_DEBUG && this.netInfoSubscription) {
       this.netInfoSubscription();
+      this.netInfoSubscription = null;
     }
+    
+    // Reset the pending sync flag
+    this.pendingSync = false;
 
     console.log('[Sync Service] Background sync stopped');
+  }
+
+  // After successful synchronization, update the subscription status if user is authenticated
+  private async updateSubscriptionStatus(owner: string): Promise<void> {
+    try {
+      // Check if we have access token (which means user is authenticated)
+      const accessToken = await this.accessTokenGetter?.();
+      if (!accessToken) {
+        console.log('[Sync Service] No access token, skipping subscription status update');
+        return;
+      }
+
+      // Get subscription status from API
+      const subscriptionData = await SubscriptionApi.getSubscriptionStatus();
+      
+      // Save to database for future offline access
+      await UserData.updateSubscriptionData(
+        database,
+        owner,
+        subscriptionData.subscription_end,
+        subscriptionData.csv_lock
+      );
+      
+      console.log('[Sync Service] Updated subscription data in database');
+    } catch (error) {
+      console.error('[Sync Service] Error updating subscription status:', error);
+      // We don't throw an error here, as this is not critical for sync
+    }
   }
 }
 

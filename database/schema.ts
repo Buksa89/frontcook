@@ -106,12 +106,14 @@ const userDataSchema: TableSchema = tableSchema({
   name: 'user_data',
   columns: [
     { name: 'user', type: 'string', isIndexed: true },
-    { name: 'last_sync', type: 'number', isOptional: true }
+    { name: 'last_sync', type: 'number', isOptional: true },
+    { name: 'subscription_end', type: 'number', isOptional: true },
+    { name: 'csv_lock', type: 'string', isOptional: true }
   ]
 })
 
 const schema: AppSchema = appSchema({
-  version: 8, // Increasing version number for adding order field to notifications
+  version: 9, // Increasing version number for adding subscription fields
   tables: [
     tagsSchema,
     recipesSchema,

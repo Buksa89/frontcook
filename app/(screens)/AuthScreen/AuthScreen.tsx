@@ -100,7 +100,8 @@ export default function AuthScreen() {
         pathname: "/(screens)/RecipeListScreen/RecipeListScreen"
       });
     } catch (error: any) {
-      console.error('Login error:', error);
+      // Don't log expected auth errors as errors in the console
+      // Only show them to the user via toast
       showToast({
         type: 'error',
         text1: 'Błąd logowania',
