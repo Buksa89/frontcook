@@ -180,6 +180,7 @@ export default class SyncModel extends Model {
           if (newRecord.isDeleted === undefined) {
             newRecord.isDeleted = false;
           }
+          newRecord.owner = activeUser;
         });
 
         return record;

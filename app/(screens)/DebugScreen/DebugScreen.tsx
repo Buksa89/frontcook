@@ -20,6 +20,7 @@ export default function DebugScreen() {
     try {
       const user = await AuthService.getActiveUser();
       setActiveUser(user);
+      console.log('[DEBUG] Active user:', user);
       
       if (user) {
         const time = await UserData.getLastSyncByUser(database, user);
@@ -140,6 +141,10 @@ export default function DebugScreen() {
     <View style={styles.container}>
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Debug Panel</Text>
+        <View style={styles.userInfoContainer}>
+          <Text style={styles.userInfoLabel}>Active User:</Text>
+          <Text style={styles.userInfoValue}>{activeUser || 'None'}</Text>
+        </View>
         <Text style={styles.syncTimeText}>
           Ostatnia synchronizacja: {lastSyncTime ? new Date(lastSyncTime).toLocaleString() : 'Brak'}
         </Text>
@@ -190,6 +195,25 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 8,
+  },
+  userInfoContainer: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    backgroundColor: '#e6f7ff',
+    padding: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#91d5ff',
+  },
+  userInfoLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  userInfoValue: {
+    fontSize: 14,
+    color: '#0066cc',
+    fontWeight: '500',
   },
   syncTimeText: {
     fontSize: 14,
