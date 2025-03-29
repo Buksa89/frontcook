@@ -2,7 +2,7 @@ import { field, text, relation } from '@nozbe/watermelondb/decorators'
 import { associations } from '@nozbe/watermelondb'
 import { Database, Model, Collection } from '@nozbe/watermelondb'
 import { Q } from '@nozbe/watermelondb'
-import BaseModel from './BaseModel'
+import SyncModel from './SyncModel'
 import Recipe from './Recipe'
 import { parseIngredient } from '../../app/utils/ingredientParser'
 import { Observable, from } from 'rxjs'
@@ -10,7 +10,7 @@ import { switchMap } from 'rxjs/operators'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 
-export default class Ingredient extends BaseModel {
+export default class Ingredient extends SyncModel {
   static table = 'ingredients'
   static associations = {
     recipes: { type: 'belongs_to', key: 'recipe_id' }
@@ -103,7 +103,7 @@ export default class Ingredient extends BaseModel {
           ingredient.type = null;
           
           // Apply base model defaults to ensure all required fields are set correctly
-          BaseModel.applyBaseModelDefaults(ingredient, activeUser);
+          SyncModel.applySyncModelDefaults(ingredient, activeUser);
         });
       })
     ];
@@ -184,7 +184,7 @@ export default class Ingredient extends BaseModel {
     }
     
     // Call the base implementation to find matching records
-    const records = await BaseModel.findMatchingRecords.call(this as unknown as (new () => BaseModel) & typeof BaseModel, database, serverObject);
+    const records = await SyncModel.findMatchingRecords.call(this as unknown as (new () => SyncModel) & typeof SyncModel, database, serverObject);
     return records as Ingredient[];
   }
 } 

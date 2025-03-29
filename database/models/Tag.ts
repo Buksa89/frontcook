@@ -3,13 +3,13 @@ import { Q } from '@nozbe/watermelondb'
 import { Observable, from, of } from 'rxjs'
 import { Database } from '@nozbe/watermelondb'
 import { map, switchMap } from 'rxjs/operators'
-import BaseModel from './BaseModel'
+import SyncModel from './SyncModel'
 import RecipeTag from './RecipeTag'
 import AuthService from '../../app/services/auth/authService'
 import { Model } from '@nozbe/watermelondb'
 import { v4 as uuidv4 } from 'uuid'
 
-export default class Tag extends BaseModel {
+export default class Tag extends SyncModel {
   static table = 'tags'
   static associations = {
     recipe_tags: { type: 'has_many' as const, foreignKey: 'tag_id' }

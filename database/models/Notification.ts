@@ -2,12 +2,12 @@ import { field, text, writer } from '@nozbe/watermelondb/decorators'
 import { Q } from '@nozbe/watermelondb'
 import { Database } from '@nozbe/watermelondb'
 import { Observable } from 'rxjs'
-import BaseModel from './BaseModel'
+import SyncModel from './SyncModel'
 import AuthService from '../../app/services/auth/authService'
 import { v4 as uuidv4 } from 'uuid'
 import { map } from 'rxjs/operators'
 
-export default class Notification extends BaseModel {
+export default class Notification extends SyncModel {
   static table = 'notifications'
 
   // Fields specific to Notification

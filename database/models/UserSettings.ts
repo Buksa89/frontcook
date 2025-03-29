@@ -1,11 +1,11 @@
 import { field, writer } from '@nozbe/watermelondb/decorators'
 import { Database } from '@nozbe/watermelondb'
-import BaseModel from './BaseModel'
+import SyncModel from './SyncModel'
 import { Q } from '@nozbe/watermelondb'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 
-export default class UserSettings extends BaseModel {
+export default class UserSettings extends SyncModel {
   static table = 'user_settings'
 
   // Fields specific to UserSettings
@@ -21,10 +21,10 @@ export default class UserSettings extends BaseModel {
     };
   }
 
-  // Uproszczona metoda aktualizacji języka korzystająca z naprawionej metody update() z BaseModel
+  // Uproszczona metoda aktualizacji języka korzystająca z naprawionej metody update() z SyncModel
   async updateLanguage(newLanguage: 'pl' | 'en'): Promise<this> {
     try {
-      // Bezpośrednio używamy metody update() z BaseModel, która teraz prawidłowo obsługuje transakcje
+      // Bezpośrednio używamy metody update() z SyncModel, która teraz prawidłowo obsługuje transakcje
       await this.update(record => {
         const oldLanguage = record.language;
         record.language = newLanguage;
@@ -65,7 +65,7 @@ export default class UserSettings extends BaseModel {
           record.language = 'pl';
           
           // Apply base model defaults using the helper function
-          BaseModel.applyBaseModelDefaults(record, activeUser);
+          SyncModel.applySyncModelDefaults(record, activeUser);
         });
 
         console.log(`[DB Settings] Utworzono domyślne ustawienia dla ${activeUser}: język=pl`);
@@ -78,7 +78,7 @@ export default class UserSettings extends BaseModel {
   }
 
   // Override findMatchingRecords to find settings for the current user
-  static async findMatchingRecords<T extends BaseModel>(
+  static async findMatchingRecords<T extends SyncModel>(
     database: Database,
     serverObject: Record<string, any>
   ): Promise<T[]> {
@@ -102,8 +102,8 @@ export default class UserSettings extends BaseModel {
   }
 
   // Override filterServerObjectsForSync to get only the most recent object for the active user
-  static async filterServerObjectsForSync<T extends BaseModel>(
-    this: { new(): T } & typeof BaseModel,
+  static async filterServerObjectsForSync<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
     database: Database,
     serverObjects: Record<string, any>[]
   ): Promise<Record<string, any>[]> {

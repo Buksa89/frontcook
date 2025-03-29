@@ -2,13 +2,13 @@ import { field, relation } from '@nozbe/watermelondb/decorators'
 import { associations } from '@nozbe/watermelondb'
 import Recipe from './Recipe'
 import Tag from './Tag'
-import BaseModel from './BaseModel'
+import SyncModel from './SyncModel'
 import { Q } from '@nozbe/watermelondb'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 import { Database } from '@nozbe/watermelondb'
 
-export default class RecipeTag extends BaseModel {
+export default class RecipeTag extends SyncModel {
   static table = 'recipe_tags'
   static associations = {
     recipes: { type: 'belongs_to' as const, key: 'recipe_id' },
@@ -197,7 +197,7 @@ export default class RecipeTag extends BaseModel {
     }
     
     // Call the base implementation to find matching records
-    const records = await BaseModel.findMatchingRecords.call(this as unknown as (new () => BaseModel) & typeof BaseModel, database, serverObject);
+    const records = await SyncModel.findMatchingRecords.call(this as unknown as (new () => SyncModel) & typeof SyncModel, database, serverObject);
     return records as RecipeTag[];
   }
 } 

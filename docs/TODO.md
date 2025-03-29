@@ -1,4 +1,9 @@
 next steps:
+Zepsuta synchronizacja - last sync sie zle zapisuje
+Zapsute observables dla subscription
+Architektura pod pro
+
+
     brak settings przy pierwszym uruchomieniu!
     zdebuguj dlaczego klawiatura wyswietla sie na recipe list po otwarciu
 
@@ -6,10 +11,10 @@ next steps:
 
     Import przepisow z innych apek
     reorder tagow/shopping items
-    Architektura pod pro
     reset/zmiana hasla
     grafiki
     forced sync wywolany przez server - architektura
+    sync przed wylogowaniem
 
 rozwiazania:
     beautiful dnd
@@ -17,7 +22,6 @@ rozwiazania:
 
 Issues:
     Obsluga bledow z api
-    sync przed wylogowaniem
     Sprawdz czy zdjecie jest poprawnie przyciete
     Brak zrodel w przepisie, kiedy url
 

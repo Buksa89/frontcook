@@ -3,7 +3,7 @@ import { Q } from '@nozbe/watermelondb'
 import { associations } from '@nozbe/watermelondb'
 import { Observable, from } from 'rxjs'
 import { Database } from '@nozbe/watermelondb'
-import BaseModel from './BaseModel'
+import SyncModel from './SyncModel'
 import RecipeTag from './RecipeTag'
 import Ingredient from './Ingredient'
 import { switchMap } from 'rxjs/operators'
@@ -26,7 +26,7 @@ interface RecipeData {
   selectedTags?: any[];
 }
 
-export default class Recipe extends BaseModel {
+export default class Recipe extends SyncModel {
   static table = 'recipes'
   static associations = {
     recipe_tags: { type: 'has_many' as const, foreignKey: 'recipe_id' },

@@ -5,7 +5,7 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import api from '../../api/api';
-import BaseModel from '../../../database/models/BaseModel';
+import SyncModel from '../../../database/models/SyncModel';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
 import RecipeTag from '../../../database/models/RecipeTag';
@@ -457,7 +457,7 @@ class SyncService {
     return mostRecentUpdate || lastSync;
   }
 
-  private async getPendingRecordsForPush(table: TableName): Promise<BaseModel[]> {
+  private async getPendingRecordsForPush(table: TableName): Promise<SyncModel[]> {
     const activeUser = await this.activeUserGetter?.();
     if (!activeUser) {
       console.error('[Sync Service] No active user found');
@@ -470,7 +470,7 @@ class SyncService {
         Q.where('owner', activeUser)
       ),
       Q.sortBy('last_update', Q.asc)
-    ).fetch() as BaseModel[];
+    ).fetch() as SyncModel[];
 
     return records;
   }
@@ -495,7 +495,7 @@ class SyncService {
       const pushOrder: TableName[] = ['recipes', 'tags', 'ingredients', 'recipe_tags', 'shopping_items', 'user_settings', 'notifications'];
       
       // Kolekcja obiektów do wysłania wraz z informacją o tabeli
-      const recordsToSync: { record: BaseModel, table: TableName }[] = [];
+      const recordsToSync: { record: SyncModel, table: TableName }[] = [];
 
       console.log('[Sync Service] Starting push phase...');
 
@@ -640,7 +640,7 @@ class SyncService {
   }
 
   // Metoda do uzupełniania brakujących pól recipe i tag dla Ingredient i RecipeTag
-  private async enrichRelationFields(recordsToSync: { record: BaseModel, table: TableName }[]): Promise<void> {
+  private async enrichRelationFields(recordsToSync: { record: SyncModel, table: TableName }[]): Promise<void> {
     // Znajdź wszystkie Ingredient i RecipeTag rekordy
     const ingredients = recordsToSync.filter(({ table }) => table === 'ingredients');
     const recipeTags = recordsToSync.filter(({ table }) => table === 'recipe_tags');

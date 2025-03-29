@@ -2,13 +2,13 @@ import { field, text, writer } from '@nozbe/watermelondb/decorators'
 import { Q } from '@nozbe/watermelondb'
 import { Database } from '@nozbe/watermelondb'
 import { Observable } from 'rxjs'
-import BaseModel from './BaseModel'
+import SyncModel from './SyncModel'
 import AuthService from '../../app/services/auth/authService'
 import { map } from 'rxjs/operators'
 import { parseIngredient } from '../../app/utils/ingredientParser'
 import { v4 as uuidv4 } from 'uuid'
 
-export default class ShoppingItem extends BaseModel {
+export default class ShoppingItem extends SyncModel {
   static table = 'shopping_items'
 
   // Fields specific to ShoppingItem

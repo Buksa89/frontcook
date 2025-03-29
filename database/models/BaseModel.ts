@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 import { Q } from '@nozbe/watermelondb'
 
-export default class BaseModel extends Model {
+export default class SyncModel extends Model {
   @field('sync_id') syncId!: string
   @field('sync_status') syncStatusField!: SyncStatus
   @field('last_update') lastUpdate!: string | null
@@ -271,9 +271,9 @@ export default class BaseModel extends Model {
     }
   }
 
-  // Helper function to apply default values for BaseModel fields
-  static applyBaseModelDefaults<T extends BaseModel>(record: T, activeUser: string | null): void {
-    // Set base fields with the same logic as in BaseModel.create
+  // Helper function to apply default values for SyncModel fields
+  static applySyncModelDefaults<T extends SyncModel>(record: T, activeUser: string | null): void {
+    // Set base fields with the same logic as in SyncModel.create
     record.owner = activeUser;
     if (!record.syncStatus) {
       record.syncStatus = 'pending';
@@ -286,7 +286,7 @@ export default class BaseModel extends Model {
   }
 
   // Base create method that handles sync fields
-  static async create<T extends BaseModel>(
+  static async create<T extends SyncModel>(
     this: { new(): T } & typeof Model,
     database: Database,
     recordUpdater: (record: T) => void
@@ -300,7 +300,7 @@ export default class BaseModel extends Model {
           recordUpdater(newRecord);
           
           // Then apply base model defaults using the helper function
-          BaseModel.applyBaseModelDefaults(newRecord, activeUser);
+          SyncModel.applySyncModelDefaults(newRecord, activeUser);
         });
 
         return record;
@@ -312,8 +312,8 @@ export default class BaseModel extends Model {
   }
 
   // Create a record from server data during sync
-  static async createFromServer<T extends BaseModel>(
-    this: { new(): T } & typeof BaseModel,
+  static async createFromServer<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
     database: Database,
     serverData: Record<string, any>
   ): Promise<T> {
@@ -364,8 +364,8 @@ export default class BaseModel extends Model {
 
   // Method to find existing records that match a server object
   // This can be overridden in derived classes to change the matching logic
-  static async findMatchingRecords<T extends BaseModel>(
-    this: { new(): T } & typeof BaseModel,
+  static async findMatchingRecords<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
     database: Database,
     serverObject: Record<string, any>
   ): Promise<T[]> {
@@ -388,8 +388,8 @@ export default class BaseModel extends Model {
 
   // Method to prepare server data before creating or updating a record
   // This can be overridden in derived classes to modify server data
-  static prepareServerData<T extends BaseModel>(
-    this: { new(): T } & typeof BaseModel,
+  static prepareServerData<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
     serverObject: Record<string, any>,
     existingRecord?: T
   ): Record<string, any> {
@@ -438,8 +438,8 @@ export default class BaseModel extends Model {
 
   // Method to determine if server data should update local record
   // This can be overridden in derived classes to change the update logic
-  static shouldUpdateRecord<T extends BaseModel>(
-    this: { new(): T } & typeof BaseModel,
+  static shouldUpdateRecord<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
     existingRecord: T,
     serverObject: Record<string, any>
   ): boolean {
@@ -460,8 +460,8 @@ export default class BaseModel extends Model {
 
   // Method to filter server objects before sync
   // This can be overridden in derived classes to customize which objects are processed
-  static async filterServerObjectsForSync<T extends BaseModel>(
-    this: { new(): T } & typeof BaseModel,
+  static async filterServerObjectsForSync<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
     database: Database,
     serverObjects: Record<string, any>[]
   ): Promise<Record<string, any>[]> {
@@ -470,8 +470,8 @@ export default class BaseModel extends Model {
   }
 
   // Pull synchronization method
-  static async pullSync<T extends BaseModel>(
-    this: { new(): T } & typeof BaseModel,
+  static async pullSync<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
     database: Database,
     serverObjects: Record<string, any>[]
   ): Promise<{
