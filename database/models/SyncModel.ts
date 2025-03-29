@@ -27,21 +27,11 @@ export default class SyncModel extends Model {
   }
 
   // Helper method to convert snake_case to camelCase
-  private snakeToCamel(snakeCase: string): string {
-    return snakeCase.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-  }
-
-  // Helper method to convert camelCase to snake_case
-  private camelToSnake(camelCase: string): string {
-    return camelCase.replace(/([A-Z])/g, '_$1').toLowerCase();
-  }
-
-  // Static version of snakeToCamel for use in static methods
   static snakeToCamel(snakeCase: string): string {
     return snakeCase.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
   }
 
-  // Static version of camelToSnake for use in static methods
+  // Helper method to convert camelCase to snake_case
   static camelToSnake(camelCase: string): string {
     return camelCase.replace(/([A-Z])/g, '_$1').toLowerCase();
   }
@@ -129,7 +119,7 @@ export default class SyncModel extends Model {
       // Skip excluded fields
       if (!excludedFields.includes(key)) {
         // Convert the key to snake_case if needed
-        const snakeKey = this.camelToSnake(key);
+        const snakeKey = SyncModel.camelToSnake(key);
         // Add the field to server data
         serverData[snakeKey] = value;
       }
