@@ -156,19 +156,6 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
             )}
           </View>
 
-          {recipe.rating !== null && recipe.isApproved && (
-            <View style={styles.rating}>
-              {[1, 2, 3, 4, 5].map(star => (
-                <AntDesign 
-                  key={star}
-                  name={star <= (recipe.rating || 0) ? "star" : "staro"}
-                  size={16} 
-                  color="#FFD700"
-                />
-              ))}
-            </View>
-          )}
-
           {recipe.rating !== null && (
             <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
           )}
