@@ -135,7 +135,7 @@ export default class ShoppingItem extends SyncModel {
   }
 
   // New method: Simple create without parsing
-  static async createShoppingItem(
+  static async create(
     database: Database,
     name: string,
     amount: number,
@@ -179,7 +179,7 @@ export default class ShoppingItem extends SyncModel {
   }
 
   // New method: Simple update without parsing
-  static async updateShoppingItem(
+  static async update(
     database: Database,
     itemId: string,
     name?: string,
@@ -248,8 +248,8 @@ export default class ShoppingItem extends SyncModel {
       if (existingItem) {
         console.log(`[DB ShoppingItem] Found existing item ${existingItem.id}, updating amount`);
         
-        // Use the updateShoppingItem method to update the existing item
-        return await this.updateShoppingItem(
+        // Use the update method to update the existing item
+        return await this.update(
           database,
           existingItem.id,
           undefined, // name - keep existing
@@ -266,8 +266,8 @@ export default class ShoppingItem extends SyncModel {
       } else {
         console.log(`[DB ShoppingItem] No existing item found, creating new item`);
         
-        // Use the createShoppingItem method to create a new item
-        return await this.createShoppingItem(
+        // Use the create method to create a new item
+        return await this.create(
           database,
           parsed.name,
           parsed.amount,
@@ -300,8 +300,8 @@ export default class ShoppingItem extends SyncModel {
 
         if (existingCheckedItem) {
           console.log(`[DB ShoppingItem] Found existing checked item ${existingCheckedItem.id}, merging amounts`);
-          // Use updateShoppingItem to update the amount of the existing checked item
-          await ShoppingItem.updateShoppingItem(
+          // Use update to update the amount of the existing checked item
+          await ShoppingItem.update(
             this.database,
             existingCheckedItem.id,
             undefined, // name - keep existing
@@ -322,8 +322,8 @@ export default class ShoppingItem extends SyncModel {
       }
 
       console.log(`[DB ShoppingItem] Toggling checked status for item ${this.id}: ${this.isChecked} -> ${!this.isChecked}`);
-      // Use updateShoppingItem to toggle the checked status
-      await ShoppingItem.updateShoppingItem(
+      // Use update to toggle the checked status
+      await ShoppingItem.update(
         this.database,
         this.id,
         undefined, // name - keep existing
@@ -358,8 +358,8 @@ export default class ShoppingItem extends SyncModel {
 
       if (existingItem && existingItem.id !== this.id) {
         console.log(`[DB ShoppingItem] Found existing item ${existingItem.id}, merging amounts`);
-        // Use updateShoppingItem to update the amount of the existing item
-        await ShoppingItem.updateShoppingItem(
+        // Use update to update the amount of the existing item
+        await ShoppingItem.update(
           this.database,
           existingItem.id,
           undefined, // name - keep existing
@@ -380,7 +380,7 @@ export default class ShoppingItem extends SyncModel {
       }
       
       // Update this item with the parsed values
-      await ShoppingItem.updateShoppingItem(
+      await ShoppingItem.update(
         this.database,
         this.id,
         parsed.name,    // name - update with parsed name

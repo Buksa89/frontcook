@@ -16,21 +16,7 @@ export default class Notification extends SyncModel {
   @text('link') link!: string | null
   @field('is_readed') isReaded!: boolean
   @field('order') order!: number
-  
-  // Helper method to get sync data for this notification
-  getSyncData(): Record<string, any> {
-    const baseData = super.getSyncData();
-    return {
-      ...baseData,
-      object_type: 'notification',
-      content: this.content,
-      type: this.type,
-      link: this.link,
-      is_readed: this.isReaded,
-      order: this.order
-    };
-  }
-  
+    
   // Query methods
   static observeAll(database: Database): Observable<Notification[]> {
     return new Observable<Notification[]>(subscriber => {
@@ -68,6 +54,36 @@ export default class Notification extends SyncModel {
         }
       };
     });
+  }
+
+  // Get the next order value (highest existing order + 1)
+  static async getNextOrder(database: Database): Promise<number> {
+    try {
+      const activeUser = await AuthService.getActiveUser();
+      
+      // Query to get the notification with the highest order
+      const notifications = await database
+        .get<Notification>('notifications')
+        .query(
+          Q.and(
+            Q.where('owner', activeUser),
+            Q.where('is_deleted', false)
+          ),
+          Q.sortBy('order', Q.desc),
+          Q.take(1)
+        )
+        .fetch();
+      
+      // If no notifications exist, start with order 0
+      const maxOrder = notifications.length > 0 ? notifications[0].order : 0;
+      
+      // Return the next order value
+      return maxOrder + 1;
+    } catch (error) {
+      console.error(`[DB Notification] Error getting next order value: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Return a fallback value in case of error
+      return Date.now(); // Use timestamp as fallback to ensure uniqueness
+    }
   }
 
   static observeUnread(database: Database): Observable<Notification[]> {
@@ -121,15 +137,12 @@ export default class Notification extends SyncModel {
       
       console.log(`[DB Notification] Marking ${unreadNotifications.length} notifications as read`);
       
-      await database.write(async () => {
-        const updates = unreadNotifications.map(notification => 
-          notification.prepareUpdate(record => {
-            record.isReaded = true;
-          })
-        );
-        
-        await database.batch(...updates);
-      });
+      // Process updates in batches using update method
+      for (const notification of unreadNotifications) {
+        await notification.update(record => {
+          record.isReaded = true;
+        });
+      }
     } catch (error) {
       console.error(`[DB Notification] Error marking all notifications as read: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
@@ -158,56 +171,58 @@ export default class Notification extends SyncModel {
       
       console.log(`[DB Notification] Deleting ${readNotifications.length} read notifications`);
       
-      await database.write(async () => {
-        const updates = readNotifications.map(notification => 
-          notification.prepareUpdate(record => {
-            record.isDeleted = true;
-            record.syncStatus = 'pending';
-            record.lastUpdate = new Date().toISOString();
-          })
-        );
-        
-        await database.batch(...updates);
-      });
+      // Process updates in batches using update method and markAsDeleted
+      for (const notification of readNotifications) {
+        await notification.markAsDeleted();
+      }
     } catch (error) {
       console.error(`[DB Notification] Error deleting read notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
 
-  // Metoda do tworzenia powiadomień
   static async createNotification(
     database: Database,
     content: string,
-    type: 'warn' | 'info',
-    link?: string
+    type: string,
+    isReaded?: boolean,
+    link?: string,
+    order?: number,
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: string,
+    owner?: string | null,
+    isDeleted?: boolean
   ): Promise<Notification> {
-    return await database.write(async () => {
-      try {
-        console.log(`[DB Notification] Creating notification: content=${content}, type=${type}, link=${link || 'null'}`);
+    // If no order is provided, get the next available order
+    if (order === undefined) {
+      order = await this.getNextOrder(database);
+    }
+    
+    // Use the parent SyncModel.create method which will handle all common fields
+    return await SyncModel.create.call(
+      this as unknown as (new () => SyncModel) & typeof SyncModel,
+      database,
+      (record: SyncModel) => {
+        const notification = record as Notification;
         
-        const activeUser = await AuthService.getActiveUser();
+        // Set notification-specific fields
+        notification.content = content;
+        notification.type = type;
+        notification.link = link || null;
+        notification.isReaded = isReaded ?? false;
+        notification.order = order as number;
         
-        return await database.get<Notification>('notifications').create((record: Notification) => {
-          // Initialize base fields
-          record.syncStatus = 'pending';
-          record.lastUpdate = new Date().toISOString();
-          record.isDeleted = false;
-          record.syncId = uuidv4();
-          record.owner = activeUser;
-          
-          // Set notification specific fields
-          record.content = content;
-          record.type = type;
-          record.link = link || null;
-          record.isReaded = false;
-          record.order = Date.now(); // Używamy timestamp jako order, nowsze powiadomienia będą miały wyższy order
-        });
-      } catch (error) {
-        console.error(`[DB Notification] Error creating notification: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        throw error;
+        // Set optional SyncModel fields if provided
+        if (syncId !== undefined) notification.syncId = syncId;
+        if (syncStatusField !== undefined) notification.syncStatusField = syncStatusField;
+        if (lastUpdate !== undefined) notification.lastUpdate = lastUpdate;
+        if (owner !== undefined) notification.owner = owner;
+        if (isDeleted !== undefined) notification.isDeleted = isDeleted;
+        
       }
-    });
+    ) as Notification;
   }
 
   @writer async markAsRead() {
@@ -221,21 +236,6 @@ export default class Notification extends SyncModel {
       );
     } catch (error) {
       console.error(`[DB Notification] Error marking notification as read: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  @writer async markAsUnread() {
-    try {
-      console.log(`[DB Notification] Marking notification ${this.id} as unread`);
-      
-      await this.callWriter(() => 
-        this.update(record => {
-          record.isReaded = false;
-        })
-      );
-    } catch (error) {
-      console.error(`[DB Notification] Error marking notification as unread: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }

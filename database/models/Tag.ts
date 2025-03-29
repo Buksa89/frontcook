@@ -1,4 +1,4 @@
-import { field, text, children, lazy, writer } from '@nozbe/watermelondb/decorators'
+import { field, text, children} from '@nozbe/watermelondb/decorators'
 import { Q } from '@nozbe/watermelondb'
 import { Observable, from, of } from 'rxjs'
 import { Database } from '@nozbe/watermelondb'
@@ -6,7 +6,6 @@ import { map, switchMap } from 'rxjs/operators'
 import SyncModel from './SyncModel'
 import RecipeTag from './RecipeTag'
 import AuthService from '../../app/services/auth/authService'
-import { Model } from '@nozbe/watermelondb'
 import { v4 as uuidv4 } from 'uuid'
 
 export default class Tag extends SyncModel {
@@ -18,25 +17,8 @@ export default class Tag extends SyncModel {
   // Fields specific to Tag
   @field('order') order!: number
   @text('name') name!: string
-
   // Children relation to access recipe_tags
   @children('recipe_tags') recipeTags!: Observable<RecipeTag[]>
-
-  // Derived fields
-  get displayName() {
-    return this.name.charAt(0).toUpperCase() + this.name.slice(1).toLowerCase()
-  }
-
-  // Helper method to get sync data for this tag
-  getSyncData(): Record<string, any> {
-    const baseData = super.getSyncData();
-    return {
-      ...baseData,
-      object_type: 'tag',
-      name: this.name,
-      order: this.order
-    };
-  }
 
   // Query methods
   static observeAll(database: Database): Observable<Tag[]> {
@@ -105,64 +87,123 @@ export default class Tag extends SyncModel {
   }
 
   // Helper method for creating tags
-  static async createTag(database: Database, name: string) {
-    return await database.write(async () => {
-      const collection = database.get<Tag>('tags');
-      const lastTag = await collection
-        .query(Q.sortBy('order', Q.desc), Q.take(1))
-        .fetch();
-      
-      const maxOrder = lastTag.length > 0 ? lastTag[0].order : -1;
-      const activeUser = await AuthService.getActiveUser();
-      
-      return await collection.create((record: Tag) => {
-        // Initialize base fields
-        record.syncStatus = 'pending';
-        record.lastUpdate = new Date().toISOString();
-        record.isDeleted = false;
-        record.syncId = uuidv4();
-        record.owner = activeUser;
+  static async create(
+    database: Database, 
+    name: string,
+    order?: number,
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: string,
+    isDeleted?: boolean
+  ): Promise<Tag> {
+    try {
+      // If no order is provided, get the next available order
+      if (order === undefined) {
+        const lastTag = await database
+          .get<Tag>('tags')
+          .query(Q.sortBy('order', Q.desc), Q.take(1))
+          .fetch();
         
-        // Set tag-specific fields
-        record.name = name.trim();
-        record.order = maxOrder + 1;
+        order = lastTag.length > 0 ? lastTag[0].order + 1 : 0;
+      }
+      
+      // Use the parent SyncModel.create method
+      return await SyncModel.create.call(
+        this as unknown as (new () => SyncModel) & typeof SyncModel,
+        database,
+        (record: SyncModel) => {
+          const tag = record as Tag;
+          
+          // Set tag-specific fields
+          tag.name = name.trim();
+          tag.order = order as number;
+          
+          // Set optional SyncModel fields if provided
+          if (syncId !== undefined) tag.syncId = syncId;
+          if (syncStatusField !== undefined) tag.syncStatusField = syncStatusField;
+          if (lastUpdate !== undefined) tag.lastUpdate = lastUpdate;
+          if (isDeleted !== undefined) tag.isDeleted = isDeleted;
+        }
+      ) as Tag;
+    } catch (error) {
+      console.error(`[DB Tag] Error creating tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  // Static update method
+  static async update(
+    database: Database,
+    tagId: string,
+    name?: string,
+    order?: number,
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: string,
+    isDeleted?: boolean
+  ): Promise<Tag | null> {
+    try {
+      const tag = await database
+        .get<Tag>('tags')
+        .find(tagId);
+      
+      if (!tag) {
+        console.log(`[DB Tag] Tag with id ${tagId} not found`);
+        return null;
+      }
+      
+      console.log(`[DB Tag] Updating tag ${tagId} with provided fields`);
+      
+      // Use the update method directly from the model instance
+      await tag.update(record => {
+        // Update only provided fields
+        if (name !== undefined) record.name = name.trim();
+        if (order !== undefined) record.order = order;
+        
+        // Update SyncModel fields if provided
+        if (syncId !== undefined) record.syncId = syncId;
+        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
+        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
+        if (isDeleted !== undefined) record.isDeleted = isDeleted;
       });
-    });
+      
+      console.log(`[DB Tag] Successfully updated tag ${tagId}`);
+      return tag;
+    } catch (error) {
+      console.error(`[DB Tag] Error updating tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 
   // Override markAsDeleted to also delete related recipe_tags
   async markAsDeleted(): Promise<void> {
     try {
-      await this.database.write(async () => {
-        // Get all related recipe_tags before marking tag as deleted
-        const relatedRecipeTags = await this.collections
-          .get<RecipeTag>('recipe_tags')
-          .query(Q.where('tag_id', this.id))
-          .fetch();
+      // Get all related recipe_tags before marking tag as deleted
+      const relatedRecipeTags = await this.collections
+        .get<RecipeTag>('recipe_tags')
+        .query(Q.where('tag_id', this.id))
+        .fetch();
 
-        // Prepare all operations
-        const operations = [
-          // Mark tag as deleted
-          this.prepareUpdate(() => {
-            this.isDeleted = true;
-            this.syncStatus = 'pending';
-            this.lastUpdate = new Date().toISOString();
-          }),
-          // Mark all related recipe_tags as deleted
-          ...relatedRecipeTags.map(recipeTag => 
-            recipeTag.prepareUpdate(() => {
-              recipeTag.isDeleted = true;
-              recipeTag.syncStatus = 'pending';
-              recipeTag.lastUpdate = new Date().toISOString();
-            })
-          )
-        ];
+      console.log(`[DB ${this.table}] Marking tag ${this.id} and ${relatedRecipeTags.length} related recipe_tags as deleted`);
 
-        // Execute all operations in a batch
-        await this.database.batch(...operations);
-        
-        console.log(`[DB ${this.table}] Successfully marked tag ${this.id} and ${relatedRecipeTags.length} related recipe_tags as deleted`);
-      });
+      await Tag.update(
+        this.database,
+        this.id,
+        undefined, // name - keep existing
+        undefined, // order - keep existing
+        undefined, // syncId - keep existing
+        undefined, // syncStatusField
+        undefined, // lastUpdate
+        true       // isDeleted - mark as deleted
+      );
+
+      for (const recipeTag of relatedRecipeTags) {
+        await recipeTag.markAsDeleted();
+      }
+      
+      console.log(`[DB ${this.table}] Successfully marked tag ${this.id} and ${relatedRecipeTags.length} related recipe_tags as deleted`);
     } catch (error) {
       console.error(`[DB ${this.table}] Error marking tag and related recipe_tags as deleted: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
