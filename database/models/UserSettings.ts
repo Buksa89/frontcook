@@ -11,25 +11,97 @@ export default class UserSettings extends SyncModel {
   // Fields specific to UserSettings
   @field('language') language!: string
 
-  // Helper method to get sync data for user settings
-  getSyncData(): Record<string, any> {
-    const baseData = super.getSyncData();
-    return {
-      ...baseData,
-      object_type: 'user_settings',
-      language: this.language
-    };
+
+  // Create method following the ShoppingItem pattern
+  static async create(
+    database: Database,
+    language: string = 'pl',
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: string,
+    isDeleted?: boolean
+  ): Promise<UserSettings> {
+    try {
+      console.log(`[DB ${this.table}] Creating new user settings with language: ${language}`);
+      
+      // Use the parent SyncModel.create method
+      return await SyncModel.create.call(
+        this as unknown as (new () => SyncModel) & typeof SyncModel,
+        database,
+        (record: SyncModel) => {
+          const settings = record as UserSettings;
+          
+          // Set user settings specific fields
+          settings.language = language;
+          
+          // Set optional SyncModel fields if provided
+          if (syncId !== undefined) settings.syncId = syncId;
+          if (syncStatusField !== undefined) settings.syncStatusField = syncStatusField;
+          if (lastUpdate !== undefined) settings.lastUpdate = lastUpdate;
+          if (isDeleted !== undefined) settings.isDeleted = isDeleted;
+        }
+      ) as UserSettings;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error creating user settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+  
+  // Update method following the ShoppingItem pattern
+  static async update(
+    database: Database,
+    settingsId: string,
+    language?: string,
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: string,
+    isDeleted?: boolean
+  ): Promise<UserSettings | null> {
+    try {
+      const settings = await database
+        .get<UserSettings>('user_settings')
+        .find(settingsId);
+      
+      if (!settings) {
+        console.log(`[DB ${this.table}] User settings with id ${settingsId} not found`);
+        return null;
+      }
+      
+      console.log(`[DB ${this.table}] Updating user settings ${settingsId} with provided fields`);
+      
+      // Use the update method directly from the model instance
+      await settings.update(record => {
+        // Update only provided fields
+        if (language !== undefined) record.language = language;
+        
+        // Update SyncModel fields if provided
+        if (syncId !== undefined) record.syncId = syncId;
+        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
+        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
+        if (isDeleted !== undefined) record.isDeleted = isDeleted;
+      });
+      
+      console.log(`[DB ${this.table}] Successfully updated user settings ${settingsId}`);
+      return settings;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error updating user settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 
   // Uproszczona metoda aktualizacji języka korzystająca z naprawionej metody update() z SyncModel
   async updateLanguage(newLanguage: 'pl' | 'en'): Promise<this> {
     try {
-      // Bezpośrednio używamy metody update() z SyncModel, która teraz prawidłowo obsługuje transakcje
-      await this.update(record => {
-        const oldLanguage = record.language;
-        record.language = newLanguage;
-        console.log(`[DB Settings] Zmiana języka: ${oldLanguage} -> ${newLanguage}`);
-      });
+      console.log(`[DB ${this.table}] Updating language from ${this.language} to ${newLanguage}`);
+      
+      // Use the static update method
+      await UserSettings.update(
+        this.database,
+        this.id,
+        newLanguage
+      );
       
       return this;
     } catch (error) {
@@ -54,82 +126,20 @@ export default class UserSettings extends SyncModel {
         .fetch();
       
       if (settings.length > 0) {
-        console.log(`[DB Settings] Pobrano ustawienia dla ${activeUser}: język=${settings[0].language}`);
+        console.log(`[DB ${this.table}] Retrieved settings for ${activeUser}: language=${settings[0].language}`);
         return settings[0];
       }
 
-      // Create new settings if none exist
-      return await database.write(async () => {
-        const newSettings = await database.get<UserSettings>('user_settings').create((record: UserSettings) => {
-          // Set user settings specific fields
-          record.language = 'pl';
-          
-          // Apply base model defaults using the helper function
-          SyncModel.applySyncModelDefaults(record, activeUser);
-        });
-
-        console.log(`[DB Settings] Utworzono domyślne ustawienia dla ${activeUser}: język=pl`);
-        return newSettings;
-      });
+      // Create new settings using our static create method
+      console.log(`[DB ${this.table}] No settings found for ${activeUser}, creating new settings`);
+      return await UserSettings.create(
+        database,
+        'pl' // default language
+      );
     } catch (error) {
-      console.error(`[DB Settings] Błąd podczas pobierania/tworzenia ustawień: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`[DB ${this.table}] Error getting or creating settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
 
-  // Override findMatchingRecords to find settings for the current user
-  static async findMatchingRecords<T extends SyncModel>(
-    database: Database,
-    serverObject: Record<string, any>
-  ): Promise<T[]> {
-    try {
-      const activeUser = await AuthService.getActiveUser();
-      
-      // Find existing settings for this user
-      return await database
-        .get<T>(this.table)
-        .query(
-          Q.and(
-            Q.where('owner', activeUser),
-            Q.where('is_deleted', false)
-          )
-        )
-        .fetch();
-    } catch (error) {
-      console.error(`[DB ${this.table}] Error finding matching records: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return [];
-    }
-  }
-
-  // Override filterServerObjectsForSync to get only the most recent object for the active user
-  static async filterServerObjectsForSync<T extends SyncModel>(
-    this: { new(): T } & typeof SyncModel,
-    database: Database,
-    serverObjects: Record<string, any>[]
-  ): Promise<Record<string, any>[]> {
-    try {
-      console.log(`[DB ${this.table}] Filtering ${serverObjects.length} server objects for sync`);
-      
-      if (serverObjects.length === 0) {
-        return [];
-      }
-      
-      // Nie filtrujemy po owner, ponieważ serwer może używać innego pola (np. user)
-      // Zamiast tego, po prostu wybieramy najnowszy obiekt, jeśli jest ich wiele
-      
-      // Get the most recent server object
-      const mostRecentObject = serverObjects.sort((a, b) => {
-        const aTime = a.last_update ? new Date(a.last_update).getTime() : 0;
-        const bTime = b.last_update ? new Date(b.last_update).getTime() : 0;
-        return bTime - aTime;
-      })[0];
-      
-      console.log(`[DB ${this.table}] Selected most recent object for sync`);
-      return [mostRecentObject];
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[DB ${this.table}] Error filtering server objects: ${errorMessage}`);
-      return [];
-    }
-  }
-} 
+}
