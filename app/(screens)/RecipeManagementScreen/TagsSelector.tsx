@@ -81,7 +81,7 @@ export const TagsSelector = ({
     if (!newTagText.trim()) return;
 
     try {
-      const newTag = await Tag.createTag(database, newTagText);
+      const newTag = await Tag.create(database, newTagText);
       setNewTagText('');
       setAddTagModalVisible(false);
       // Automatycznie dodaj nowy tag do wybranych

@@ -26,7 +26,7 @@ export const TagList = ({ tags, selectedTags, onSelectTag }: TagListProps) => {
     if (!newTagText.trim()) return;
 
     try {
-      await Tag.createTag(database, newTagText);
+      await Tag.create(database, newTagText);
       setNewTagText('');
       setAddTagModalVisible(false);
     } catch (error) {

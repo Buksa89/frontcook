@@ -137,11 +137,21 @@ export default class Notification extends SyncModel {
       
       console.log(`[DB Notification] Marking ${unreadNotifications.length} notifications as read`);
       
-      // Process updates in batches using update method
+      // Process updates in batches using the static update method
       for (const notification of unreadNotifications) {
-        await notification.update(record => {
-          record.isReaded = true;
-        });
+        await Notification.update(
+          database,
+          notification.id,
+          undefined, // content - keep existing
+          undefined, // type - keep existing
+          true,      // isReaded - set to true
+          undefined, // link - keep existing
+          undefined, // order - keep existing
+          undefined, // syncId - keep existing
+          undefined, // syncStatusField - keep existing
+          undefined, // lastUpdate - keep existing
+          undefined  // isDeleted - keep existing
+        );
       }
     } catch (error) {
       console.error(`[DB Notification] Error marking all notifications as read: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -181,7 +191,7 @@ export default class Notification extends SyncModel {
     }
   }
 
-  static async createNotification(
+  static async create(
     database: Database,
     content: string,
     type: string,
@@ -192,7 +202,6 @@ export default class Notification extends SyncModel {
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
     lastUpdate?: string,
-    owner?: string | null,
     isDeleted?: boolean
   ): Promise<Notification> {
     // If no order is provided, get the next available order
@@ -218,21 +227,79 @@ export default class Notification extends SyncModel {
         if (syncId !== undefined) notification.syncId = syncId;
         if (syncStatusField !== undefined) notification.syncStatusField = syncStatusField;
         if (lastUpdate !== undefined) notification.lastUpdate = lastUpdate;
-        if (owner !== undefined) notification.owner = owner;
         if (isDeleted !== undefined) notification.isDeleted = isDeleted;
-        
       }
     ) as Notification;
   }
 
-  @writer async markAsRead() {
+  // New method: Simple update 
+  static async update(
+    database: Database,
+    notificationId: string,
+    content?: string,
+    type?: string,
+    isReaded?: boolean,
+    link?: string | null,
+    order?: number,
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: string,
+    isDeleted?: boolean
+  ): Promise<Notification | null> {
+    try {
+      const notification = await database
+        .get<Notification>('notifications')
+        .find(notificationId);
+      
+      if (!notification) {
+        console.log(`[DB Notification] Notification with id ${notificationId} not found`);
+        return null;
+      }
+      
+      console.log(`[DB Notification] Updating notification ${notificationId} with provided fields`);
+      
+      // Use the update method directly from the model instance
+      await notification.update(record => {
+        // Update only provided fields
+        if (content !== undefined) record.content = content;
+        if (type !== undefined) record.type = type;
+        if (isReaded !== undefined) record.isReaded = isReaded;
+        if (link !== undefined) record.link = link;
+        if (order !== undefined) record.order = order;
+        
+        // Update SyncModel fields if provided
+        if (syncId !== undefined) record.syncId = syncId;
+        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
+        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
+        if (isDeleted !== undefined) record.isDeleted = isDeleted;
+      });
+      
+      console.log(`[DB Notification] Successfully updated notification ${notificationId}`);
+      return notification;
+    } catch (error) {
+      console.error(`[DB Notification] Error updating notification: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  async markAsRead() {
     try {
       console.log(`[DB Notification] Marking notification ${this.id} as read`);
       
-      await this.callWriter(() => 
-        this.update(record => {
-          record.isReaded = true;
-        })
+      // Use the static update method
+      await Notification.update(
+        this.database,
+        this.id,
+        undefined, // content - keep existing
+        undefined, // type - keep existing
+        true,      // isReaded - set to true
+        undefined, // link - keep existing
+        undefined, // order - keep existing
+        undefined, // syncId - keep existing
+        undefined, // syncStatusField - keep existing
+        undefined, // lastUpdate - keep existing
+        undefined  // isDeleted - keep existing
       );
     } catch (error) {
       console.error(`[DB Notification] Error marking notification as read: ${error instanceof Error ? error.message : 'Unknown error'}`);
