@@ -71,62 +71,112 @@ export default class RecipeTag extends SyncModel {
   }
 
   // Helper method to create a recipe tag
-  static async createRecipeTag(
+  static async create(
     database: Database,
-    recordUpdater: (record: RecipeTag) => void
+    recipeId: string,
+    tagId: string,
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: string,
+    isDeleted?: boolean
   ): Promise<RecipeTag> {
     try {
-      console.log(`[DB ${this.table}] Creating new recipe tag`);
-      const collection = database.get<RecipeTag>('recipe_tags');
-      const activeUser = await AuthService.getActiveUser();
+      console.log(`[DB ${this.table}] Creating new recipe tag for recipe ${recipeId} and tag ${tagId}`);
       
-      return await database.write(async () => {
-        const record = await collection.create((newRecord: RecipeTag) => {
-          // Initialize base fields
-          newRecord.syncStatus = 'pending';
-          newRecord.lastUpdate = new Date().toISOString();
-          newRecord.isDeleted = false;
-          newRecord.syncId = uuidv4();
-          newRecord.owner = activeUser;
+      // Use the parent SyncModel.create method
+      return await SyncModel.create.call(
+        this as unknown as (new () => SyncModel) & typeof SyncModel,
+        database,
+        (record: SyncModel) => {
+          const recipeTag = record as RecipeTag;
           
-          // Apply user's updates
-          recordUpdater(newRecord);
-          console.log(`[DB ${this.table}] New recipe tag created`);
-        });
-
-        return record;
-      });
+          // Set recipe tag-specific fields
+          recipeTag.recipeId = recipeId;
+          recipeTag.tagId = tagId;
+          
+          // Set optional SyncModel fields if provided
+          if (syncId !== undefined) recipeTag.syncId = syncId;
+          if (syncStatusField !== undefined) recipeTag.syncStatusField = syncStatusField;
+          if (lastUpdate !== undefined) recipeTag.lastUpdate = lastUpdate;
+          if (isDeleted !== undefined) recipeTag.isDeleted = isDeleted;
+        }
+      ) as RecipeTag;
     } catch (error) {
       console.error(`[DB ${this.table}] Error creating recipe tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
 
-  // Static method to find recipe tags by recipe ID
-  static async findByRecipeId(database: Database, recipeId: string): Promise<RecipeTag[]> {
-    return await database
-      .get<RecipeTag>('recipe_tags')
-      .query(
-        Q.and(
-          Q.where('recipe_id', recipeId),
-          Q.where('is_deleted', false)
-        )
-      )
-      .fetch();
+  // Update method following the ShoppingItem pattern
+  static async update(
+    database: Database,
+    recipeTagId: string,
+    recipeId?: string,
+    tagId?: string,
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: string,
+    isDeleted?: boolean
+  ): Promise<RecipeTag | null> {
+    try {
+      const recipeTag = await database
+        .get<RecipeTag>('recipe_tags')
+        .find(recipeTagId);
+      
+      if (!recipeTag) {
+        console.log(`[DB ${this.table}] Recipe tag with id ${recipeTagId} not found`);
+        return null;
+      }
+      
+      console.log(`[DB ${this.table}] Updating recipe tag ${recipeTagId} with provided fields`);
+      
+      // Use the update method directly from the model instance
+      await recipeTag.update(record => {
+        // Update only provided fields
+        if (recipeId !== undefined) record.recipeId = recipeId;
+        if (tagId !== undefined) record.tagId = tagId;
+        
+        // Update SyncModel fields if provided
+        if (syncId !== undefined) record.syncId = syncId;
+        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
+        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
+        if (isDeleted !== undefined) record.isDeleted = isDeleted;
+      });
+      
+      console.log(`[DB ${this.table}] Successfully updated recipe tag ${recipeTagId}`);
+      return recipeTag;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error updating recipe tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 
-  // Static method to find recipe tags by tag ID
-  static async findByTagId(database: Database, tagId: string): Promise<RecipeTag[]> {
-    return await database
-      .get<RecipeTag>('recipe_tags')
-      .query(
-        Q.and(
-          Q.where('tag_id', tagId),
-          Q.where('is_deleted', false)
-        )
-      )
-      .fetch();
+  // Override markAsDeleted for consistent implementation
+  async markAsDeleted(): Promise<void> {
+    try {
+      console.log(`[DB ${this.table}] Marking recipe tag ${this.id} as deleted`);
+      
+      // Use the static update method to mark as deleted
+      await RecipeTag.update(
+        this.database,
+        this.id,
+        undefined, // recipeId - keep existing
+        undefined, // tagId - keep existing
+        undefined, // syncId - keep existing
+        undefined, // syncStatusField - will be set automatically
+        undefined, // lastUpdate - will be set automatically
+        true      // isDeleted - mark as deleted
+      );
+      
+      console.log(`[DB ${this.table}] Successfully marked recipe tag ${this.id} as deleted`);
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error marking recipe tag as deleted: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
+
 
   // Static method to find a recipe by sync_id
   static async findRecipeBySyncId(database: Database, recipeSyncId: string): Promise<Recipe | null> {
@@ -145,59 +195,4 @@ export default class RecipeTag extends SyncModel {
     
     return tags.length > 0 ? tags[0] : null;
   }
-
-  // Method to find matching records with recipe and tag sync_id mapping
-  static async findMatchingRecordsWithRelations(
-    database: Database,
-    serverObject: Record<string, any>
-  ): Promise<RecipeTag[]> {
-    // If this is a recipe_tag
-    if (serverObject.object_type === 'recipe_tag') {
-      try {
-        let canCreate = true;
-        
-        // Handle recipe sync_id conversion
-        if (serverObject.recipe) {
-          const recipe = await RecipeTag.findRecipeBySyncId(database, serverObject.recipe);
-          
-          if (recipe) {
-            // Set recipeId to the local ID of the recipe
-            serverObject.recipeId = recipe.id;
-          } else {
-            console.log(`[DB ${this.table}] Recipe with sync_id ${serverObject.recipe} not found yet, will retry later`);
-            // Instead of failing immediately, we'll mark that we can't create this object yet
-            canCreate = false;
-          }
-        }
-        
-        // Handle tag sync_id conversion
-        if (serverObject.tag) {
-          const tag = await RecipeTag.findTagBySyncId(database, serverObject.tag);
-          
-          if (tag) {
-            // Set tagId to the local ID of the tag
-            serverObject.tagId = tag.id;
-          } else {
-            console.log(`[DB ${this.table}] Tag with sync_id ${serverObject.tag} not found yet, will retry later`);
-            // Instead of failing immediately, we'll mark that we can't create this object yet
-            canCreate = false;
-          }
-        }
-        
-        // If we can't find either the recipe or the tag, we'll return an empty array
-        // to indicate this object should be retried later
-        if (!canCreate) {
-          return [];
-        }
-      } catch (error) {
-        console.log(`[DB ${this.table}] Error finding related objects, will retry later`);
-        // Instead of failing, we'll return an empty array to indicate this object should be retried later
-        return [];
-      }
-    }
-    
-    // Call the base implementation to find matching records
-    const records = await SyncModel.findMatchingRecords.call(this as unknown as (new () => SyncModel) & typeof SyncModel, database, serverObject);
-    return records as RecipeTag[];
-  }
-} 
+}
