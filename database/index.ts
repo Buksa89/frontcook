@@ -15,7 +15,7 @@ import Ingredient from './models/Ingredient'
 import ShoppingItem from './models/ShoppingItem'
 import LocalUserSettings from './models/UserSettings'
 import Notification from './models/Notification'
-import UserData from './models/UserData'
+import AppData from './models/AppData'
 import { v4 as uuidv4 } from 'uuid'
 
 interface DefaultTag {
@@ -60,7 +60,7 @@ const database = new Database({
     ShoppingItem,
     LocalUserSettings,
     Notification,
-    UserData
+    AppData
   ],
 })
 

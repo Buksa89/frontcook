@@ -35,12 +35,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const tokenGetter = async () => accessToken;
     const userGetter = async () => activeUser;
     api.setAccessTokenGetter(tokenGetter);
-    syncService.setAccessTokenGetter(tokenGetter);
-    syncService.setActiveUserGetter(userGetter);
+    // Comment out calls to non-existent methods in syncService
+    // syncService.setAccessTokenGetter(tokenGetter);
+    // syncService.setActiveUserGetter(userGetter);
 
     // Start sync if we have both token and user
     if (accessToken && activeUser) {
-      syncService.startBackgroundSync(activeUser);
+      // Update to match the implementation without parameters
+      syncService.startBackgroundSync();
     }
   }, [accessToken, activeUser]);
 

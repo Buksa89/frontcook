@@ -23,6 +23,14 @@ export default class RecipeTag extends SyncModel {
   @relation('recipes', 'recipe_id') recipe!: Recipe
   @relation('tags', 'tag_id') tag!: Tag
 
+  // Instance method to set relations from server object
+  async setRelations(serverObject: Record<string, any>): Promise<Record<string, any>> {
+    console.log(`[DB ${this.table}] Setting relations for recipe tag with id: ${this.id}`);
+    
+    // Call the static implementation directly
+    return await RecipeTag.setRelations(serverObject, this.database);
+  }
+
   // Helper method to get sync data for this recipe tag
   getSyncData(): Record<string, any> {
     // Pobierz sync_id przepisu i tagu, jeśli są dostępne
@@ -194,5 +202,92 @@ export default class RecipeTag extends SyncModel {
       .fetch();
     
     return tags.length > 0 ? tags[0] : null;
+  }
+
+  // Override setRelations to handle recipe and tag relations
+  static async setRelations<T extends SyncModel>(
+    serverObject: Record<string, any>,
+    database: Database
+  ): Promise<Record<string, any>> {
+    // Call the parent method
+    const result = await SyncModel.setRelations(serverObject, database);
+    
+    // We expect serverObject to have recipe and tag properties with sync_ids
+    const recipeSyncId = serverObject.recipe;
+    const tagSyncId = serverObject.tag;
+    
+    // Store the found IDs to use when creating/updating the record
+    let recipeLocalId = null;
+    let tagLocalId = null;
+    
+    // Process recipe relation if sync_id is provided
+    if (recipeSyncId) {
+      // Find the recipe with the given sync_id
+      const recipe = await this.findRecipeBySyncId(database, recipeSyncId);
+      if (recipe) {
+        // Store the local ID for use in createAsSynced or update
+        recipeLocalId = recipe.id;
+        // Add to processed data directly in snake_case (for createAsSynced)
+        result.recipe_id = recipe.id;
+      } else {
+        console.log(`[DB ${this.table}] Warning: Recipe with syncId ${recipeSyncId} not found`);
+      }
+    }
+    
+    // Process tag relation if sync_id is provided
+    if (tagSyncId) {
+      // Find the tag with the given sync_id
+      const tag = await this.findTagBySyncId(database, tagSyncId);
+      if (tag) {
+        // Store the local ID for use in createAsSynced or update
+        tagLocalId = tag.id;
+        // Add to processed data directly in snake_case (for createAsSynced)
+        result.tag_id = tag.id;
+      } else {
+        console.log(`[DB ${this.table}] Warning: Tag with syncId ${tagSyncId} not found`);
+      }
+    }
+    
+    return result;
+  }
+
+  // Override createAsSynced to properly handle relations
+  static async createAsSynced<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
+    database: Database,
+    serverData: Record<string, any>
+  ): Promise<T> {
+    // Extract relation IDs before passing to parent method
+    const recipeId = serverData.recipe_id;
+    const tagId = serverData.tag_id;
+    
+    // Remove relation fields from server data
+    const sanitizedData = { ...serverData };
+    delete sanitizedData.recipe_id;
+    delete sanitizedData.tag_id;
+    delete sanitizedData.recipe;
+    delete sanitizedData.tag;
+    
+    // Call the parent createAsSynced with sanitized data
+    const record = await SyncModel.createAsSynced.call(
+      this,
+      database,
+      sanitizedData
+    ) as RecipeTag;
+    
+    // Now set the relations correctly after the record is created
+    if (recipeId) {
+      await record.update(r => {
+        r.recipeId = recipeId;
+      });
+    }
+    
+    if (tagId) {
+      await record.update(r => {
+        r.tagId = tagId;
+      });
+    }
+    
+    return record as unknown as T;
   }
 }

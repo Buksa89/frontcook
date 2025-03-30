@@ -101,14 +101,14 @@ const notificationsSchema: TableSchema = tableSchema({
   ]
 })
 
-// Schema for user data (including last sync per user)
-const userDataSchema: TableSchema = tableSchema({
-  name: 'user_data',
+// Schema forapp data (including last sync per user)
+const AppDataSchema: TableSchema = tableSchema({
+  name: 'app_data',
   columns: [
-    { name: 'user', type: 'string', isIndexed: true },
     { name: 'last_sync', type: 'number', isOptional: true },
     { name: 'subscription_end', type: 'number', isOptional: true },
-    { name: 'csv_lock', type: 'string', isOptional: true }
+    { name: 'csv_lock', type: 'string', isOptional: true },
+    ...syncColumns
   ]
 })
 
@@ -122,7 +122,7 @@ const schema: AppSchema = appSchema({
     shoppingItemsSchema,
     localUserSettingsSchema,
     notificationsSchema,
-    userDataSchema
+    AppDataSchema
   ]
 })
 

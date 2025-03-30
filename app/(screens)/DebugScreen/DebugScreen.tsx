@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import database from '../../../database';
 import { Q } from '@nozbe/watermelondb';
 import AuthService from '../../services/auth/authService';
-import UserData from '../../../database/models/UserData';
+import AppData from '../../../database/models/AppData';
 
 export default function DebugScreen() {
   const [tables, setTables] = useState<{ [key: string]: any[] }>({});
@@ -23,8 +23,8 @@ export default function DebugScreen() {
       console.log('[DEBUG] Active user:', user);
       
       if (user) {
-        const time = await UserData.getLastSyncByUser(database, user);
-        setLastSyncTime(time);
+        const time = await AppData.getLastSync(database);
+        setLastSyncTime(time.toISOString());
       } else {
         setLastSyncTime(null);
       }
@@ -40,7 +40,7 @@ export default function DebugScreen() {
     }
 
     try {
-      await UserData.updateLastSyncByUser(database, activeUser, new Date(0).toISOString());
+      await AppData.updateLastSync(database, new Date(0));
       await loadUserAndLastSyncTime();
     } catch (error) {
       console.error('Error resetting last sync time:', error);
@@ -50,7 +50,7 @@ export default function DebugScreen() {
 
   const loadAllData = async () => {
     try {
-      const tableNames = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings', 'notifications', 'user_data'];
+      const tableNames = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings', 'notifications', 'app_data'];
       const tablesData: { [key: string]: any[] } = {};
 
       for (const tableName of tableNames) {

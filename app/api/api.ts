@@ -286,28 +286,16 @@ class ApiClient {
               
               // Jeśli odpowiedź jest pusta, zwróć pusty obiekt
               if (newResponse.status === 204) {
-                if (DEBUG) {
-                  console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} No Content`);
-                }
                 return {} as T;
               }
               
               // Obsługa kodu 205 (Reset Content) lub pustej odpowiedzi
               if (newResponse.status === 205 || newResponse.headers.get('content-length') === '0') {
-                if (DEBUG) {
-                  console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} ${newResponse.status === 205 ? 'Reset Content' : 'Empty Response'}`);
-                }
                 return {} as T;
               }
               
               // Parsuj odpowiedź jako JSON
               const newResponseData = await newResponse.json();
-              
-              // Loguj odpowiedź, jeśli DEBUG jest włączony
-              if (DEBUG) {
-                console.log(`✅ API RESPONSE (after token refresh): ${newResponse.status} ${newResponse.statusText}`);
-                console.log('📦 Response Data:', this.sanitizeResponseForLogging(newResponseData));
-              }
               
               return newResponseData;
             }
@@ -355,29 +343,18 @@ class ApiClient {
       
       // Jeśli odpowiedź jest pusta, zwróć pusty obiekt
       if (response.status === 204) {
-        if (DEBUG) {
-          console.log(`✅ API RESPONSE: ${response.status} No Content`);
-        }
         return {} as T;
       }
       
       // Obsługa kodu 205 (Reset Content) lub pustej odpowiedzi
       if (response.status === 205 || response.headers.get('content-length') === '0') {
-        if (DEBUG) {
-          console.log(`✅ API RESPONSE: ${response.status} ${response.status === 205 ? 'Reset Content' : 'Empty Response'}`);
-        }
         return {} as T;
       }
       
       // Parsuj odpowiedź jako JSON
       const responseData = await response.json();
       
-      // Loguj odpowiedź, jeśli DEBUG jest włączony
-      if (DEBUG) {
-        console.log(`✅ API RESPONSE: ${response.status} ${response.statusText}`);
-        console.log('📦 Response Data:', this.sanitizeResponseForLogging(responseData));
-      }
-      
+      // Nie loguj pomyślnych odpowiedzi
       return responseData;
     } catch (error) {
       if (error instanceof ApiError) {

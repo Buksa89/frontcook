@@ -237,6 +237,17 @@ export default class SyncModel extends Model {
     return records.length > 0;
   }
 
+  // Static method to set relations from server object
+  // Can be overridden in derived classes to handle specific relations
+  static async setRelations<T extends SyncModel>(
+    serverObject: Record<string, any>,
+    database: Database
+  ): Promise<Record<string, any>> {
+    // Empty base implementation
+    // Derived classes should override this to implement relation handling
+    return serverObject;
+  }
+
   // Method for synchronizing updates between server and local database
   // Implementation will be built step by step
   static async pullSyncUpdate<T extends SyncModel>(
@@ -253,23 +264,28 @@ export default class SyncModel extends Model {
     // Case 1: Object doesn't exist in local database
     if (!exists) {
       // Preprocess server data to convert snake_case fields to camelCase
-      const processedData: Record<string, any> = {};
+      const mappedServerObject: Record<string, any> = {};
       
       // Process all fields from serverObject
       Object.entries(serverObject).forEach(([key, value]) => {
         // Convert all keys from snake_case to camelCase
         const camelKey = SyncModel.snakeToCamel(key);
-        processedData[camelKey] = value;
+        mappedServerObject[camelKey] = value;
       });
       
       // Create a new record using the processed data
       try {
-        const newRecord = await this.createAsSynced<T>(database, processedData);
-        console.log(`[DB ${this.table}] Created new record with syncId: ${newRecord.syncId}`);
+        // First handle the setup of relations
+        // This allows relation data to be properly set before the record is created
+        const objectToSave = await this.setRelations(mappedServerObject, database);
+        
+        // Now create the record with the processed data
+        const newRecord = await this.createAsSynced<T>(database, objectToSave);
+        
         
         return {
           success: true,
-          message: `Created new record with syncId: ${syncId}`
+          message: `Created new record ${this.table} with syncId: ${syncId}`
         };
       } catch (createError) {
         const errorMessage = createError instanceof Error ? createError.message : 'Unknown error';
@@ -296,20 +312,23 @@ export default class SyncModel extends Model {
       // If update is needed
       if (needsUpdate) {
         // Preprocess server data to convert snake_case fields to camelCase
-        const processedData: Record<string, any> = {};
+        const mappedServerObject: Record<string, any> = {};
         
         // Process all fields from serverObject
         Object.entries(serverObject).forEach(([key, value]) => {
           // Convert all keys from snake_case to camelCase
           const camelKey = SyncModel.snakeToCamel(key);
-          processedData[camelKey] = value;
+          mappedServerObject[camelKey] = value;
         });
         
         // Update the existing record with the processed data
         try {
+          // Set relations before updating the record
+          const objectToSave = await this.setRelations(mappedServerObject, database);
+          
           await existingRecord.updateAsSynced(record => {
             // Apply all processed fields to the record
-            Object.entries(processedData).forEach(([key, value]) => {
+            Object.entries(objectToSave).forEach(([key, value]) => {
               // Apply value to the record
                         (record as any)[key] = value;
             });

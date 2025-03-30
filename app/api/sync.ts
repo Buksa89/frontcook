@@ -86,24 +86,31 @@ export interface SyncResponse {
 }
 
 export const syncData = async (data: SyncRequest): Promise<SyncResponse> => {
-  // Pobierz tokeny
-  const { accessToken } = await authService.getTokens();
+  // Fix the error by using AuthService's methods correctly
+  const authData = await authService.getAuthData();
   
   // Dodaj token do nagłówków
   const headers = {
-    'Authorization': `Bearer ${accessToken}`
+    'Authorization': `Bearer ${authData.accessToken}`
   };
 
   return api.post<SyncResponse>('/api/sync', data, true, headers);
 };
 
-export const getChanges = async (lastSync: string): Promise<SyncResponse> => {
-  // Zakoduj timestamp w URL
-  const encodedLastSync = encodeURIComponent(lastSync);
+export const getChanges = async (lastSync: string, batchSize: number = 20): Promise<SyncResponse> => {
+  console.log('[Sync API] Fetching changes since:', lastSync, 'with batch size:', batchSize);
   
-  console.log('[Sync API] Fetching changes since:', lastSync);
-  const response = await api.get<SyncResponse>(`/api/sync/changes/?last_sync=${encodedLastSync}`, true);
-  console.log('[Sync API] Received changes:', response);
+  // Prepare the payload for the API call
+  const payload = {
+    lastSync,
+    limit: batchSize
+  };
+
+  // Call the API to get updated data from the server
+  const response = await api.post<SyncResponse>('/api/sync/pull/', payload, true);
+  
+  // Just log that we received changes without printing the response
+  console.log('[Sync API] Received changes');
   
   return response;
 };

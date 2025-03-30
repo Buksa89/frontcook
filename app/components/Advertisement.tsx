@@ -3,7 +3,7 @@ import { View, StyleSheet, Platform, Text } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { withObservables } from '@nozbe/watermelondb/react';
 import database from '../../database';
-import UserData from '../../database/models/UserData';
+import AppData from '../../database/models/AppData';
 import { DEBUG } from '../constants/env';
 import { Observable } from 'rxjs';
 
@@ -46,7 +46,7 @@ const AdvertisementComponent = ({ subscriptionStatus }: AdvertisementComponentPr
 };
 
 const enhance = withObservables<{}, { subscriptionStatus: Observable<{ isActive: boolean, endDate: Date | null }> }>([], () => ({
-  subscriptionStatus: UserData.observeSubscriptionStatus(database),
+  subscriptionStatus: AppData.observeSubscriptionStatus(database),
 }));
 
 export const Advertisement = enhance(AdvertisementComponent);

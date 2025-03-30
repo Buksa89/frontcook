@@ -235,4 +235,74 @@ export default class Ingredient extends SyncModel {
       throw error;
     }
   }
+
+  // Instance method to set relations from server object
+  async setRelations(serverObject: Record<string, any>): Promise<Record<string, any>> {
+    console.log(`[DB ${this.table}] Setting relations for ingredient with id: ${this.id}`);
+    
+    // Call the static implementation directly
+    return await Ingredient.setRelations(serverObject, this.database);
+  }
+
+  // Override setRelations to handle recipe relation
+  static async setRelations<T extends SyncModel>(
+    serverObject: Record<string, any>,
+    database: Database
+  ): Promise<Record<string, any>> {
+    // Call the parent method
+    const result = await SyncModel.setRelations(serverObject, database);
+    
+    // We expect serverObject to have recipe property with sync_id
+    const recipeSyncId = serverObject.recipe;
+    
+    // Store the found ID to use when creating/updating the record
+    let recipeLocalId = null;
+    
+    // Process recipe relation if sync_id is provided
+    if (recipeSyncId) {
+      // Find the recipe with the given sync_id
+      const recipe = await this.findRecipeBySyncId(database, recipeSyncId);
+      if (recipe) {
+        // Store the local ID for use in createAsSynced or update
+        recipeLocalId = recipe.id;
+        // Add to processed data directly in snake_case (for createAsSynced)
+        result.recipe_id = recipe.id;
+      } else {
+        console.log(`[DB ${this.table}] Warning: Recipe with syncId ${recipeSyncId} not found`);
+      }
+    }
+    
+    return result;
+  }
+
+  // Override createAsSynced to properly handle relations
+  static async createAsSynced<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
+    database: Database,
+    serverData: Record<string, any>
+  ): Promise<T> {
+    // Extract relation ID before passing to parent method
+    const recipeId = serverData.recipe_id;
+    
+    // Remove relation fields from server data
+    const sanitizedData = { ...serverData };
+    delete sanitizedData.recipe_id;
+    delete sanitizedData.recipe;
+    
+    // Call the parent createAsSynced with sanitized data
+    const record = await SyncModel.createAsSynced.call(
+      this,
+      database,
+      sanitizedData
+    ) as Ingredient;
+    
+    // Now set the relation correctly after the record is created
+    if (recipeId) {
+      await record.update(r => {
+        r.recipeId = recipeId;
+      });
+    }
+    
+    return record as unknown as T;
+  }
 } 
