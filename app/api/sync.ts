@@ -65,7 +65,13 @@ export interface UserSettingsSync extends BaseSyncItem {
   language: string;
 }
 
-export type SyncItemType = ShoppingItemSync | RecipeSync | IngredientSync | TagSync | RecipeTagSync | UserSettingsSync;
+export interface AppDataSync extends BaseSyncItem {
+  object_type: 'app_data';
+  subscription_end?: string | null;
+  csv_lock?: string | null;
+}
+
+export type SyncItemType = ShoppingItemSync | RecipeSync | IngredientSync | TagSync | RecipeTagSync | UserSettingsSync | AppDataSync;
 
 export interface SyncRequest {
   shopping_items?: ShoppingItemSync[];
@@ -83,19 +89,9 @@ export interface SyncResponse {
   tags?: TagSync[];
   recipe_tags?: RecipeTagSync[];
   user_settings?: UserSettingsSync[];
+  app_data?: AppDataSync[];
 }
 
-export const syncData = async (data: SyncRequest): Promise<SyncResponse> => {
-  // Fix the error by using AuthService's methods correctly
-  const authData = await authService.getAuthData();
-  
-  // Dodaj token do nagłówków
-  const headers = {
-    'Authorization': `Bearer ${authData.accessToken}`
-  };
-
-  return api.post<SyncResponse>('/api/sync', data, true, headers);
-};
 
 export const getChanges = async (lastSync: string, batchSize: number = 20): Promise<SyncResponse> => {
   console.log('[Sync API] Fetching changes since:', lastSync, 'with batch size:', batchSize);
@@ -103,7 +99,7 @@ export const getChanges = async (lastSync: string, batchSize: number = 20): Prom
   // Prepare the payload for the API call
   const payload = {
     lastSync,
-    limit: batchSize
+    limit: batchSize,
   };
 
   // Call the API to get updated data from the server
@@ -115,8 +111,28 @@ export const getChanges = async (lastSync: string, batchSize: number = 20): Prom
   return response;
 };
 
+// Add push method using existing interface types
+export const pushChanges = async (changes: SyncItemType[]): Promise<SyncItemType[]> => {
+  console.log('[Sync API] Pushing changes to server');
+  
+  // Get authentication data for the API call
+  const authData = await authService.getAuthData();
+  
+  // Add authentication token to headers
+  const headers = {
+    'Authorization': `Bearer ${authData.accessToken}`
+  };
+
+  // Call the API to push data to the server
+  const response = await api.post<SyncItemType[]>('/api/sync/push/', changes, true, headers);
+  
+  console.log('[Sync API] Push completed');
+  
+  return response;
+};
+
 // Add default export for Expo Router compatibility
 export default {
-  syncData,
-  getChanges
+  getChanges,
+  pushChanges
 }; 

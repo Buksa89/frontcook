@@ -290,4 +290,15 @@ export default class RecipeTag extends SyncModel {
     
     return record as unknown as T;
   }
+
+  // Override prepareForPush to properly handle relations
+  prepareForPush(): Record<string, any> {
+    // Get base data from parent class
+    const baseData = super.prepareForPush();
+        
+    baseData.recipe = this.recipe.syncId;
+    baseData.tag = this.tag.syncId;
+    
+    return baseData;
+  }
 }

@@ -14,8 +14,8 @@ import ShoppingItem from '../../../database/models/ShoppingItem';
 import UserSettings from '../../../database/models/UserSettings';
 import Notification from '../../../database/models/Notification';
 import AppData from '../../../database/models/AppData';
-import { SubscriptionApi } from '../../api/subscription';
 import pullSynchronization from './pullSynchronization';
+import pushSynchronization from './pushSynchronization';
 import AuthService from '../auth/authService';
 
 
@@ -89,8 +89,8 @@ class SyncService {
       // Execute pull synchronization with user and lastSync
       await pullSynchronization(activeUser, lastSync.toISOString());
       
-      // Execute push synchronization
-      await this.pushSynchronization();
+      // Execute push synchronization directly using the imported function
+      await pushSynchronization(activeUser);
       
       // We're not updating the last sync timestamp yet
       // await AppData.updateLastSync(database, activeUser, new Date().toISOString());
@@ -99,15 +99,6 @@ class SyncService {
       console.error('[SyncService] Sync error:', error);
       throw error;
     }
-  }
-
-  /**
-   * Push local changes to the server
-   */
-  private async pushSynchronization(): Promise<void> {
-    console.log('[SyncService] Push synchronization started');
-    // Empty method for now - will push local changes to the server
-    return Promise.resolve();
   }
 }
 
