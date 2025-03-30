@@ -156,9 +156,7 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
             )}
           </View>
 
-          {recipe.rating !== null && (
-            <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
-          )}
+          <RecipeRating rating={recipe.rating} onRatingChange={handleRatingChange} />
 
           {recipe.servings !== null && recipe.servings > 0 && (
             <ServingsAdjuster 
