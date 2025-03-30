@@ -83,4 +83,9 @@ export const parseIngredient = (originalStr: string): ParsedIngredient => {
     unit,
     name: name || originalStr.toLowerCase() // Jeśli nie ma nazwy, użyj całego tekstu
   };
+};
+
+// Add default export for Expo Router compatibility
+export default {
+  parseIngredient
 }; 

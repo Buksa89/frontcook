@@ -258,6 +258,9 @@ export const TagsSelector = ({
   );
 };
 
+// Add default export for Expo Router compatibility
+export default TagsSelector;
+
 const styles = StyleSheet.create({
   field: {
     marginBottom: 16,

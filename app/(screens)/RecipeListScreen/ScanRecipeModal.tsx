@@ -207,6 +207,9 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
   );
 };
 
+// Add default export for Expo Router compatibility
+export default ScanRecipeModal;
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

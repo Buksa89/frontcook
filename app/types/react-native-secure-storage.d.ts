@@ -7,4 +7,7 @@ declare module 'react-native-secure-storage' {
   };
   
   export default EncryptedStorage;
-} 
+}
+
+// Add this dummy export to satisfy Expo Router
+export default {}; 

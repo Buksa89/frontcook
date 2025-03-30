@@ -245,6 +245,9 @@ const enhance = withObservables<{ selectedTags: Tag[]; onSelectTag: (tag: Tag) =
 
 export const EnhancedTagList = enhance(TagList);
 
+// Add default export for Expo Router compatibility
+export default EnhancedTagList;
+
 const styles = StyleSheet.create({
   tagsScroll: {
     flex: 1,

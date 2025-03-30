@@ -130,6 +130,9 @@ const enhancePendingCard = withObservables(['recipe'], ({ recipe }: { recipe: Re
 
 export const EnhancedPendingRecipeCard = enhancePendingCard(PendingRecipeCard);
 
+// Add default export for Expo Router compatibility
+export default EnhancedPendingRecipeCard;
+
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',

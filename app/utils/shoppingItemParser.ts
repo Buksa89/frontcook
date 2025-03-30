@@ -83,4 +83,9 @@ export const parseShoppingItem = (originalStr: string): ParsedShoppingItem => {
     unit,
     name: name || originalStr.toLowerCase() // Jeśli nie ma nazwy, użyj całego tekstu
   };
+};
+
+// Add default export for Expo Router compatibility
+export default {
+  parseShoppingItem
 }; 

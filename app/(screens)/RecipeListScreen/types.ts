@@ -14,4 +14,10 @@ export interface FilterState {
   maxPrepTime: number | null;
   maxTotalTime: number | null;
   searchPhrase: string;
-} 
+}
+
+// Add default export to satisfy Expo Router's requirements
+// This is a dummy export since this is just a types file
+export default {
+  __isTypesFile: true
+}; 

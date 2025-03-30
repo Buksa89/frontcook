@@ -175,6 +175,9 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
   );
 };
 
+// Add default export for Expo Router compatibility
+export default AddRecipeMenu;
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

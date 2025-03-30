@@ -241,6 +241,9 @@ export const TimeInput = ({
   );
 };
 
+// Add default export for Expo Router compatibility
+export default TimeInput;
+
 const styles = StyleSheet.create({
   field: {
     marginBottom: 16,

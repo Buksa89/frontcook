@@ -13,4 +13,10 @@ export const DEBUG = Constants.expoConfig?.extra?.DEBUG !== undefined
 // Sprawdzenie czy API_URL jest zdefiniowane - już nie rzucamy błędu, tylko logujemy ostrzeżenie
 if (!API_URL) {
   console.warn('API_URL is not defined in environment variables, using default value');
-} 
+}
+
+// Add default export for Expo Router compatibility
+export default {
+  API_URL,
+  DEBUG
+}; 

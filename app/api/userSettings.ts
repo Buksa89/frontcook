@@ -55,3 +55,6 @@ export const UserSettingsApi = {
     return UserSettingsApi.updateUserSettings(updateData);
   }
 }; 
+
+// Add default export for Expo Router compatibility
+export default UserSettingsApi; 

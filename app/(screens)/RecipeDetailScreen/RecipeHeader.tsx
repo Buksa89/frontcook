@@ -137,6 +137,9 @@ export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) =>
   );
 };
 
+// Add default export for Expo Router compatibility
+export default RecipeHeader;
+
 const styles = StyleSheet.create({
   header: {
     position: 'relative',

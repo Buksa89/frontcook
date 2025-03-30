@@ -42,4 +42,7 @@ export const useServings = (): ServingsContextType => {
     throw new Error('useServings must be used within a ServingsProvider');
   }
   return context;
-}; 
+};
+
+// Add default export for Expo Router compatibility
+export default ServingsProvider; 

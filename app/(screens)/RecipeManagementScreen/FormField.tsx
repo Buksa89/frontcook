@@ -64,6 +64,9 @@ export const FormField = ({
   );
 };
 
+// Add default export for Expo Router compatibility
+export default FormField;
+
 const styles = StyleSheet.create({
   field: {
     marginBottom: 16,

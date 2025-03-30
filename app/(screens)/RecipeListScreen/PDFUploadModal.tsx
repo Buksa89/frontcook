@@ -229,6 +229,9 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
   );
 };
 
+// Add default export for Expo Router compatibility
+export default PDFUploadModal;
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

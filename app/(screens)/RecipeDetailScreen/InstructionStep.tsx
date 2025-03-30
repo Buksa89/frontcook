@@ -53,6 +53,9 @@ export const InstructionStep: React.FC<InstructionStepProps> = ({ step, stepNumb
   );
 };
 
+// Add default export for Expo Router compatibility
+export default InstructionStep;
+
 const styles = StyleSheet.create({
   instructionRow: {
     width: '100%',

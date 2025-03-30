@@ -188,6 +188,9 @@ const enhance = withObservables([], () => ({
 
 export const EnhancedFilterMenu = enhance(FilterMenu);
 
+// Add default export for Expo Router compatibility
+export default EnhancedFilterMenu;
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

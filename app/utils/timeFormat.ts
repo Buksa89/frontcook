@@ -12,4 +12,9 @@ export const formatTime = (minutes: number): string => {
   }
 
   return `${minutes} min`;
+};
+
+// Add default export for Expo Router compatibility
+export default {
+  formatTime
 }; 

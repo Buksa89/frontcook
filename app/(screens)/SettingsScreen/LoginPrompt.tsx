@@ -39,6 +39,9 @@ export const LoginPrompt: React.FC = () => {
   );
 };
 
+// Add default export for Expo Router compatibility
+export default LoginPrompt;
+
 const styles = StyleSheet.create({
   loginPromptSection: {
     padding: 16,

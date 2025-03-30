@@ -32,6 +32,9 @@ export const RecipeRating = ({ rating, onRatingChange }: RecipeRatingProps) => {
   );
 };
 
+// Add default export for Expo Router compatibility
+export default RecipeRating;
+
 const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: 'row',

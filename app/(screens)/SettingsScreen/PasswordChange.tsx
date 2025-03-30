@@ -101,6 +101,9 @@ export const PasswordChange: React.FC = () => {
   );
 };
 
+// Add default export for Expo Router compatibility
+export default PasswordChange;
+
 const styles = StyleSheet.create({
   section: {
     padding: 16,

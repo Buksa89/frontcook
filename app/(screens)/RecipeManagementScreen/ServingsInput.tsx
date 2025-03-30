@@ -76,6 +76,9 @@ export const ServingsInput = ({
   );
 };
 
+// Add default export for Expo Router compatibility
+export default ServingsInput;
+
 const styles = StyleSheet.create({
   field: {
     marginBottom: 16,

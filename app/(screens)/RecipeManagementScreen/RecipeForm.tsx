@@ -181,6 +181,9 @@ export const RecipeForm = ({
   );
 };
 
+// Add default export for Expo Router compatibility
+export default RecipeForm;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

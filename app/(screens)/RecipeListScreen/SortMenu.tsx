@@ -70,6 +70,9 @@ export const SortMenu = ({ visible, onClose, currentSort, onSortChange, sortOpti
   </Modal>
 );
 
+// Add default export for Expo Router compatibility
+export default SortMenu;
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

@@ -124,6 +124,9 @@ export const ServingsAdjuster: React.FC<ServingsAdjusterProps> = ({
   );
 };
 
+// Add default export for Expo Router compatibility
+export default ServingsAdjuster;
+
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',

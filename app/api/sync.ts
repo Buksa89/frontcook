@@ -106,4 +106,10 @@ export const getChanges = async (lastSync: string): Promise<SyncResponse> => {
   console.log('[Sync API] Received changes:', response);
   
   return response;
+};
+
+// Add default export for Expo Router compatibility
+export default {
+  syncData,
+  getChanges
 }; 

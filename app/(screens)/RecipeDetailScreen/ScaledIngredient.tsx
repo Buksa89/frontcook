@@ -44,6 +44,9 @@ export const ScaledIngredient: React.FC<ScaledIngredientProps> = ({ ingredient }
   );
 };
 
+// Add default export for Expo Router compatibility
+export default ScaledIngredient;
+
 const styles = StyleSheet.create({
   ingredientLine: {
     width: '100%',

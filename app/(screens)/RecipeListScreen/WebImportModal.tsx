@@ -142,6 +142,9 @@ export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportM
   );
 };
 
+// Add default export for Expo Router compatibility
+export default WebImportModal;
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
