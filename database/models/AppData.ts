@@ -14,6 +14,53 @@ export default class AppData extends SyncModel {
   @date('subscription_end') subscriptionEnd!: Date | null
   @text('csv_lock') csvLock!: string | null
 
+  // Method to check if a server object already exists in the local database
+  // Override from SyncModel to check by user instead of syncId
+  static async existsInLocalDatabase<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
+    database: Database,
+    serverObject: Record<string, any>
+  ): Promise<boolean> {
+    // Get active user
+    const activeUser = await AuthService.getActiveUser();
+    
+    // Check if any app data exists for the current user
+    const records = await database
+      .get<T>(this.table)
+      .query(
+        Q.and(
+          Q.where('owner', activeUser),
+          Q.where('is_deleted', false)
+        )
+      )
+      .fetch();
+      
+    return records.length > 0;
+  }
+
+  // Method to get a model from the local database for the current user
+  // Override from SyncModel to get by user instead of syncId
+  static async getModelBySyncId<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
+    database: Database,
+    syncId: string
+  ): Promise<T | null> {
+    // For AppData, we ignore the syncId parameter and just get the user's record
+    const activeUser = await AuthService.getActiveUser();
+    
+    const records = await database
+      .get<T>(this.table)
+      .query(
+        Q.and(
+          Q.where('owner', activeUser),
+          Q.where('is_deleted', false)
+        )
+      )
+      .fetch();
+      
+    return records.length > 0 ? records[0] : null;
+  }
+
   // Static method to observe subscription status
   static observeSubscriptionStatus(database: Database): Observable<{ isActive: boolean, endDate: Date | null }> {
     return new Observable<{ isActive: boolean, endDate: Date | null }>(subscriber => {

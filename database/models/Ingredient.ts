@@ -275,35 +275,42 @@ export default class Ingredient extends SyncModel {
     return result;
   }
 
-  // Override createAsSynced to properly handle relations
+  // Alternative implementation using SyncModel.create directly
   static async createAsSynced<T extends SyncModel>(
     this: { new(): T } & typeof SyncModel,
     database: Database,
     serverData: Record<string, any>
   ): Promise<T> {
-    // Extract relation ID before passing to parent method
+    // Extract values from server data
     const recipeId = serverData.recipe_id;
+    const syncId = serverData.sync_id;
+    const lastUpdate = serverData.last_update;
     
-    // Remove relation fields from server data
-    const sanitizedData = { ...serverData };
-    delete sanitizedData.recipe_id;
-    delete sanitizedData.recipe;
-    
-    // Call the parent createAsSynced with sanitized data
-    const record = await SyncModel.createAsSynced.call(
+    // Use SyncModel.create directly (instead of SyncModel.createAsSynced)
+    // This gives us more control over all fields in a single operation
+    return await SyncModel.create.call(
       this,
       database,
-      sanitizedData
-    ) as Ingredient;
-    
-    // Now set the relation correctly after the record is created
-    if (recipeId) {
-      await record.update(r => {
-        r.recipeId = recipeId;
-      });
-    }
-    
-    return record as unknown as T;
+      (record: SyncModel) => {
+        const ingredient = record as Ingredient;
+        
+        // Set all fields from server data
+        ingredient.syncId = syncId;
+        ingredient.syncStatusField = 'synced';
+        ingredient.lastUpdate = lastUpdate; // Preserve server timestamp
+        ingredient.isDeleted = serverData.is_deleted || false;
+        
+        // Set ingredient-specific fields
+        ingredient.name = serverData.name || '';
+        ingredient.amount = serverData.amount;
+        ingredient.unit = serverData.unit;
+        ingredient.order = serverData.order || 0;
+        ingredient.originalStr = serverData.original_str || '';
+        ingredient.type = serverData.type;
+        ingredient.recipeId = recipeId;
+        
+      }
+    ) as T;
   }
 
   // Override prepareForPush to properly handle relations

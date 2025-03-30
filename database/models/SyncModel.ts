@@ -39,10 +39,11 @@ export default class SyncModel extends Model {
   // Helper method to determine if update is needed based on comparing dates
   needUpdate(serverDate: string): boolean {
     // Compare dates
-    const localTime = new Date(this.lastUpdate).getTime();
-    const serverTime = new Date(serverDate).getTime();
+    const localTime = new Date(this.lastUpdate);
+    const serverTime = new Date(serverDate);
+    console.log(`[SyncModel] Local time: ${localTime.toISOString()}, Server time: ${serverTime.toISOString()}`);
     
-    return serverTime > localTime;
+    return serverTime.getTime() > localTime.getTime();
   }
 
   // Override update method to automatically update sync fields
@@ -237,6 +238,25 @@ export default class SyncModel extends Model {
     return records.length > 0;
   }
 
+  // Method to get a model from the local database by sync_id
+  // Can be used to retrieve a model instead of just checking existence
+  static async getModelBySyncId<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
+    database: Database,
+    syncId: string
+  ): Promise<T | null> {
+    if (!syncId) {
+      return null;
+    }
+    
+    const records = await database
+      .get<T>(this.table)
+      .query(Q.where('sync_id', syncId))
+      .fetch();
+      
+    return records.length > 0 ? records[0] : null;
+  }
+
   // Static method to set relations from server object
   // Can be overridden in derived classes to handle specific relations
   static async setRelations<T extends SyncModel>(
@@ -294,13 +314,13 @@ export default class SyncModel extends Model {
     } 
     // Case 2: Object exists in local database
     else {
-      // Find the existing record to check if update is needed
-      const records = await database
-        .get<T>(this.table)
-        .query(Q.where('sync_id', syncId))
-        .fetch();
-        
-      const existingRecord = records[0];
+      // Find the existing record using our new method
+      const existingRecord = await this.getModelBySyncId<T>(database, syncId);
+      
+      // This should not happen since we already checked existence, but just to be safe
+      if (!existingRecord) {
+        throw new Error(`Record with syncId ${syncId} was found to exist but couldn't be retrieved`);
+      }
       
       // Check if the server data is newer than our local data
       // Extract server date from various possible fields (camelCase or snake_case)

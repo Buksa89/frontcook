@@ -11,6 +11,52 @@ export default class UserSettings extends SyncModel {
   // Fields specific to UserSettings
   @field('language') language!: string
 
+  // Method to check if a server object already exists in the local database
+  // Override from SyncModel to check by user instead of syncId
+  static async existsInLocalDatabase<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
+    database: Database,
+    serverObject: Record<string, any>
+  ): Promise<boolean> {
+    // Get active user
+    const activeUser = await AuthService.getActiveUser();
+    
+    // Check if any user settings exists for the current user
+    const records = await database
+      .get<T>(this.table)
+      .query(
+        Q.and(
+          Q.where('owner', activeUser),
+          Q.where('is_deleted', false)
+        )
+      )
+      .fetch();
+      
+    return records.length > 0;
+  }
+
+  // Method to get a model from the local database for the current user
+  // Override from SyncModel to get by user instead of syncId
+  static async getModelBySyncId<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
+    database: Database,
+    syncId: string
+  ): Promise<T | null> {
+    // For UserSettings, we ignore the syncId parameter and just get the user's record
+    const activeUser = await AuthService.getActiveUser();
+    
+    const records = await database
+      .get<T>(this.table)
+      .query(
+        Q.and(
+          Q.where('owner', activeUser),
+          Q.where('is_deleted', false)
+        )
+      )
+      .fetch();
+      
+    return records.length > 0 ? records[0] : null;
+  }
 
   // Create method following the ShoppingItem pattern
   static async create(
