@@ -1,6 +1,6 @@
 import 'react-native-get-random-values'
 import { Model } from '@nozbe/watermelondb'
-import { field, text, writer } from '@nozbe/watermelondb/decorators'
+import { field, text, date, writer } from '@nozbe/watermelondb/decorators'
 import { Database } from '@nozbe/watermelondb'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
@@ -12,13 +12,13 @@ type SyncStatus = 'pending' | 'synced' | 'conflict'
 export default class SyncModel extends Model {
   @field('sync_id') syncId!: string
   @field('sync_status') syncStatusField!: SyncStatus
-  @field('last_update') lastUpdate!: string
+  @date('last_update') lastUpdate!: Date
   @text('owner') owner!: string | null
   @field('is_deleted') isDeleted!: boolean
 
   // Helper method to format last sync date
   get lastUpdateDate(): Date {
-    return new Date(this.lastUpdate);
+    return this.lastUpdate;
   }
 
   // Helper method to check if record needs synchronization
@@ -39,7 +39,7 @@ export default class SyncModel extends Model {
   // Helper method to determine if update is needed based on comparing dates
   needUpdate(serverDate: string): boolean {
     // Compare dates
-    const localTime = new Date(this.lastUpdate);
+    const localTime = this.lastUpdate;
     const serverTime = new Date(serverDate);
     console.log(`[SyncModel] Local time: ${localTime.toISOString()}, Server time: ${serverTime.toISOString()}`);
     
@@ -75,7 +75,7 @@ export default class SyncModel extends Model {
           // Sprawdź czy data ostatniej aktualizacji została jawnie zmieniona
           if (record.lastUpdate === initialValues.lastUpdate) {
             // Jeśli nie została zmieniona, zaktualizuj ją
-            record.lastUpdate = new Date().toISOString();
+            record.lastUpdate = new Date();
           }
           
           // Inne pola rekordu zostają bez zmian - wszystkie zmiany zastosowane przez recordUpdater są zachowane
@@ -121,8 +121,14 @@ export default class SyncModel extends Model {
       if (!excludedFields.includes(key)) {
         // Convert the key to snake_case if needed
         const snakeKey = SyncModel.camelToSnake(key);
-        // Add the field to server data
-        serverData[snakeKey] = value;
+        
+        // Handle Date objects - convert to ISO string for server
+        if (key === 'last_update' && value instanceof Date) {
+          serverData[snakeKey] = value.toISOString();
+        } else {
+          // Add the field to server data
+          serverData[snakeKey] = value;
+        }
       }
     });
     
@@ -174,7 +180,7 @@ export default class SyncModel extends Model {
           
           // Ustaw datę ostatniej aktualizacji, jeśli nie została jawnie podana
           if (!newRecord.lastUpdate) {
-            newRecord.lastUpdate = new Date().toISOString();
+            newRecord.lastUpdate = new Date();
           }
           
           // Ustaw pole isDeleted, jeśli nie zostało jawnie podane
@@ -195,10 +201,16 @@ export default class SyncModel extends Model {
     serverData: Record<string, any>
   ): Promise<T> {
     
+    // Process server data to convert date strings to Date objects
+    const processedData = {...serverData};
+    if (processedData.last_update && typeof processedData.last_update === 'string') {
+      processedData.last_update = new Date(processedData.last_update);
+    }
+    
     // Utwórz funkcję recordUpdater z odpowiednim typem SyncModel
     const serverDataUpdater = (newRecord: SyncModel) => {
       // Zastosuj wszystkie pola z przygotowanych danych
-      Object.entries(serverData).forEach(([key, value]) => {
+      Object.entries(processedData).forEach(([key, value]) => {
         // Przypisz wartość do pola bezpośrednio - bez sprawdzania id
                   (newRecord as any)[key] = value;
           });

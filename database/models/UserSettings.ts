@@ -65,7 +65,7 @@ export default class UserSettings extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<UserSettings> {
     try {
@@ -102,7 +102,7 @@ export default class UserSettings extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<UserSettings | null> {
     try {

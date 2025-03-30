@@ -5,7 +5,7 @@ import { TableSchema, ColumnSchema, AppSchema } from '@nozbe/watermelondb'
 const syncColumns: ColumnSchema[] = [
   { name: 'sync_id', type: 'string' as const },
   { name: 'sync_status', type: 'string' as const },
-  { name: 'last_update', type: 'string' as const, isOptional: true },
+  { name: 'last_update', type: 'number' as const, isOptional: true },
   { name: 'is_local', type: 'boolean' as const, isOptional: true },
   { name: 'owner', type: 'string' as const, isOptional: true },
   { name: 'is_deleted', type: 'boolean' as const, isOptional: false }
@@ -105,8 +105,8 @@ const notificationsSchema: TableSchema = tableSchema({
 const AppDataSchema: TableSchema = tableSchema({
   name: 'app_data',
   columns: [
-    { name: 'last_sync', type: 'number', isOptional: true },
-    { name: 'subscription_end', type: 'number', isOptional: true },
+    { name: 'last_sync', type: 'number' as const, isOptional: true },
+    { name: 'subscription_end', type: 'number' as const, isOptional: true },
     { name: 'csv_lock', type: 'string', isOptional: true },
     ...syncColumns
   ]

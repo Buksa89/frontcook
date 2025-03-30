@@ -71,85 +71,103 @@ export default schemaMigrations({
       toVersion: 5,
       steps: [
         // Add sync fields to all tables
-        {
-          type: 'sql',
-          sql: `
-            -- Add sync fields to tags
-            ALTER TABLE tags 
-            ADD COLUMN sync_status TEXT DEFAULT 'synced',
-            ADD COLUMN last_update TEXT DEFAULT NULL,
-            ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN owner TEXT DEFAULT NULL;
-
-            -- Add sync fields to recipes
-            ALTER TABLE recipes 
-            ADD COLUMN sync_status TEXT DEFAULT 'synced',
-            ADD COLUMN last_update TEXT DEFAULT NULL,
-            ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN owner TEXT DEFAULT NULL;
-
-            -- Add sync fields to recipe_tags
-            ALTER TABLE recipe_tags 
-            ADD COLUMN sync_status TEXT DEFAULT 'synced',
-            ADD COLUMN last_update TEXT DEFAULT NULL,
-            ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN owner TEXT DEFAULT NULL;
-
-            -- Add sync fields to ingredients
-            ALTER TABLE ingredients 
-            ADD COLUMN sync_status TEXT DEFAULT 'synced',
-            ADD COLUMN last_update TEXT DEFAULT NULL,
-            ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN owner TEXT DEFAULT NULL;
-
-            -- Add sync fields to shopping_items
-            ALTER TABLE shopping_items 
-            ADD COLUMN sync_status TEXT DEFAULT 'synced',
-            ADD COLUMN last_update TEXT DEFAULT NULL,
-            ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN owner TEXT DEFAULT NULL;
-
-            -- Add sync fields to user_settings
-            ALTER TABLE user_settings 
-            ADD COLUMN sync_status TEXT DEFAULT 'synced',
-            ADD COLUMN last_update TEXT DEFAULT NULL,
-            ADD COLUMN is_local INTEGER DEFAULT 0,
-            ADD COLUMN owner TEXT DEFAULT NULL;
-          `
-        }
+        // Note: Using addColumns instead of raw SQL to ensure proper typing
+        addColumns({
+          table: 'tags',
+          columns: [
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'number' },
+            { name: 'is_local', type: 'boolean' },
+            { name: 'owner', type: 'string', isOptional: true }
+          ]
+        }),
+        addColumns({
+          table: 'recipes',
+          columns: [
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'number' },
+            { name: 'is_local', type: 'boolean' },
+            { name: 'owner', type: 'string', isOptional: true }
+          ]
+        }),
+        addColumns({
+          table: 'recipe_tags',
+          columns: [
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'number' },
+            { name: 'is_local', type: 'boolean' },
+            { name: 'owner', type: 'string', isOptional: true }
+          ]
+        }),
+        addColumns({
+          table: 'ingredients',
+          columns: [
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'number' },
+            { name: 'is_local', type: 'boolean' },
+            { name: 'owner', type: 'string', isOptional: true }
+          ]
+        }),
+        addColumns({
+          table: 'shopping_items',
+          columns: [
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'number' },
+            { name: 'is_local', type: 'boolean' },
+            { name: 'owner', type: 'string', isOptional: true }
+          ]
+        }),
+        addColumns({
+          table: 'user_settings',
+          columns: [
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'number' },
+            { name: 'is_local', type: 'boolean' },
+            { name: 'owner', type: 'string', isOptional: true }
+          ]
+        })
       ]
     },
     {
       toVersion: 6,
       steps: [
-        {
-          type: 'sql',
-          sql: `
-            -- Add is_deleted field to tags
-            ALTER TABLE tags 
-            ADD COLUMN is_deleted INTEGER DEFAULT 0;
-
-            -- Add is_deleted field to recipes
-            ALTER TABLE recipes 
-            ADD COLUMN is_deleted INTEGER DEFAULT 0;
-
-            -- Add is_deleted field to recipe_tags
-            ALTER TABLE recipe_tags 
-            ADD COLUMN is_deleted INTEGER DEFAULT 0;
-
-            -- Add is_deleted field to ingredients
-            ALTER TABLE ingredients 
-            ADD COLUMN is_deleted INTEGER DEFAULT 0;
-
-            -- Add is_deleted field to shopping_items
-            ALTER TABLE shopping_items 
-            ADD COLUMN is_deleted INTEGER DEFAULT 0;
-
-            -- Add is_deleted field to user_settings
-            ALTER TABLE user_settings 
-            ADD COLUMN is_deleted INTEGER DEFAULT 0;
-          `
-        }
+        // Add is_deleted fields
+        addColumns({
+          table: 'tags',
+          columns: [
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        }),
+        addColumns({
+          table: 'recipes',
+          columns: [
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        }),
+        addColumns({
+          table: 'recipe_tags',
+          columns: [
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        }),
+        addColumns({
+          table: 'ingredients',
+          columns: [
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        }),
+        addColumns({
+          table: 'shopping_items',
+          columns: [
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        }),
+        addColumns({
+          table: 'user_settings',
+          columns: [
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        })
       ]
     },
     {
@@ -165,7 +183,7 @@ export default schemaMigrations({
             { name: 'is_readed', type: 'boolean' },
             { name: 'sync_id', type: 'string' },
             { name: 'sync_status', type: 'string' },
-            { name: 'last_update', type: 'string', isOptional: true },
+            { name: 'last_update', type: 'number', isOptional: true },
             { name: 'is_local', type: 'boolean', isOptional: true },
             { name: 'owner', type: 'string', isOptional: true },
             { name: 'is_deleted', type: 'boolean' }
@@ -177,41 +195,32 @@ export default schemaMigrations({
       toVersion: 8,
       steps: [
         // Add order column to notifications table
-        {
-          type: 'sql',
-          sql: `
-            ALTER TABLE notifications
-            ADD COLUMN order INTEGER DEFAULT 0;
-          `
-        }
+        addColumns({
+          table: 'notifications',
+          columns: [
+            { name: 'order', type: 'number' }
+          ]
+        })
       ]
     },
     {
       toVersion: 9,
       steps: [
         // Create app_data table with correct sync fields
-        {
-          type: 'sql',
-          sql: `
-            -- Drop the table if it exists (recreate with proper structure)
-            DROP TABLE IF EXISTS app_data;
-            
-            -- Create app_data table with all required SyncModel fields
-            CREATE TABLE app_data (
-              id TEXT PRIMARY KEY NOT NULL,
-              last_sync NUMBER,
-              subscription_end NUMBER,
-              csv_lock TEXT,
-              sync_id TEXT NOT NULL,
-              sync_status TEXT NOT NULL,
-              last_update TEXT,
-              owner TEXT,
-              is_deleted INTEGER NOT NULL DEFAULT 0,
-              _changed TEXT,
-              _status TEXT
-            );
-          `
-        }
+        createTable({
+          name: 'app_data',
+          columns: [
+            { name: 'last_sync', type: 'number', isOptional: true },
+            { name: 'subscription_end', type: 'number', isOptional: true },
+            { name: 'csv_lock', type: 'string', isOptional: true },
+            { name: 'sync_id', type: 'string' },
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'number', isOptional: true },
+            { name: 'is_local', type: 'boolean', isOptional: true },
+            { name: 'owner', type: 'string', isOptional: true },
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        })
       ]
     }
   ]

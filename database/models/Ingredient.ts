@@ -117,7 +117,7 @@ export default class Ingredient extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<Ingredient> {
     try {
@@ -166,7 +166,7 @@ export default class Ingredient extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<Ingredient | null> {
     try {

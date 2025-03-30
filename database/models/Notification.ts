@@ -201,7 +201,7 @@ export default class Notification extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<Notification> {
     // If no order is provided, get the next available order
@@ -244,7 +244,7 @@ export default class Notification extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<Notification | null> {
     try {

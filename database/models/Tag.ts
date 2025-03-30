@@ -94,7 +94,7 @@ export default class Tag extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<Tag> {
     try {
@@ -141,7 +141,7 @@ export default class Tag extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<Tag | null> {
     try {

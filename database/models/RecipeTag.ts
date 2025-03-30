@@ -39,7 +39,7 @@ export default class RecipeTag extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<RecipeTag> {
     try {
@@ -78,7 +78,7 @@ export default class RecipeTag extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<RecipeTag | null> {
     try {

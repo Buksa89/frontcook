@@ -11,8 +11,8 @@ export default class AppData extends SyncModel {
   static table = 'app_data'
 
   @date('last_sync') lastSync!: Date
-  @date('subscription_end') subscriptionEnd!: Date | null
-  @text('csv_lock') csvLock!: string | null
+  @date('subscription_end') subscriptionEnd!: Date
+  @text('csv_lock') csvLock!: Date
 
   // Method to check if a server object already exists in the local database
   // Override from SyncModel to check by user instead of syncId
@@ -107,12 +107,12 @@ export default class AppData extends SyncModel {
   static async create(
     database: Database,
     lastSync: Date = new Date(0), // Unix epoch as default if not provided
-    subscriptionEnd: Date | null = null,
-    csvLock: string | null = null,
+    subscriptionEnd: Date = new Date(0),
+    csvLock: Date = new Date(0),
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<AppData> {
     try {
@@ -148,12 +148,12 @@ export default class AppData extends SyncModel {
     database: Database,
     appDataId: string,
     lastSync?: Date,
-    subscriptionEnd?: Date | null,
-    csvLock?: string | null,
+    subscriptionEnd?: Date,
+    csvLock?: Date,
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<AppData | null> {
     try {
@@ -244,8 +244,8 @@ export default class AppData extends SyncModel {
       return await AppData.create(
         database,
         new Date(0), // lastSync
-        null, // subscriptionEnd
-        null, // csvLock
+        new Date(0), // subscriptionEnd
+        new Date(0), // csvLock
         undefined, // syncId
         undefined, // syncStatusField
         undefined, // lastUpdate
