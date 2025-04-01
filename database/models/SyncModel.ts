@@ -40,7 +40,6 @@ export default class SyncModel extends Model {
   needUpdate(serverDate: Date): boolean {
     // Compare dates
     const localTime = this.lastUpdate;
-    console.log(`[SyncModel] Local time: ${localTime.toISOString()}, Server time: ${serverDate.toISOString()}`);
     
     return serverDate.getTime() > localTime.getTime();
   }
@@ -203,17 +202,16 @@ export default class SyncModel extends Model {
     // Copy server data without modifications
     const processedData = {...serverData};
     
-    
     // Utwórz funkcję recordUpdater z odpowiednim typem SyncModel
     const serverDataUpdater = (newRecord: SyncModel) => {
       // Zastosuj wszystkie pola z przygotowanych danych
       Object.entries(processedData).forEach(([key, value]) => {
         // Przypisz wartość do pola bezpośrednio - bez sprawdzania id
-                  (newRecord as any)[key] = value;
-            });
+        (newRecord as any)[key] = value;
+      });
             
       // Jawnie ustaw status synchronizacji na 'synced'
-          newRecord.syncStatusField = 'synced';
+      newRecord.syncStatusField = 'synced';
     };
     
     // Wywołaj statyczną metodę create z odpowiednimi parametrami
@@ -284,11 +282,17 @@ export default class SyncModel extends Model {
     database: Database,
     serverObject: Record<string, any>
   ): Promise<{ success: boolean; message: string }> {
-    // First, check if the object exists in the local database
-    const exists = await this.existsInLocalDatabase<T>(database, serverObject);
-    
     // Get the syncId for logging purposes
     const syncId = serverObject.sync_id;
+
+    // Konwersja timestampa na obiekt Date - zawsze zakładamy, że z serwera przychodzi number
+    if (serverObject.last_update) {
+      serverObject.last_update = new Date(serverObject.last_update);
+      console.log(`[SyncModel] Server date for ${syncId}: ${serverObject.last_update.toISOString()}`);
+    }
+    
+    // First, check if the object exists in the local database
+    const exists = await this.existsInLocalDatabase<T>(database, serverObject);
     
     // Case 1: Object doesn't exist in local database
     if (!exists) {
@@ -332,7 +336,6 @@ export default class SyncModel extends Model {
       }
       
       // Check if the server data is newer than our local data
-      // Extract server date - oczekujemy, że API już dostarczy Date
       const serverDate = serverObject.last_update;
       
       // Use the needUpdate method to check if an update is needed

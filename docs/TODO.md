@@ -2,7 +2,7 @@ next steps:
 Zepsuta synchronizacja - last sync sie zle zapisuje
 Zapsute observables dla subscription
 Architektura pod pro
-
+wyslij notyfikacje kazdemu userowi zeby last timestamp byl obciety i sie nie zapetlal
 
     brak settings przy pierwszym uruchomieniu!
     zdebuguj dlaczego klawiatura wyswietla sie na recipe list po otwarciu
