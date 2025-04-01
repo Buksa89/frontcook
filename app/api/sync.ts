@@ -4,7 +4,7 @@ import authService from '../services/auth';
 // Base interface for all syncable items
 export interface BaseSyncItem {
   sync_status: string;
-  last_update: string;
+  last_update: string; // Zachowujemy jako string dla API
   is_deleted: boolean;
   sync_id: string;
   owner: string | null;
@@ -92,13 +92,16 @@ export interface SyncResponse {
   app_data?: AppDataSync[];
 }
 
-
-export const getChanges = async (lastSync: string, batchSize: number = 20): Promise<SyncResponse> => {
-  console.log('[Sync API] Fetching changes since:', lastSync, 'with batch size:', batchSize);
+// Przyjmuje tylko obiekt Date
+export const getChanges = async (lastSync: Date, batchSize: number = 20): Promise<SyncResponse> => {
+  // Konwertuj Date na timestamp (liczba milisekund od 1970-01-01) dla API
+  const lastSyncTimestamp = lastSync.getTime();
+  
+  console.log('[Sync API] Fetching changes since timestamp:', lastSyncTimestamp, 'with batch size:', batchSize);
   
   // Prepare the payload for the API call
   const payload = {
-    lastSync,
+    lastSync: lastSyncTimestamp,
     limit: batchSize,
   };
 

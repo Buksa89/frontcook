@@ -87,13 +87,13 @@ class SyncService {
       const lastSync = await AppData.getLastSync(database);
       
       // Execute pull synchronization with user and lastSync
-      await pullSynchronization(activeUser, lastSync.toISOString());
+      await pullSynchronization(activeUser, lastSync);
       
       // Execute push synchronization directly using the imported function
       await pushSynchronization(activeUser);
       
       // We're not updating the last sync timestamp yet
-      // await AppData.updateLastSync(database, activeUser, new Date().toISOString());
+      // await AppData.updateLastSync(database, new Date());
       
     } catch (error) {
       console.error('[SyncService] Sync error:', error);

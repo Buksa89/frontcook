@@ -100,21 +100,22 @@ function sortResponseItems(items: SyncItemType[]): SyncItemType[] {
 /**
  * Process a single batch of items from the server
  * @param user The active user
- * @param currentLastSync The current last sync timestamp
+ * @param currentLastSync The current last sync timestamp as Date object
  * @param batchCount The current batch number
  * @param allFailedItems Array to collect failed items
  * @returns The updated last sync timestamp and whether there are more items to process
  */
 async function processBatch(
   user: string,
-  currentLastSync: string,
+  currentLastSync: Date,
   batchCount: number,
   allFailedItems: SyncItemType[]
-): Promise<{ updatedLastSync: string, hasMoreItems: boolean }> {
-  console.log(`[SyncService] Processing batch ${batchCount} with lastSync=${currentLastSync}`);
+): Promise<{ updatedLastSync: Date, hasMoreItems: boolean }> {
+  console.log(`[SyncService] Processing batch ${batchCount} with lastSync=${currentLastSync.toISOString()}`);
   
   // Call the getChanges API to get updated data from the server with batch size
   const response = await syncApi.getChanges(currentLastSync, BATCH_SIZE) as SyncItemType[];
+  
   
   // If no more items, we're done with the loop
   if (response.length === 0) {
@@ -127,36 +128,28 @@ async function processBatch(
   // Update last_sync to the most recent last_update from the received items
   let updatedLastSync = currentLastSync;
   if (response.length > 0) {
-    // Find the most recent last_update timestamp
-    let mostRecentUpdate = response[0].last_update;
+    // Find the most recent last_update timestamp and convert to a Date object
+    let mostRecentUpdate = new Date(response[0].last_update);
     
     for (const item of response) {
-      if (item.last_update > mostRecentUpdate) {
-        mostRecentUpdate = item.last_update;
+      const itemDate = new Date(item.last_update);
+      if (itemDate > mostRecentUpdate) {
+        mostRecentUpdate = itemDate;
       }
     }
     
-    // Update the lastSync value in the database
-    console.log(`[SyncService] Updating last_sync from ${currentLastSync} to ${mostRecentUpdate}`);
-    
-    // Simple check if mostRecentUpdate is valid
-    if (mostRecentUpdate && mostRecentUpdate.trim() !== '') {
-      // Try to convert to Date
-      const dateObj = new Date(mostRecentUpdate);
+    // Update the lastSync value if needed
+    if (mostRecentUpdate > currentLastSync) {
+      console.log(`[SyncService] Updating last_sync from ${currentLastSync.toISOString()} to ${mostRecentUpdate.toISOString()}`);
       
-      // Only update if we have a valid date
-      if (!isNaN(dateObj.getTime())) {
-        const isoTimestamp = dateObj.toISOString();
-        console.log(`[SyncService] Converted timestamp to ISO format: ${isoTimestamp}`);
-        await AppData.updateLastSync(database, dateObj);
+      // Ensure date is valid
+      if (!isNaN(mostRecentUpdate.getTime())) {
+        await AppData.updateLastSync(database, mostRecentUpdate);
+        updatedLastSync = mostRecentUpdate;
       } else {
-        console.warn(`[SyncService] Invalid timestamp format: ${mostRecentUpdate}, skipping update`);
+        console.warn(`[SyncService] Invalid timestamp encountered, skipping update`);
       }
-    } else {
-      console.warn('[SyncService] Empty timestamp received, skipping update');
     }
-    
-    updatedLastSync = mostRecentUpdate;
   }
   
   // Sort the items in the correct order for processing
@@ -183,9 +176,9 @@ async function processBatch(
 /**
  * Handles pulling data from the server to update the local database
  * @param user The active user for whom to sync data
- * @param lastSync The timestamp of the last successful synchronization
+ * @param lastSync The timestamp of the last successful synchronization as Date object
  */
-export async function pullSynchronization(user: string, lastSync: string): Promise<void> {
+export async function pullSynchronization(user: string, lastSync: Date): Promise<void> {
   console.log('[SyncService] Pull synchronization started');
   
   // Array to store all items that failed to process across all batches

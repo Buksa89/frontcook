@@ -37,13 +37,12 @@ export default class SyncModel extends Model {
   }
 
   // Helper method to determine if update is needed based on comparing dates
-  needUpdate(serverDate: string): boolean {
+  needUpdate(serverDate: Date): boolean {
     // Compare dates
     const localTime = this.lastUpdate;
-    const serverTime = new Date(serverDate);
-    console.log(`[SyncModel] Local time: ${localTime.toISOString()}, Server time: ${serverTime.toISOString()}`);
+    console.log(`[SyncModel] Local time: ${localTime.toISOString()}, Server time: ${serverDate.toISOString()}`);
     
-    return serverTime.getTime() > localTime.getTime();
+    return serverDate.getTime() > localTime.getTime();
   }
 
   // Override update method to automatically update sync fields
@@ -122,9 +121,9 @@ export default class SyncModel extends Model {
         // Convert the key to snake_case if needed
         const snakeKey = SyncModel.camelToSnake(key);
         
-        // Handle Date objects - convert to ISO string for server
+        // Handle Date objects - convert to timestamp for server
         if (key === 'last_update' && value instanceof Date) {
-          serverData[snakeKey] = value.toISOString();
+          serverData[snakeKey] = value.getTime();
         } else {
           // Add the field to server data
           serverData[snakeKey] = value;
@@ -201,11 +200,9 @@ export default class SyncModel extends Model {
     serverData: Record<string, any>
   ): Promise<T> {
     
-    // Process server data to convert date strings to Date objects
+    // Copy server data without modifications
     const processedData = {...serverData};
-    if (processedData.last_update && typeof processedData.last_update === 'string') {
-      processedData.last_update = new Date(processedData.last_update);
-    }
+    
     
     // Utwórz funkcję recordUpdater z odpowiednim typem SyncModel
     const serverDataUpdater = (newRecord: SyncModel) => {
@@ -213,8 +210,8 @@ export default class SyncModel extends Model {
       Object.entries(processedData).forEach(([key, value]) => {
         // Przypisz wartość do pola bezpośrednio - bez sprawdzania id
                   (newRecord as any)[key] = value;
-          });
-          
+            });
+            
       // Jawnie ustaw status synchronizacji na 'synced'
           newRecord.syncStatusField = 'synced';
     };
@@ -335,7 +332,7 @@ export default class SyncModel extends Model {
       }
       
       // Check if the server data is newer than our local data
-      // Extract server date from various possible fields (camelCase or snake_case)
+      // Extract server date - oczekujemy, że API już dostarczy Date
       const serverDate = serverObject.last_update;
       
       // Use the needUpdate method to check if an update is needed

@@ -152,7 +152,7 @@ async function processServerResponse(response: SyncItemType[], pendingItems: Syn
     console.log(`[SyncService] No items returned from server, marking local items as synced`);
     
     for (const item of pendingItems) {
-    await item.updateAsSynced();
+      await item.updateAsSynced();
     }
     
     console.log('[SyncService] Successfully updated local items to synced status');
