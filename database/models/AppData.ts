@@ -7,12 +7,15 @@ import { map, switchMap } from 'rxjs/operators'
 import AuthService from '../../app/services/auth/authService'
 import SyncModel from './SyncModel'
 
+// AppData przechowuje ustawienia aplikacji i dane synchronizacji dla bieżącego użytkownika
 export default class AppData extends SyncModel {
   static table = 'app_data'
 
+  // Z API przychodzą timestampy (liczby milisekund) z pełną precyzją milisekundową
+  // Dekorator @date automatycznie konwertuje te liczby na obiekty Date
   @date('last_sync') lastSync!: Date
   @date('subscription_end') subscriptionEnd!: Date
-  @text('csv_lock') csvLock!: Date
+  @date('csv_lock') csvLock!: Date
 
   // Method to check if a server object already exists in the local database
   // Override from SyncModel to check by user instead of syncId

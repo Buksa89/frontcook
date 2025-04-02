@@ -285,8 +285,9 @@ export default class SyncModel extends Model {
     // Get the syncId for logging purposes
     const syncId = serverObject.sync_id;
 
-    // Konwersja timestampa na obiekt Date - zawsze zakładamy, że z serwera przychodzi number
+    // Konwersja timestampa na obiekt Date - z serwera przychodzi number (timestamp) z milisekundową precyzją
     if (serverObject.last_update) {
+      // Przychodząca wartość jest już liczbą milisekund, więc konwersja zachowuje pełną precyzję
       serverObject.last_update = new Date(serverObject.last_update);
       console.log(`[SyncModel] Server date for ${syncId}: ${serverObject.last_update.toISOString()}`);
     }

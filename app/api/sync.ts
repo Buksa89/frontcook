@@ -4,7 +4,7 @@ import authService from '../services/auth';
 // Base interface for all syncable items
 export interface BaseSyncItem {
   sync_status: string;
-  last_update: string; // Zachowujemy jako string dla API
+  last_update: number; // Liczba milisekund od 1970-01-01 (timestamp z milisekundową precyzją)
   is_deleted: boolean;
   sync_id: string;
   owner: string | null;
@@ -67,8 +67,8 @@ export interface UserSettingsSync extends BaseSyncItem {
 
 export interface AppDataSync extends BaseSyncItem {
   object_type: 'app_data';
-  subscription_end?: string | null;
-  csv_lock?: string | null;
+  subscription_end?: number | null; // Zmienione na number, ponieważ to też timestamp
+  csv_lock?: number | null; // Zmienione na number, ponieważ to też timestamp
 }
 
 export type SyncItemType = ShoppingItemSync | RecipeSync | IngredientSync | TagSync | RecipeTagSync | UserSettingsSync | AppDataSync;
