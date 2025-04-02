@@ -5,15 +5,59 @@ import { Q } from '@nozbe/watermelondb';
 import AuthService from '../../services/auth/authService';
 import AppData from '../../../database/models/AppData';
 
+// Funkcja do formatowania timestampów na czytelne daty z milisekundową precyzją
+const formatTimestamp = (timestamp: any): string => {
+  if (timestamp === null || timestamp === undefined) {
+    return 'null';
+  }
+  
+  try {
+    const date = new Date(typeof timestamp === 'string' ? parseInt(timestamp) : timestamp);
+    
+    // Sprawdź czy data jest poprawna
+    if (isNaN(date.getTime())) {
+      return String(timestamp);
+    }
+    
+    // Format: YYYY-MM-DD HH:MM:SS.mmm
+    return date.toISOString().replace('T', ' ').replace('Z', '');
+  } catch (error) {
+    return String(timestamp);
+  }
+};
+
+// Funkcja sprawdzająca, czy pole może być timestampem
+const isLikelyTimestamp = (key: string, value: any): boolean => {
+  // Jeśli wartość jest null lub undefined, to nie jest timestamp
+  if (value === null || value === undefined) {
+    return false;
+  }
+  
+  // Nazwy pól, które prawdopodobnie zawierają daty
+  const dateFieldNames = ['date', 'time', 'sync', 'update', 'created', 'modified', 'end', 'start', 'lock'];
+  
+  // Sprawdź czy nazwa pola sugeruje, że to jest data
+  const keyContainsDateHint = dateFieldNames.some(hint => key.toLowerCase().includes(hint));
+  
+  // Sprawdź czy wartość wygląda jak timestamp (liczba milisekund od 1970)
+  const isNumericTimestamp = typeof value === 'number' && value > 1000000000000; // Timestamp od roku ~2001
+  const isStringTimestamp = typeof value === 'string' && /^\d{13,}$/.test(value); // String zawierający liczbę 13+ cyfr
+  
+  return keyContainsDateHint && (isNumericTimestamp || isStringTimestamp);
+};
+
 export default function DebugScreen() {
   const [tables, setTables] = useState<{ [key: string]: any[] }>({});
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [activeUser, setActiveUser] = useState<string | null>(null);
+  const [activeSubscription, setActiveSubscription] = useState<boolean | null>(null);
+  const [subscriptionEndDate, setSubscriptionEndDate] = useState<Date | null>(null);
 
   useEffect(() => {
     loadAllData();
     loadUserAndLastSyncTime();
+    checkSubscriptionStatus();
   }, []);
 
   const loadUserAndLastSyncTime = async () => {
@@ -30,6 +74,36 @@ export default function DebugScreen() {
       }
     } catch (error) {
       console.error('Error loading user or last sync time:', error);
+    }
+  };
+
+  const checkSubscriptionStatus = async () => {
+    try {
+      const user = await AuthService.getActiveUser();
+      
+      if (!user) {
+        setActiveSubscription(null);
+        setSubscriptionEndDate(null);
+        return;
+      }
+      
+      // Pobieramy dane AppData dla aktywnego użytkownika
+      const appData = await AppData.getOrCreate(database);
+      
+      // Sprawdzamy status subskrypcji
+      const subscriptionEnd = appData.subscriptionEnd;
+      const now = new Date();
+      
+      // Ustawiamy stan z informacją o aktywności subskrypcji
+      const isActive = subscriptionEnd ? subscriptionEnd > now : false;
+      setActiveSubscription(isActive);
+      setSubscriptionEndDate(subscriptionEnd || null);
+      
+      console.log('[DEBUG] Subscription status:', isActive, 'End date:', subscriptionEnd);
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      setActiveSubscription(null);
+      setSubscriptionEndDate(null);
     }
   };
 
@@ -129,11 +203,23 @@ export default function DebugScreen() {
       </View>
       {Object.entries(record)
         .filter(([key]) => key !== 'id')
-        .map(([key, value]) => (
-          <Text key={key} style={styles.recordField}>
-            {key}: {JSON.stringify(value)}
-          </Text>
-        ))}
+        .map(([key, value]) => {
+          // Sprawdź czy pole wygląda jak timestamp
+          if (isLikelyTimestamp(key, value) && value !== null) {
+            return (
+              <Text key={key} style={styles.recordField}>
+                {key}: {formatTimestamp(value)}
+              </Text>
+            );
+          }
+          
+          // Standardowe wyświetlanie dla pozostałych pól
+          return (
+            <Text key={key} style={styles.recordField}>
+              {key}: {JSON.stringify(value)}
+            </Text>
+          );
+        })}
     </View>
   );
 
@@ -145,6 +231,20 @@ export default function DebugScreen() {
           <Text style={styles.userInfoLabel}>Active User:</Text>
           <Text style={styles.userInfoValue}>{activeUser || 'None'}</Text>
         </View>
+        
+        <View style={[styles.userInfoContainer, activeSubscription ? styles.activeSubscription : styles.inactiveSubscription]}>
+          <Text style={styles.userInfoLabel}>Subscription:</Text>
+          <Text style={styles.userInfoValue}>
+            {activeSubscription === null ? 'Unknown' : 
+             (activeSubscription ? 'Active' : 'Inactive')}
+          </Text>
+          {subscriptionEndDate && (
+            <Text style={styles.subscriptionDate}>
+              (ends: {formatTimestamp(subscriptionEndDate)})
+            </Text>
+          )}
+        </View>
+        
         <Text style={styles.syncTimeText}>
           Ostatnia synchronizacja: {lastSyncTime ? new Date(lastSyncTime).toLocaleString() : 'Brak'}
         </Text>
@@ -172,6 +272,7 @@ export default function DebugScreen() {
         onPress={() => {
           loadAllData();
           loadUserAndLastSyncTime();
+          checkSubscriptionStatus();
         }}
       >
         <Text style={styles.refreshButtonText}>Odśwież</Text>
@@ -214,6 +315,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0066cc',
     fontWeight: '500',
+  },
+  activeSubscription: {
+    backgroundColor: '#e6ffe6',
+    borderColor: '#99cc99',
+  },
+  inactiveSubscription: {
+    backgroundColor: '#fff0e6',
+    borderColor: '#ffcc99',
+  },
+  subscriptionDate: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
   },
   syncTimeText: {
     fontSize: 14,
@@ -310,5 +424,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  rawTimestamp: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic'
   },
 }); 
