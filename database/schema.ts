@@ -28,11 +28,11 @@ const recipesSchema: TableSchema = tableSchema({
     { name: 'name', type: 'string' },
     { name: 'description', type: 'string', isOptional: true },
     { name: 'image', type: 'string', isOptional: true }, // We'll store the image path/url
-    { name: 'rating', type: 'number', isOptional: true },
+    { name: 'rating', type: 'number' },
     { name: 'is_approved', type: 'boolean' },
-    { name: 'prep_time', type: 'number', isOptional: true },
-    { name: 'total_time', type: 'number', isOptional: true },
-    { name: 'servings', type: 'number', isOptional: true },
+    { name: 'prep_time', type: 'number' },
+    { name: 'total_time', type: 'number' },
+    { name: 'servings', type: 'number' },
     { name: 'instructions', type: 'string', isOptional: true },
     { name: 'notes', type: 'string', isOptional: true },
     { name: 'nutrition', type: 'string', isOptional: true },
@@ -113,7 +113,7 @@ const AppDataSchema: TableSchema = tableSchema({
 })
 
 const schema: AppSchema = appSchema({
-  version: 9, // Increasing version number for adding subscription fields
+  version: 10, // Updated to version 10 for making recipe fields non-nullable
   tables: [
     tagsSchema,
     recipesSchema,

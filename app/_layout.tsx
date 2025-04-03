@@ -13,6 +13,7 @@ import database from '../database';
 import { ToastComponent } from './components/Toast';
 import UserSettings from '../database/models/UserSettings';
 import AuthService from './services/auth/authService';
+import { Q } from '@nozbe/watermelondb';
 
 type RootStackParamList = {
   index: undefined;
@@ -65,10 +66,33 @@ export default function RootLayout() {
         // Check if user is logged in
         const activeUser = await AuthService.getActiveUser();
         if (activeUser) {
-          console.log(`[App] Checking UserSettings for user: ${activeUser}`);
-          // Use the getOrCreate method to ensure UserSettings exist
-          await UserSettings.getOrCreate(database);
-          console.log(`[App] UserSettings checked/created successfully`);
+          // console.log(`[App] Checking UserSettings for user: ${activeUser}`);
+          
+          // Check if settings already exist
+          const settings = await database.get<UserSettings>('user_settings')
+            .query(
+              Q.and(
+                Q.where('owner', activeUser),
+                Q.where('is_deleted', false)
+              )
+            )
+            .fetch();
+            
+          if (settings.length === 0) {
+            // Create new settings with oldest possible last update (Unix epoch)
+            // console.log(`[App] Creating new UserSettings`);
+            await UserSettings.create(
+              database,
+              'pl', // default language
+              undefined, // syncId
+              'synced', // syncStatusField
+              new Date(0), // lastUpdate - Unix epoch (January 1, 1970)
+              false // isDeleted
+            );
+            console.log(`[App] UserSettings created successfully`);
+          } else {
+            // console.log(`[App] UserSettings already exist for user: ${activeUser}`);
+          }
         }
       } catch (error) {
         console.error(`[App] Error initializing UserSettings:`, error);

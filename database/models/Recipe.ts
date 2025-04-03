@@ -37,11 +37,11 @@ export default class Recipe extends SyncModel {
   @text('name') name!: string
   @text('description') description!: string | null
   @text('image') image!: string | null
-  @field('rating') rating!: number | null
+  @field('rating') rating!: number
   @field('is_approved') isApproved!: boolean
-  @field('prep_time') prepTime!: number | null
-  @field('total_time') totalTime!: number | null
-  @field('servings') servings!: number | null
+  @field('prep_time') prepTime!: number
+  @field('total_time') totalTime!: number
+  @field('servings') servings!: number
   @text('instructions') instructions!: string
   @text('notes') notes!: string | null
   @text('nutrition') nutrition!: string | null
@@ -77,11 +77,11 @@ export default class Recipe extends SyncModel {
     instructions: string,
     description: string | null = null,
     image: string | null = null,
-    rating: number | null = 0,
+    rating: number = 0,
     isApproved: boolean = true,
-    prepTime: number | null = 0,
-    totalTime: number | null = 0,
-    servings: number | null = 1,
+    prepTime: number = 0,
+    totalTime: number = 0,
+    servings: number = 1,
     notes: string | null = null,
     nutrition: string | null = null,
     video: string | null = null,
@@ -138,11 +138,11 @@ export default class Recipe extends SyncModel {
     instructions?: string,
     description?: string | null,
     image?: string | null,
-    rating?: number | null,
+    rating?: number,
     isApproved?: boolean,
-    prepTime?: number | null,
-    totalTime?: number | null,
-    servings?: number | null,
+    prepTime?: number,
+    totalTime?: number,
+    servings?: number,
     notes?: string | null,
     nutrition?: string | null,
     video?: string | null,
@@ -214,9 +214,9 @@ export default class Recipe extends SyncModel {
           existingRecipe.image, // Keep existing image
           existingRecipe.rating, // Keep existing rating
           existingRecipe.isApproved, // Keep approval state
-          parseInt(data.prepTime || '0') || 0,
-          parseInt(data.totalTime || '0') || 0,
-          parseInt(data.servings || '1') || 1,
+          parseInt(data.prepTime || '0'), // Default to 0 if not provided
+          parseInt(data.totalTime || '0'), // Default to 0 if not provided
+          parseInt(data.servings || '1') || 1, // Default to 1 if not provided or conversion fails
           data.notes || null,
           data.nutrition || null,
           data.video || null,
@@ -285,18 +285,18 @@ export default class Recipe extends SyncModel {
         console.log(`[DB ${this.table}] Marked ${existingIngredients.length} existing ingredients as deleted for recipe ${recipe.id}`);
         
       } else {
-        // Create new recipe using our static createRecipe method
+        // Create new recipe using our static create method
         recipe = await Recipe.create(
           database,
           data.name,
           data.instructions,
           data.description || null,
-          null, // image
-          0, // rating
-          true, // isApproved
-          parseInt(data.prepTime || '0') || 0,
-          parseInt(data.totalTime || '0') || 0,
-          parseInt(data.servings || '1') || 1,
+          null, // No image for new recipes
+          0, // Default rating for new recipes
+          false, // New recipes are not approved by default
+          parseInt(data.prepTime || '0'), // Default to 0 if not provided
+          parseInt(data.totalTime || '0'), // Default to 0 if not provided
+          parseInt(data.servings || '1') || 1, // Default to 1 if not provided or conversion fails
           data.notes || null,
           data.nutrition || null,
           data.video || null,

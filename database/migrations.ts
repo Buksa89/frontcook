@@ -222,6 +222,28 @@ export default schemaMigrations({
           ]
         })
       ]
+    },
+    {
+      toVersion: 10,
+      steps: [
+        // Update null values in recipes table to use default values
+        {
+          type: 'sql',
+          sql: `
+            -- Update rating to 0 where null
+            UPDATE recipes SET rating = 0 WHERE rating IS NULL;
+            
+            -- Update prep_time to 0 where null
+            UPDATE recipes SET prep_time = 0 WHERE prep_time IS NULL;
+            
+            -- Update total_time to 0 where null
+            UPDATE recipes SET total_time = 0 WHERE total_time IS NULL;
+            
+            -- Update servings to 1 where null
+            UPDATE recipes SET servings = 1 WHERE servings IS NULL;
+          `
+        }
+      ]
     }
   ]
 }) 
