@@ -43,12 +43,33 @@ export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportM
     return extractDomain(url);
   };
 
+  const isValidUrl = (text: string): boolean => {
+    try {
+      // Check for basic URL pattern
+      const urlPattern = /^(https?:\/\/)?(www\.)?([a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+)(\/[a-zA-Z0-9-._~:/?#[\]@!$&'()*+,;=]*)?$/;
+      return urlPattern.test(text);
+    } catch (error) {
+      console.error('Error validating URL:', error);
+      return false;
+    }
+  };
+
   const handlePaste = async () => {
     try {
       setIsPasting(true);
       const clipboardContent = await Clipboard.getStringAsync();
       if (clipboardContent) {
-        setUrl(clipboardContent);
+        if (isValidUrl(clipboardContent)) {
+          setUrl(clipboardContent);
+        } else {
+          showToast({
+            type: 'error',
+            text1: 'Niepoprawny URL',
+            text2: 'Tekst ze schowka nie jest prawidłowym adresem URL',
+            visibilityTime: 3000,
+            position: 'bottom'
+          });
+        }
       } else {
         showToast({
           type: 'warning',
@@ -276,6 +297,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#333',
+    fontWeight: 'bold',
   },
   clearButton: {
     width: 24,

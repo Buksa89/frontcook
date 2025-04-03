@@ -7,11 +7,12 @@ import { WebImportModal } from './WebImportModal';
 import { ScanRecipeModal } from './ScanRecipeModal';
 import { PDFUploadModal } from './PDFUploadModal';
 import { TextImportModal } from './TextImportModal';
+import { AppImportModal } from './AppImportModal';
 
 interface AddRecipeMenuProps {
   visible: boolean;
   onClose: () => void;
-  onTaskCreated?: (taskId: string, taskType: 'scan' | 'import' | 'pdf' | 'text') => void;
+  onTaskCreated?: (taskId: string, taskType: 'scan' | 'import' | 'pdf' | 'text' | 'app') => void;
 }
 
 export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenuProps) => {
@@ -20,6 +21,7 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
   const [showScanModal, setShowScanModal] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [showTextImportModal, setShowTextImportModal] = useState(false);
+  const [showAppImportModal, setShowAppImportModal] = useState(false);
 
   const handleAuthRequiredPress = () => {
     Alert.alert("Wymagane logowanie", "Zaloguj się, aby uzyskać dostęp do tej funkcji");
@@ -46,6 +48,12 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
   const handleTextImportSuccess = (taskId: string) => {
     if (onTaskCreated) {
       onTaskCreated(taskId, 'text');
+    }
+  };
+
+  const handleAppImportSuccess = (taskId: string) => {
+    if (onTaskCreated) {
+      onTaskCreated(taskId, 'app');
     }
   };
 
@@ -182,6 +190,20 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
               )}
               <MaterialIcons name="chevron-right" size={24} color={isAuthenticated ? "#666" : "#ddd"} />
             </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.menuItem, styles.menuItemDisabled]}
+              disabled={true}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={[styles.iconContainer, styles.iconContainerDisabled]}>
+                  <MaterialIcons name="apps" size={24} color="#999" />
+                </View>
+                <Text style={styles.menuItemTextDisabled}>Z innej apki</Text>
+              </View>
+              <Text style={styles.comingSoonText}>Dostępne wkrótce</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#ddd" />
+            </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
@@ -208,6 +230,12 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
         visible={showTextImportModal}
         onClose={() => setShowTextImportModal(false)}
         onImportSuccess={handleTextImportSuccess}
+      />
+      
+      <AppImportModal
+        visible={showAppImportModal}
+        onClose={() => setShowAppImportModal(false)}
+        onImportSuccess={handleAppImportSuccess}
       />
     </>
   );
