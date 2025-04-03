@@ -195,7 +195,7 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
               ) : (
                 <>
                   <MaterialIcons name="document-scanner" size={20} color="#fff" style={styles.buttonIcon} />
-                  <Text style={styles.scanButtonText}>Skanuj</Text>
+                  <Text style={styles.scanButtonText}>Przetwórz przepis</Text>
                 </>
               )}
             </TouchableOpacity>

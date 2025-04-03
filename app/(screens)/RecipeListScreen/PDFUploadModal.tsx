@@ -209,7 +209,7 @@ export const PDFUploadModal = ({ visible, onClose, onPDFSuccess }: PDFUploadModa
               ) : (
                 <>
                   <MaterialIcons name="cloud-upload" size={20} color="#fff" style={styles.buttonIcon} />
-                  <Text style={styles.uploadButtonText}>Wyślij</Text>
+                  <Text style={styles.uploadButtonText}>Przetwórz PDF</Text>
                 </>
               )}
             </TouchableOpacity>

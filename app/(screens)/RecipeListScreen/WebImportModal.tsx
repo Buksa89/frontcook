@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { webImportRecipeApi } from '../../api';
 import type { WebImportRecipeResponse } from '../../api/webImportRecipe';
 import Toast, { showToast } from '../../components/Toast';
+import * as Clipboard from 'expo-clipboard';
 
 interface WebImportModalProps {
   visible: boolean;
@@ -14,6 +15,66 @@ interface WebImportModalProps {
 export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportModalProps) => {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPasting, setIsPasting] = useState(false);
+
+  const extractDomain = (url: string): string => {
+    try {
+      // Remove protocol (http://, https://, etc)
+      let domain = url.trim();
+      
+      // Extract the domain part
+      if (domain.includes('://')) {
+        domain = domain.split('://')[1];
+      }
+      
+      // Get everything until the first slash
+      if (domain.includes('/')) {
+        domain = domain.split('/')[0];
+      }
+      
+      return domain;
+    } catch (error) {
+      console.error('Error extracting domain:', error);
+      return url; // Return original URL if extraction fails
+    }
+  };
+
+  const getDisplayUrl = (url: string): string => {
+    return extractDomain(url);
+  };
+
+  const handlePaste = async () => {
+    try {
+      setIsPasting(true);
+      const clipboardContent = await Clipboard.getStringAsync();
+      if (clipboardContent) {
+        setUrl(clipboardContent);
+      } else {
+        showToast({
+          type: 'warning',
+          text1: 'Schowek pusty',
+          text2: 'Nie znaleziono tekstu do wklejenia',
+          visibilityTime: 2000,
+          position: 'bottom'
+        });
+      }
+    } catch (error) {
+      console.error('Błąd podczas próby wklejania ze schowka:', error);
+      showToast({
+        type: 'error',
+        text1: 'Błąd',
+        text2: 'Nie udało się wkleić zawartości schowka',
+        visibilityTime: 2000,
+        position: 'bottom'
+      });
+    } finally {
+      setIsPasting(false);
+    }
+  };
+
+  const handleClearUrl = () => {
+    setUrl('');
+  };
 
   const handleImport = async () => {
     // Validate URL
@@ -109,29 +170,52 @@ export const WebImportModal = ({ visible, onClose, onImportSuccess }: WebImportM
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>Adres URL przepisu</Text>
-          <TextInput
-            style={styles.input}
-            value={url}
-            onChangeText={setUrl}
-            placeholder="https://example.com/recipe"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            editable={!isLoading}
-          />
+          <View style={styles.inputContainer}>
+            {url ? (
+              <>
+                <Text 
+                  style={styles.urlText}
+                  numberOfLines={1}
+                >
+                  {getDisplayUrl(url)}
+                </Text>
+                <TouchableOpacity 
+                  style={styles.clearButton} 
+                  onPress={handleClearUrl}
+                  disabled={isLoading}
+                >
+                  <AntDesign name="close" size={16} color="#666" />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity 
+                style={styles.pasteButtonLarge}
+                onPress={handlePaste}
+                disabled={isLoading || isPasting}
+              >
+                {isPasting ? (
+                  <ActivityIndicator size="small" color="#5c7ba9" />
+                ) : (
+                  <>
+                    <MaterialIcons name="content-paste" size={24} color="#5c7ba9" />
+                    <Text style={styles.pasteButtonLargeText}>Wklej adres strony ze schowka</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
 
           <TouchableOpacity 
-            style={[styles.importButton, isLoading ? styles.importButtonDisabled : null]}
+            style={[styles.importButton, isLoading ? styles.importButtonDisabled : null, !url ? styles.importButtonDisabled : null]}
             onPress={handleImport}
-            disabled={isLoading}
+            disabled={isLoading || !url}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
                 <MaterialIcons name="download" size={20} color="#fff" style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>Importuj</Text>
+                <Text style={styles.buttonText}>Przetwórz przepis</Text>
               </>
             )}
           </TouchableOpacity>
@@ -175,13 +259,45 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
   },
-  input: {
+  inputContainer: {
+    height: 56,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
     backgroundColor: '#fff',
+    marginBottom: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+  },
+  urlText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  clearButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  pasteButtonLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  pasteButtonLargeText: {
+    color: '#5c7ba9',
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
   },
   importButton: {
     backgroundColor: '#5c7ba9',
@@ -190,7 +306,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 14,
     borderRadius: 8,
-    marginTop: 24,
     minHeight: 48,
   },
   importButtonDisabled: {

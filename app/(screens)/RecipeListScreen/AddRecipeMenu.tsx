@@ -6,11 +6,12 @@ import { useAuth } from '../../context';
 import { WebImportModal } from './WebImportModal';
 import { ScanRecipeModal } from './ScanRecipeModal';
 import { PDFUploadModal } from './PDFUploadModal';
+import { TextImportModal } from './TextImportModal';
 
 interface AddRecipeMenuProps {
   visible: boolean;
   onClose: () => void;
-  onTaskCreated?: (taskId: string, taskType: 'scan' | 'import' | 'pdf') => void;
+  onTaskCreated?: (taskId: string, taskType: 'scan' | 'import' | 'pdf' | 'text') => void;
 }
 
 export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenuProps) => {
@@ -18,6 +19,7 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
   const [showWebImportModal, setShowWebImportModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
+  const [showTextImportModal, setShowTextImportModal] = useState(false);
 
   const handleAuthRequiredPress = () => {
     Alert.alert("Wymagane logowanie", "Zaloguj się, aby uzyskać dostęp do tej funkcji");
@@ -38,6 +40,12 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
   const handlePDFSuccess = (taskId: string) => {
     if (onTaskCreated) {
       onTaskCreated(taskId, 'pdf');
+    }
+  };
+
+  const handleTextImportSuccess = (taskId: string) => {
+    if (onTaskCreated) {
+      onTaskCreated(taskId, 'text');
     }
   };
 
@@ -77,6 +85,30 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
                 <Text style={styles.menuItemText}>Dodaj ręcznie</Text>
               </View>
               <MaterialIcons name="chevron-right" size={24} color="#666" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.menuItem, !isAuthenticated && styles.menuItemDisabled]}
+              disabled={!isAuthenticated}
+              onPress={() => {
+                if (!isAuthenticated) {
+                  handleAuthRequiredPress();
+                  return;
+                }
+                onClose();
+                setShowTextImportModal(true);
+              }}
+            >
+              <View style={styles.menuItemContent}>
+                <View style={[styles.iconContainer, !isAuthenticated && styles.iconContainerDisabled]}>
+                  <MaterialIcons name="text-snippet" size={24} color={isAuthenticated ? "#5c7ba9" : "#999"} />
+                </View>
+                <Text style={isAuthenticated ? styles.menuItemText : styles.menuItemTextDisabled}>Z tekstu</Text>
+              </View>
+              {!isAuthenticated && (
+                <Text style={styles.requiresAuthText}>Wymaga logowania</Text>
+              )}
+              <MaterialIcons name="chevron-right" size={24} color={isAuthenticated ? "#666" : "#ddd"} />
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -170,6 +202,12 @@ export const AddRecipeMenu = ({ visible, onClose, onTaskCreated }: AddRecipeMenu
         visible={showPDFModal}
         onClose={() => setShowPDFModal(false)}
         onPDFSuccess={handlePDFSuccess}
+      />
+
+      <TextImportModal
+        visible={showTextImportModal}
+        onClose={() => setShowTextImportModal(false)}
+        onImportSuccess={handleTextImportSuccess}
       />
     </>
   );

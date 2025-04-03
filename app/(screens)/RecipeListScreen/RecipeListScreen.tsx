@@ -218,13 +218,25 @@ export default function RecipeListScreen() {
   }, []);
 
   // Handle task creation (scan or import)
-  const handleTaskCreated = useCallback((taskId: string, taskType: 'scan' | 'import' | 'pdf') => {
+  const handleTaskCreated = useCallback((taskId: string, taskType: 'scan' | 'import' | 'pdf' | 'text') => {
     // Show a toast or notification to the user
-    const message = taskType === 'scan' 
-      ? 'Rozpoczęto analizowanie przepisu ze zdjęcia. Otrzymasz powiadomienie, gdy będzie gotowy.'
-      : taskType === 'import'
-        ? 'Rozpoczęto importowanie przepisu. Otrzymasz powiadomienie, gdy będzie gotowy.'
-        : 'Rozpoczęto importowanie przepisu z PDF. Otrzymasz powiadomienie, gdy będzie gotowy.';
+    let message;
+    switch(taskType) {
+      case 'scan':
+        message = 'Rozpoczęto analizowanie przepisu ze zdjęcia. Otrzymasz powiadomienie, gdy będzie gotowy.';
+        break;
+      case 'import':
+        message = 'Rozpoczęto importowanie przepisu. Otrzymasz powiadomienie, gdy będzie gotowy.';
+        break;
+      case 'pdf':
+        message = 'Rozpoczęto importowanie przepisu z PDF. Otrzymasz powiadomienie, gdy będzie gotowy.';
+        break;
+      case 'text':
+        message = 'Rozpoczęto analizowanie przepisu z tekstu. Otrzymasz powiadomienie, gdy będzie gotowy.';
+        break;
+      default:
+        message = 'Rozpoczęto przetwarzanie przepisu. Otrzymasz powiadomienie, gdy będzie gotowy.';
+    }
     
     // You could use a toast library here, for now we'll just log
     console.log(`[Task Created] ${message} Task ID: ${taskId}`);
