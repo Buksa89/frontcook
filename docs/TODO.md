@@ -1,10 +1,5 @@
 next steps:
-Zepsuta synchronizacja - last sync sie zle zapisuje
-Zapsute observables dla subscription
-Architektura pod pro
-wyslij notyfikacje kazdemu userowi zeby last timestamp byl obciety i sie nie zapetlal
-
-    brak settings przy pierwszym uruchomieniu!
+    
     zdebuguj dlaczego klawiatura wyswietla sie na recipe list po otwarciu
 
     poprawa promptow importow i flow (usun header, footer ze stron, deeepsek, pdfy tekstowe jako tekst)
@@ -29,7 +24,7 @@ Issues:
 Pilnuj:
     Przytrzymanie na listach jako menu kontekstowe
     last update - test
-
+    brak settings przy pierwszym uruchomieniu! - test
 
 Quick wins:
     popraw prompt, zeby byl w formacie json
@@ -45,6 +40,7 @@ Dev:
     Zappisywanie logow w sentry
 
 Improvements:
+    Architektura pod pro
     Lista znajomych
     Udostepnianie przepisow
     Stalking
@@ -64,6 +60,7 @@ Final:
     upewnienie sie ze mamy te same regexy na hasla na backendzie i froncie - przy tworzeniu i resecie i updatach z admina i z settingsow
 
 Future improvement:
+    Zapsute observables dla subscription
     Shopping list sharing
     Multiple shoppinmg lists
     Przepisy z filmikow

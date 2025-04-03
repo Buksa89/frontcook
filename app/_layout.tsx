@@ -5,12 +5,14 @@ import React, { useRef, useState, createContext, useEffect } from 'react';
 import type { NativeStackNavigationOptions, NativeStackHeaderProps } from '@react-navigation/native-stack';
 import type { ParamListBase } from '@react-navigation/native';
 import { MainMenu } from './components/MainMenu';
-import { AuthProvider } from './context';
+import { AuthProvider } from './context/authContext';
 import { router } from 'expo-router';
 import { DEBUG } from './constants/env';
 import Notification from '../database/models/Notification';
 import database from '../database';
 import { ToastComponent } from './components/Toast';
+import UserSettings from '../database/models/UserSettings';
+import AuthService from './services/auth/authService';
 
 type RootStackParamList = {
   index: undefined;
@@ -55,6 +57,26 @@ export default function RootLayout() {
   const [searchFunction, setSearchFunction] = useState<SearchFunction | null>(null);
   const [searchText, setSearchText] = useState('');
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+
+  // Initialize UserSettings when the app starts
+  useEffect(() => {
+    const initUserSettings = async () => {
+      try {
+        // Check if user is logged in
+        const activeUser = await AuthService.getActiveUser();
+        if (activeUser) {
+          console.log(`[App] Checking UserSettings for user: ${activeUser}`);
+          // Use the getOrCreate method to ensure UserSettings exist
+          await UserSettings.getOrCreate(database);
+          console.log(`[App] UserSettings checked/created successfully`);
+        }
+      } catch (error) {
+        console.error(`[App] Error initializing UserSettings:`, error);
+      }
+    };
+    
+    initUserSettings();
+  }, []);
 
   // Add useEffect for monitoring unread notifications
   useEffect(() => {
