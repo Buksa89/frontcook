@@ -249,19 +249,6 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
           </TouchableOpacity>
         </View>
       )}
-
-      {recipe.isApproved && (
-        <View style={styles.fabContainer}>
-          <TouchableOpacity 
-            style={styles.fab}
-            onPress={() => router.push({
-              pathname: '/(screens)/ShoppingListScreen/ShoppingListScreen'
-            })}
-          >
-            <AntDesign name="shoppingcart" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      )}
     </ServingsProvider>
   );
 };
@@ -432,28 +419,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  fabContainer: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    flexDirection: 'row',
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#5c7ba9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   rating: {
     flexDirection: 'row',

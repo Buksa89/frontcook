@@ -218,7 +218,7 @@ export async function pushSynchronization(user: string): Promise<void> {
       
       // Send data to the server
       const response = await syncApi.pushChanges(syncItems);
-      console.log(`[SyncService] Server returned ${response.length} items for batch ${batchCount}`);
+      // console.log(`[SyncService] Server returned ${response.length} items for batch ${batchCount}`);
       
       // Process the server response
       await processServerResponse(response, pendingItems);
