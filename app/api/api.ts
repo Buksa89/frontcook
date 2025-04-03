@@ -206,7 +206,7 @@ class ApiClient {
 
     // Loguj zapytanie, jeśli DEBUG jest włączony
     if (DEBUG) {
-      console.log(`🚀 API REQUEST: ${options.method || 'GET'} ${url}`);
+      // console.log(`🚀 API REQUEST: ${options.method || 'GET'} ${url}`);
       
       if (options.body instanceof FormData) {
         console.log('📦 Request Payload: [FormData]');

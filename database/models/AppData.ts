@@ -7,15 +7,12 @@ import { map, switchMap } from 'rxjs/operators'
 import AuthService from '../../app/services/auth/authService'
 import SyncModel from './SyncModel'
 
-// AppData przechowuje ustawienia aplikacji i dane synchronizacji dla bieżącego użytkownika
 export default class AppData extends SyncModel {
   static table = 'app_data'
 
-  // Z API przychodzą timestampy (liczby milisekund) z pełną precyzją milisekundową
-  // Dekorator @date automatycznie konwertuje te liczby na obiekty Date
   @date('last_sync') lastSync!: Date
   @date('subscription_end') subscriptionEnd!: Date
-  @date('csv_lock') csvLock!: Date
+  @text('csv_lock') csvLock!: Date
 
   // Method to check if a server object already exists in the local database
   // Override from SyncModel to check by user instead of syncId
@@ -169,7 +166,7 @@ export default class AppData extends SyncModel {
         return null;
       }
       
-      console.log(`[DB ${this.table}] Updating app data ${appDataId} with provided fields`);
+      // console.log(`[DB ${this.table}] Updating app data ${appDataId} with provided fields`);
       
       // Use the update method directly from the model instance
       await appData.update(record => {
@@ -199,7 +196,7 @@ export default class AppData extends SyncModel {
     newLastSync: Date
   ): Promise<void> {
     try {
-      console.log(`[DB ${this.table}] Updating last sync to ${newLastSync}`);
+      // console.log(`[DB ${this.table}] Updating last sync to ${newLastSync}`);
       
       // Get or create app data
       const appData = await this.getOrCreate(database);
@@ -238,7 +235,7 @@ export default class AppData extends SyncModel {
         .fetch();
       
       if (appDataRecords.length > 0) {
-        console.log(`[DB ${this.table}] Retrieved app data for ${activeUser}`);
+        // console.log(`[DB ${this.table}] Retrieved app data for ${activeUser}`);
         return appDataRecords[0];
       }
 
@@ -263,7 +260,7 @@ export default class AppData extends SyncModel {
   // Get lastSync, creating a record if none exists
   static async getLastSync(database: Database): Promise<Date> {
     try {
-      console.log(`[DB ${this.table}] Getting last sync date`);
+      // console.log(`[DB ${this.table}] Getting last sync date`);
       
       // Get or create app data
       const appData = await this.getOrCreate(database);

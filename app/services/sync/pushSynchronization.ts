@@ -164,7 +164,7 @@ async function processServerResponse(response: SyncItemType[], pendingItems: Syn
  * @param user The active user for whom to sync data
  */
 export async function pushSynchronization(user: string): Promise<void> {
-  console.log('[SyncService] Push synchronization started');
+  // console.log('[SyncService] Push synchronization started');
   
   // The batch size for data synchronization
   const BATCH_SIZE = 20;
@@ -186,14 +186,14 @@ export async function pushSynchronization(user: string): Promise<void> {
   // Process batches until no more pending items
   while (hasMoreItems) {
     batchCount++;
-    console.log(`[SyncService] Processing batch ${batchCount}`);
+    // console.log(`[SyncService] Processing batch ${batchCount}`);
     
     // Get pending items for this batch
     const pendingItems = await getPendingItems(modelClasses, BATCH_SIZE, user);
     
     // If no more pending items, we're done
     if (pendingItems.length === 0) {
-      console.log(`[SyncService] No more pending items found`);
+      // console.log(`[SyncService] No more pending items found`);
       hasMoreItems = false;
       continue;
     }
@@ -229,7 +229,7 @@ export async function pushSynchronization(user: string): Promise<void> {
     }
   }
   
-  console.log(`[SyncService] Push synchronization completed. Processed ${batchCount} batches.`);
+  // console.log(`[SyncService] Push synchronization completed. Processed ${batchCount} batches.`);
 }
 
 export default pushSynchronization; 

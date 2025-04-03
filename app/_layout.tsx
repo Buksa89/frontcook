@@ -11,7 +11,6 @@ import { DEBUG } from './constants/env';
 import Notification from '../database/models/Notification';
 import database from '../database';
 import { ToastComponent } from './components/Toast';
-import Advertisement from './components/Advertisement';
 
 type RootStackParamList = {
   index: undefined;
@@ -71,12 +70,12 @@ export default function RootLayout() {
   }, []);
 
   const handleSetResetFunction = (fn: ResetFunction) => {
-    console.log('Setting reset function');
+    // console.log('Setting reset function');
     setResetFunction(() => fn);
   };
 
   const handleSetSearchFunction = (fn: SearchFunction) => {
-    console.log('Setting search function');
+    // console.log('Setting search function');
     setSearchFunction(() => fn);
   };
 
@@ -421,7 +420,6 @@ export default function RootLayout() {
             visible={isMenuVisible} 
             onClose={() => setIsMenuVisible(false)} 
           />}
-          <Advertisement />
         </ResetFiltersContext.Provider>
       </AuthProvider>
       <ToastComponent />

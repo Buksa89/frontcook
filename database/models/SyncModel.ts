@@ -289,7 +289,7 @@ export default class SyncModel extends Model {
     if (serverObject.last_update) {
       // Przychodząca wartość jest już liczbą milisekund, więc konwersja zachowuje pełną precyzję
       serverObject.last_update = new Date(serverObject.last_update);
-      console.log(`[SyncModel] Server date for ${syncId}: ${serverObject.last_update.toISOString()}`);
+      // console.log(`[SyncModel] Server date for ${syncId}: ${serverObject.last_update.toISOString()}`);
     }
     
     // First, check if the object exists in the local database

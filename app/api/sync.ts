@@ -97,7 +97,7 @@ export const getChanges = async (lastSync: Date, batchSize: number = 20): Promis
   // Konwertuj Date na timestamp (liczba milisekund od 1970-01-01) dla API
   const lastSyncTimestamp = lastSync.getTime();
   
-  console.log('[Sync API] Fetching changes since timestamp:', lastSyncTimestamp, 'with batch size:', batchSize);
+  // console.log('[Sync API] Fetching changes since timestamp:', lastSyncTimestamp, 'with batch size:', batchSize);
   
   // Prepare the payload for the API call
   const payload = {
@@ -109,7 +109,7 @@ export const getChanges = async (lastSync: Date, batchSize: number = 20): Promis
   const response = await api.post<SyncResponse>('/api/sync/pull/', payload, true);
   
   // Just log that we received changes without printing the response
-  console.log('[Sync API] Received changes');
+  // console.log('[Sync API] Received changes');
   
   return response;
 };

@@ -85,7 +85,7 @@ async function populateDefaultTags(): Promise<void> {
     const activeUser = await AuthService.getActiveUser();
 
     if (activeUser) {
-      console.log('Active user exists, skipping default tags creation');
+      // console.log('Active user exists, skipping default tags creation');
       return;
     }
 

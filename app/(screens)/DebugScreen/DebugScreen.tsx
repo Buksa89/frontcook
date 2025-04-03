@@ -4,6 +4,7 @@ import database from '../../../database';
 import { Q } from '@nozbe/watermelondb';
 import AuthService from '../../services/auth/authService';
 import AppData from '../../../database/models/AppData';
+import { Subscription } from 'rxjs';
 
 // Funkcja do formatowania timestampów na czytelne daty z milisekundową precyzją
 const formatTimestamp = (timestamp: any): string => {
@@ -57,7 +58,33 @@ export default function DebugScreen() {
   useEffect(() => {
     loadAllData();
     loadUserAndLastSyncTime();
-    checkSubscriptionStatus();
+
+    // Utwórz subskrypcję Observable dla statusu subskrypcji
+    const subscriptionObservable = AppData.observeSubscriptionStatus(database);
+    
+    // Zmienna przechowująca aktualną subskrypcję
+    let subscription: Subscription;
+    
+    // Subskrybuj do Observable, aby reagować na zmiany statusu subskrypcji
+    subscription = subscriptionObservable.subscribe({
+      next: ({ isActive, endDate }) => {
+        console.log('[DEBUG] Subscription status updated:', isActive, 'End date:', endDate);
+        setActiveSubscription(isActive);
+        setSubscriptionEndDate(endDate);
+      },
+      error: (error) => {
+        console.error('[DEBUG] Subscription status observation error:', error);
+        setActiveSubscription(null);
+        setSubscriptionEndDate(null);
+      }
+    });
+
+    // Czyszczenie subskrypcji przy odmontowaniu komponentu
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const loadUserAndLastSyncTime = async () => {
@@ -74,36 +101,6 @@ export default function DebugScreen() {
       }
     } catch (error) {
       console.error('Error loading user or last sync time:', error);
-    }
-  };
-
-  const checkSubscriptionStatus = async () => {
-    try {
-      const user = await AuthService.getActiveUser();
-      
-      if (!user) {
-        setActiveSubscription(null);
-        setSubscriptionEndDate(null);
-        return;
-      }
-      
-      // Pobieramy dane AppData dla aktywnego użytkownika
-      const appData = await AppData.getOrCreate(database);
-      
-      // Sprawdzamy status subskrypcji
-      const subscriptionEnd = appData.subscriptionEnd;
-      const now = new Date();
-      
-      // Ustawiamy stan z informacją o aktywności subskrypcji
-      const isActive = subscriptionEnd ? subscriptionEnd > now : false;
-      setActiveSubscription(isActive);
-      setSubscriptionEndDate(subscriptionEnd || null);
-      
-      console.log('[DEBUG] Subscription status:', isActive, 'End date:', subscriptionEnd);
-    } catch (error) {
-      console.error('Error checking subscription status:', error);
-      setActiveSubscription(null);
-      setSubscriptionEndDate(null);
     }
   };
 
@@ -272,7 +269,6 @@ export default function DebugScreen() {
         onPress={() => {
           loadAllData();
           loadUserAndLastSyncTime();
-          checkSubscriptionStatus();
         }}
       >
         <Text style={styles.refreshButtonText}>Odśwież</Text>

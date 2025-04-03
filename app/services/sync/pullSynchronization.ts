@@ -111,7 +111,7 @@ async function processBatch(
   batchCount: number,
   allFailedItems: SyncItemType[]
 ): Promise<{ updatedLastSync: Date, hasMoreItems: boolean }> {
-  console.log(`[SyncService] Processing batch ${batchCount} with lastSync=${currentLastSync.toISOString()}`);
+  // console.log(`[SyncService] Processing batch ${batchCount} with lastSync=${currentLastSync.toISOString()}`);
   
   // Call the getChanges API to get updated data from the server with batch size
   const response = await syncApi.getChanges(currentLastSync, BATCH_SIZE) as SyncItemType[];
@@ -119,7 +119,7 @@ async function processBatch(
   
   // If no more items, we're done with the loop
   if (response.length === 0) {
-    console.log('[SyncService] No more items to synchronize');
+    // console.log('[SyncService] No more items to synchronize');
     return { updatedLastSync: currentLastSync, hasMoreItems: false };
   }
   
@@ -140,7 +140,7 @@ async function processBatch(
     
     // Update the lastSync value if needed
     if (mostRecentUpdate > currentLastSync) {
-      console.log(`[SyncService] Updating last_sync from ${currentLastSync.toISOString()} to ${mostRecentUpdate.toISOString()}`);
+      // console.log(`[SyncService] Updating last_sync from ${currentLastSync.toISOString()} to ${mostRecentUpdate.toISOString()}`);
       
       // Ensure date is valid
       if (!isNaN(mostRecentUpdate.getTime())) {
@@ -168,7 +168,7 @@ async function processBatch(
     }
   }
   
-  console.log(`[SyncService] Batch ${batchCount} completed successfully`);
+  // console.log(`[SyncService] Batch ${batchCount} completed successfully`);
   
   return { updatedLastSync, hasMoreItems: true };
 }
@@ -179,7 +179,7 @@ async function processBatch(
  * @param lastSync The timestamp of the last successful synchronization as Date object
  */
 export async function pullSynchronization(user: string, lastSync: Date): Promise<void> {
-  console.log('[SyncService] Pull synchronization started');
+  // console.log('[SyncService] Pull synchronization started');
   
   // Array to store all items that failed to process across all batches
   const allFailedItems: SyncItemType[] = [];
@@ -221,7 +221,7 @@ export async function pullSynchronization(user: string, lastSync: Date): Promise
       }
     }
     
-    console.log(`[SyncService] Pull synchronization completed successfully. Processed ${batchCount} batches.`);
+    // console.log(`[SyncService] Pull synchronization completed successfully. Processed ${batchCount} batches.`);
     
   } catch (error) {
     console.error('[SyncService] Pull synchronization error:', error);
