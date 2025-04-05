@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Text, Alert, Image } from 'react-native';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,6 +7,7 @@ import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
 import database from '../../../database';
 import { formatTime } from '../../../app/utils/timeFormat';
+import { getThumbnailPath } from '../../utils/imageProcessor';
 
 // Komponent karty przepisu oczekującego na zatwierdzenie
 interface PendingRecipeCardProps {
@@ -15,17 +16,45 @@ interface PendingRecipeCardProps {
 }
 
 const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
-  // Add a deletion tracking state
-  const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [thumbnailImage, setThumbnailImage] = useState<string | null>(null);
+  const [recipeImage, setRecipeImage] = useState<string | null>(null);
   
-  // Create a safe recipe object with all required fields
+  // Ensure recipe object has all required properties to prevent rendering issues
   const safeRecipe = {
     id: recipe?.id || '',
     name: recipe?.name || '',
     image: recipe?.image || null,
     prepTime: recipe?.prepTime || null,
-    totalTime: recipe?.totalTime || null
+    totalTime: recipe?.totalTime || null,
   };
+  
+  useEffect(() => {
+    const loadImages = async () => {
+      try {
+        // Pobierz miniaturę z RecipeImage
+        const thumbnail = await recipe.getThumbnailFromRecipeImage();
+        setThumbnailImage(thumbnail);
+        
+        // Pobierz obraz z RecipeImage jeśli nie ma miniatury
+        if (!thumbnail) {
+          const image = await recipe.getImageFromRecipeImage();
+          setRecipeImage(image);
+        }
+      } catch (error) {
+        console.error(`Błąd podczas pobierania obrazów dla przepisu ${recipe.name}:`, error);
+        // Fallback do bezpośredniego pola image
+        if (safeRecipe.image) {
+          const thumbnailPath = getThumbnailPath(safeRecipe.image);
+          setThumbnailImage(thumbnailPath);
+          setRecipeImage(safeRecipe.image);
+        }
+      }
+    };
+    
+    loadImages();
+  }, [recipe]);
 
   // Skip rendering if recipe is invalid
   if (!recipe || typeof recipe !== 'object') {
@@ -44,18 +73,18 @@ const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
 
   const handleDelete = async () => {
     // Check if already in deletion process to avoid duplicate processing
-    if (isDeletingRecipe) return;
+    if (isDeleting) return;
     
     try {
       // Set deletion flag to prevent multiple calls
-      setIsDeletingRecipe(true);
+      setIsDeleting(true);
       
       // Delete immediately without confirmation
       await recipe.markAsDeleted();
     } catch (error) {
       console.error('Błąd podczas usuwania przepisu:', error);
       // Reset deletion flag if there was an error
-      setIsDeletingRecipe(false);
+      setIsDeleting(false);
     }
   };
 
@@ -68,7 +97,19 @@ const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
       })}
     >
       <View style={[styles.imageContainer, styles.imagePlaceholder]}>
-        {safeRecipe.image ? (
+        {thumbnailImage ? (
+          <Image
+            source={{ uri: thumbnailImage }}
+            style={styles.image}
+            onError={() => console.log('Błąd ładowania miniatury:', safeRecipe.name)}
+          />
+        ) : recipeImage ? (
+          <Image
+            source={{ uri: recipeImage }}
+            style={styles.image}
+            onError={() => console.log('Błąd ładowania zdjęcia:', safeRecipe.name)}
+          />
+        ) : safeRecipe.image ? (
           <Image
             source={{ uri: safeRecipe.image }}
             style={styles.image}

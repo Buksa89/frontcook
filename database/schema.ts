@@ -112,8 +112,18 @@ const AppDataSchema: TableSchema = tableSchema({
   ]
 })
 
+// Zdefiniuj schemat RecipeImage
+export const RecipeImageSchema = tableSchema({
+  name: 'recipe_images',
+  columns: [
+    { name: 'image', type: 'string', isOptional: true },
+    { name: 'thumbnail', type: 'string', isOptional: true },
+    ...syncColumns
+  ]
+})
+
 const schema: AppSchema = appSchema({
-  version: 10, // Updated to version 10 for making recipe fields non-nullable
+  version: 12,
   tables: [
     tagsSchema,
     recipesSchema,
@@ -122,7 +132,8 @@ const schema: AppSchema = appSchema({
     shoppingItemsSchema,
     localUserSettingsSchema,
     notificationsSchema,
-    AppDataSchema
+    AppDataSchema,
+    RecipeImageSchema
   ]
 })
 

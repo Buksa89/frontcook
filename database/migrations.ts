@@ -244,6 +244,37 @@ export default schemaMigrations({
           `
         }
       ]
+    },
+    {
+      toVersion: 11,
+      steps: [
+        // Dodaj nową tabelę recipe_images
+        createTable({
+          name: 'recipe_images',
+          columns: [
+            { name: 'image', type: 'string', isOptional: true },
+            // Kolumny synchronizacji
+            { name: 'sync_id', type: 'string' },
+            { name: 'sync_status', type: 'string' },
+            { name: 'last_update', type: 'number', isOptional: true },
+            { name: 'is_local', type: 'boolean', isOptional: true },
+            { name: 'owner', type: 'string', isOptional: true },
+            { name: 'is_deleted', type: 'boolean' }
+          ]
+        })
+      ]
+    },
+    {
+      toVersion: 12,
+      steps: [
+        // Dodaj kolumnę thumbnail do tabeli recipe_images
+        addColumns({
+          table: 'recipe_images',
+          columns: [
+            { name: 'thumbnail', type: 'string', isOptional: true }
+          ]
+        })
+      ]
     }
   ]
 }) 

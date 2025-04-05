@@ -6,6 +6,7 @@ import { Database } from '@nozbe/watermelondb'
 import SyncModel from './SyncModel'
 import RecipeTag from './RecipeTag'
 import Ingredient from './Ingredient'
+import RecipeImage from './RecipeImage'
 import { switchMap } from 'rxjs/operators'
 import { Model } from '@nozbe/watermelondb'
 import { v4 as uuidv4 } from 'uuid'
@@ -47,6 +48,60 @@ export default class Recipe extends SyncModel {
   @text('nutrition') nutrition!: string | null
   @text('video') video!: string | null
   @text('source') source!: string | null
+
+  // Metoda do pobierania obrazu z RecipeImage na podstawie syncId
+  async getImageFromRecipeImage(): Promise<string | null> {
+    try {
+      if (!this.syncId) return null;
+      
+      // Znajdź RecipeImage z tym samym syncId
+      const recipeImages = await this.database
+        .get<RecipeImage>('recipe_images')
+        .query(
+          Q.and(
+            Q.where('sync_id', this.syncId),
+            Q.where('is_deleted', false)
+          )
+        )
+        .fetch();
+      
+      if (recipeImages.length === 0) {
+        return this.image; // Fallback do istniejącego pola image
+      }
+      
+      return recipeImages[0].image || null;
+    } catch (error) {
+      console.error(`[Recipe] Błąd pobierania obrazu dla przepisu ${this.id}:`, error);
+      return null;
+    }
+  }
+  
+  // Metoda do pobierania miniatury z RecipeImage na podstawie syncId
+  async getThumbnailFromRecipeImage(): Promise<string | null> {
+    try {
+      if (!this.syncId) return null;
+      
+      // Znajdź RecipeImage z tym samym syncId
+      const recipeImages = await this.database
+        .get<RecipeImage>('recipe_images')
+        .query(
+          Q.and(
+            Q.where('sync_id', this.syncId),
+            Q.where('is_deleted', false)
+          )
+        )
+        .fetch();
+      
+      if (recipeImages.length === 0) {
+        return null; // Brak miniatury
+      }
+      
+      return recipeImages[0].thumbnail || null;
+    } catch (error) {
+      console.error(`[Recipe] Błąd pobierania miniatury dla przepisu ${this.id}:`, error);
+      return null;
+    }
+  }
 
   // Children relations
   @children('recipe_tags') recipeTags!: Observable<RecipeTag[]>

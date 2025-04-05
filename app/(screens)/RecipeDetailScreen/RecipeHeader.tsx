@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet, Share, Alert, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Recipe from '../../../database/models/Recipe';
 import Ingredient from '../../../database/models/Ingredient';
 import { formatTime } from '../../../app/utils/timeFormat';
+import { needsProcessing, getThumbnailPath } from '../../utils/imageProcessor';
 
 interface RecipeHeaderProps {
   recipe: Recipe;
@@ -12,6 +13,23 @@ interface RecipeHeaderProps {
 }
 
 export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) => {
+  const [displayImage, setDisplayImage] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // Pobierz obraz z RecipeImage na podstawie syncId
+    const loadImage = async () => {
+      try {
+        const image = await recipe.getImageFromRecipeImage();
+        setDisplayImage(image);
+      } catch (error) {
+        console.error(`Błąd podczas pobierania obrazu dla przepisu ${recipe.name}:`, error);
+        setDisplayImage(recipe.image); // Fallback do bezpośredniego pola image
+      }
+    };
+    
+    loadImage();
+  }, [recipe]);
+
   const handleShareRecipe = async () => {
     try {
       // Create a nicely formatted recipe to share
@@ -103,11 +121,12 @@ export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) =>
 
   return (
     <View style={styles.header}>
-      {recipe.image ? (
+      {displayImage ? (
         <Image
-          source={{ uri: recipe.image }}
+          source={{ uri: displayImage }}
           style={styles.image}
           resizeMode="cover"
+          onError={() => console.log('Błąd ładowania zdjęcia:', recipe.name)}
         />
       ) : (
         <View style={styles.imagePlaceholder}>
@@ -146,11 +165,13 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 250,
+    height: undefined,
+    aspectRatio: 1024 / 633,
   },
   imagePlaceholder: {
     width: '100%',
-    height: 250,
+    height: undefined,
+    aspectRatio: 1024 / 633,
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',

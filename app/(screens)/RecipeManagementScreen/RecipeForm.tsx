@@ -1,11 +1,13 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Image } from 'react-native';
 import { FormField } from './FormField';
 import { TagsSelector } from './TagsSelector';
 import { TimeInput } from './TimeInput';
 import { ServingsInput } from './ServingsInput';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import Tag from '../../../database/models/Tag';
+import * as ImagePicker from 'expo-image-picker';
+import { showToast } from '../../components/Toast';
 
 interface RecipeFormData {
   name: string;
@@ -20,11 +22,12 @@ interface RecipeFormData {
   nutrition?: string;
   video?: string;
   source?: string;
+  image?: string | null;
 }
 
 interface RecipeFormProps {
   data: RecipeFormData;
-  onDataChange: (field: keyof RecipeFormData, value: string | Tag[]) => void;
+  onDataChange: (field: keyof RecipeFormData, value: string | Tag[] | null) => void;
   availableTags: Tag[];
   onSubmit: () => void;
   isEditing: boolean;
@@ -45,6 +48,57 @@ export const RecipeForm = ({
 
   const handleServingsChange = (servings: number) => {
     onDataChange('servings', servings.toString());
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      showToast({
+        type: 'error',
+        text1: 'Brak uprawnień',
+        text2: 'Potrzebujemy uprawnień do galerii aby kontynuować!',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: false,
+      quality: 1,
+      aspect: [16, 9],
+    });
+
+    if (!result.canceled) {
+      onDataChange('image', result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (status !== 'granted') {
+      showToast({
+        type: 'error',
+        text1: 'Brak uprawnień',
+        text2: 'Potrzebujemy uprawnień do kamery aby kontynuować!',
+        visibilityTime: 4000,
+        position: 'bottom'
+      });
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 1,
+      aspect: [16, 9],
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.canceled) {
+      onDataChange('image', result.assets[0].uri);
+    }
   };
 
   return (
@@ -76,9 +130,34 @@ export const RecipeForm = ({
 
           <View style={styles.imageSection}>
             <Text style={styles.label}>Obrazek</Text>
-            <View style={styles.imagePlaceholder}>
-              <Text style={styles.imagePlaceholderText}>Funkcja dodawania obrazków będzie dostępna wkrótce</Text>
-            </View>
+            {data.image ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: data.image }} style={styles.imagePreview} />
+                <TouchableOpacity 
+                  style={styles.removeImageButton}
+                  onPress={() => onDataChange('image', null)}
+                >
+                  <MaterialIcons name="close" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.imagePicker}>
+                <TouchableOpacity 
+                  style={styles.imagePickerButton}
+                  onPress={takePhoto}
+                >
+                  <MaterialIcons name="camera-alt" size={24} color="#5c7ba9" />
+                  <Text style={styles.imagePickerText}>Zrób zdjęcie</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.imagePickerButton}
+                  onPress={pickImage}
+                >
+                  <MaterialIcons name="photo-library" size={24} color="#5c7ba9" />
+                  <Text style={styles.imagePickerText}>Wybierz z galerii</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           <View style={styles.row}>
@@ -208,7 +287,13 @@ const styles = StyleSheet.create({
   imageSection: {
     marginBottom: 16,
   },
-  imagePlaceholder: {
+  imagePicker: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  imagePickerButton: {
+    flex: 1,
     height: 120,
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
@@ -217,9 +302,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imagePlaceholderText: {
-    color: '#999',
+  imagePickerText: {
+    color: '#5c7ba9',
     fontSize: 14,
+    marginTop: 8,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 16,
+    padding: 6,
   },
   saveButtonContainer: {
     position: 'absolute',

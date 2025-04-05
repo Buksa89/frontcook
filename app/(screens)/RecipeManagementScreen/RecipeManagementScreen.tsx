@@ -5,18 +5,22 @@ import database from '../../../database';
 import { withObservables } from '@nozbe/watermelondb/react';
 import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
+import RecipeImage from '../../../database/models/RecipeImage';
 import { of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 import Ingredient from '../../../database/models/Ingredient'
 import { RecipeForm } from './RecipeForm';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { needsProcessing, cropToSize } from '../../../app/utils/imageProcessor';
+import { Q } from '@nozbe/watermelondb';
 
 interface EditRecipeScreenProps {
   existingRecipe: Recipe | null;
   availableTags: Tag[];
   selectedTags: Tag[];
   ingredients: string;
+  recipeImage: string | null;
 }
 
 interface EnhanceProps {
@@ -27,7 +31,8 @@ const EditRecipeScreen = ({
   existingRecipe, 
   availableTags, 
   selectedTags: initialSelectedTags,
-  ingredients: initialIngredients 
+  ingredients: initialIngredients,
+  recipeImage: initialImage
 }: EditRecipeScreenProps) => {
   const navigation = useNavigation();
   const [formData, setFormData] = useState({
@@ -42,7 +47,8 @@ const EditRecipeScreen = ({
     selectedTags: initialSelectedTags,
     nutrition: '',
     video: '',
-    source: ''
+    source: '',
+    image: initialImage
   });
 
   useEffect(() => {
@@ -59,7 +65,8 @@ const EditRecipeScreen = ({
         selectedTags: initialSelectedTags,
         nutrition: existingRecipe.nutrition || '',
         video: existingRecipe.video || '',
-        source: existingRecipe.source || ''
+        source: existingRecipe.source || '',
+        image: initialImage
       });
       
       // Set up the navigation header with delete button
@@ -78,9 +85,9 @@ const EditRecipeScreen = ({
         });
       }
     }
-  }, [existingRecipe, initialSelectedTags, initialIngredients, navigation]);
+  }, [existingRecipe, initialSelectedTags, initialIngredients, initialImage, navigation]);
 
-  const handleFieldChange = (field: keyof typeof formData, value: string | Tag[]) => {
+  const handleFieldChange = (field: keyof typeof formData, value: string | Tag[] | null) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -107,6 +114,48 @@ const EditRecipeScreen = ({
     );
   };
 
+  const saveRecipeWithImage = async (recipe: Recipe) => {
+    if (formData.image && recipe.syncId) {
+      try {
+        console.log(`[RecipeManagement] Zapisuję obraz dla przepisu: ${recipe.id}, syncId: ${recipe.syncId}`);
+        
+        // Używamy metody createOrUpdate tylko z syncId i obrazem
+        const recipeImage = await RecipeImage.createOrUpdate(
+          database,
+          recipe.syncId,
+          formData.image
+        );
+        
+        if (recipeImage) {
+          console.log(`[RecipeManagement] Zapisano obraz dla przepisu: ${recipe.id}, syncId: ${recipe.syncId}`);
+        } else {
+          console.error(`[RecipeManagement] Nie udało się zapisać obrazu dla przepisu: ${recipe.id}`);
+        }
+      } catch (error) {
+        console.error('Error saving recipe image:', error);
+      }
+    } else if (!formData.image && recipe.syncId) {
+      // Jeśli usunięto obraz, również musimy zaktualizować rekord RecipeImage
+      try {
+        console.log(`[RecipeManagement] Usuwanie obrazu dla przepisu: ${recipe.id}, syncId: ${recipe.syncId}`);
+        
+        const existingRecipeImages = await database.get<RecipeImage>('recipe_images')
+          .query(Q.where('sync_id', recipe.syncId))
+          .fetch();
+          
+        if (existingRecipeImages.length > 0) {
+          await existingRecipeImages[0].update(record => {
+            record.image = undefined;
+            record.thumbnail = undefined;
+          });
+          console.log(`[RecipeManagement] Usunięto obrazy dla przepisu: ${recipe.id}`);
+        }
+      } catch (error) {
+        console.error('Error removing recipe image:', error);
+      }
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.name || !formData.ingredients || !formData.instructions) {
       Alert.alert('Błąd', 'Wypełnij wymagane pola (nazwa, składniki, instrukcje)');
@@ -114,7 +163,10 @@ const EditRecipeScreen = ({
     }
 
     try {
-      await Recipe.saveRecipe(database, formData, existingRecipe || undefined);
+      const savedRecipe = await Recipe.saveRecipe(database, formData, existingRecipe || undefined);
+      
+      // Po zapisaniu przepisu, zapisujemy obraz
+      await saveRecipeWithImage(savedRecipe);
       
       // Jeśli przepis istnieje i nie jest jeszcze zatwierdzony, zatwierdzamy go
       if (existingRecipe && !existingRecipe.isApproved) {
@@ -137,7 +189,21 @@ const EditRecipeScreen = ({
     if (!existingRecipe) return;
 
     try {
+      // Usuń także powiązany obraz jeśli istnieje
+      if (existingRecipe.syncId) {
+        const existingRecipeImages = await database.get<RecipeImage>('recipe_images')
+          .query(Q.where('sync_id', existingRecipe.syncId))
+          .fetch();
+          
+        if (existingRecipeImages.length > 0) {
+          await existingRecipeImages[0].markAsDeleted();
+          console.log(`[RecipeManagement] Usunięto obraz dla przepisu: ${existingRecipe.id}, syncId: ${existingRecipe.syncId}`);
+        }
+      }
+      
+      // Usuń przepis
       await existingRecipe.markAsDeleted();
+      
       router.push({
         pathname: '/(screens)/RecipeListScreen/RecipeListScreen'
       });
@@ -171,7 +237,28 @@ const enhance = withObservables(['recipeId'], ({ recipeId }: EnhanceProps) => ({
     ? Ingredient.observeForRecipe(database, recipeId).pipe(
         map(ingredients => ingredients.map(i => i.originalStr).join('\n'))
       )
-    : of('')
+    : of(''),
+  recipeImage: recipeId
+    ? database.get<Recipe>('recipes')
+        .findAndObserve(recipeId)
+        .pipe(
+          switchMap(recipe => {
+            if (!recipe?.syncId) return of(null);
+            
+            return database
+              .get<RecipeImage>('recipe_images')
+              .query(Q.where('sync_id', recipe.syncId))
+              .observeWithColumns(['image'])
+              .pipe(
+                map(images => {
+                  if (images.length === 0) return null;
+                  console.log(`[RecipeManagement] Znaleziono obraz dla przepisu: ${recipe.id}, syncId: ${recipe.syncId}`);
+                  return images[0].image || null;
+                })
+              );
+          })
+        )
+    : of(null)
 }));
 
 const EnhancedEditRecipeScreen = enhance(EditRecipeScreen);

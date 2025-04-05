@@ -16,6 +16,7 @@ import ShoppingItem from './models/ShoppingItem'
 import LocalUserSettings from './models/UserSettings'
 import Notification from './models/Notification'
 import AppData from './models/AppData'
+import RecipeImage from './models/RecipeImage'
 import { v4 as uuidv4 } from 'uuid'
 
 interface DefaultTag {
@@ -60,7 +61,8 @@ const database = new Database({
     ShoppingItem,
     LocalUserSettings,
     Notification,
-    AppData
+    AppData,
+    RecipeImage
   ],
 })
 
@@ -124,7 +126,8 @@ populateDefaultTags().catch(error => {
 
 export {
   LocalUserSettings,
-  Notification
+  Notification,
+  RecipeImage
 }
 
 export default database 

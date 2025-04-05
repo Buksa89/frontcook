@@ -13,6 +13,7 @@ import { Q } from '@nozbe/watermelondb';
 import { AddShopingItemMenu } from '../../../app/components/AddShopingItemMenu';
 import { ServingsProvider, useServings } from '../../(screens)/RecipeDetailScreen/ServingsContext';
 import { formatTime } from '../../../app/utils/timeFormat';
+import { getThumbnailPath } from '../../utils/imageProcessor';
 
 // Komponent opakowujący ServingsProvider, który ustawia początkowe wartości
 const ServingsProviderWithInitialValue = ({ children, servings }: { children: React.ReactNode, servings: number | null }) => {
@@ -49,6 +50,8 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
+  const [thumbnailImage, setThumbnailImage] = useState<string | null>(null);
+  const [recipeImage, setRecipeImage] = useState<string | null>(null);
   
   // Ensure recipe object has all required properties to prevent rendering issues
   const safeRecipe = {
@@ -60,6 +63,32 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
     totalTime: recipe?.totalTime || null,
     servings: recipe?.servings || null,
   };
+  
+  useEffect(() => {
+    const loadImages = async () => {
+      try {
+        // Pobierz miniaturę z RecipeImage
+        const thumbnail = await recipe.getThumbnailFromRecipeImage();
+        setThumbnailImage(thumbnail);
+        
+        // Pobierz obraz z RecipeImage jeśli nie ma miniatury
+        if (!thumbnail) {
+          const image = await recipe.getImageFromRecipeImage();
+          setRecipeImage(image);
+        }
+      } catch (error) {
+        console.error(`Błąd podczas pobierania obrazów dla przepisu ${recipe.name}:`, error);
+        // Fallback do bezpośredniego pola image
+        if (safeRecipe.image) {
+          const thumbnailPath = getThumbnailPath(safeRecipe.image);
+          setThumbnailImage(thumbnailPath);
+          setRecipeImage(safeRecipe.image);
+        }
+      }
+    };
+    
+    loadImages();
+  }, [recipe]);
   
   const openAddShopingItemMenu = () => {
     setMenuVisible(true);
@@ -128,7 +157,19 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
         delayLongPress={500}
       >
         <View style={[styles.imageContainer, styles.imagePlaceholder]}>
-          {safeRecipe.image ? (
+          {thumbnailImage ? (
+            <Image
+              source={{ uri: thumbnailImage }}
+              style={styles.image}
+              onError={() => console.log('Błąd ładowania miniatury:', safeRecipe.name)}
+            />
+          ) : recipeImage ? (
+            <Image
+              source={{ uri: recipeImage }}
+              style={styles.image}
+              onError={() => console.log('Błąd ładowania zdjęcia:', safeRecipe.name)}
+            />
+          ) : safeRecipe.image ? (
             <Image
               source={{ uri: safeRecipe.image }}
               style={styles.image}
