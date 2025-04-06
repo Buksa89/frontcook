@@ -119,8 +119,8 @@ const EditRecipeScreen = ({
       try {
         console.log(`[RecipeManagement] Zapisuję obraz dla przepisu: ${recipe.id}, syncId: ${recipe.syncId}`);
         
-        // Używamy metody createOrUpdate tylko z syncId i obrazem
-        const recipeImage = await RecipeImage.createOrUpdate(
+        // Używamy metody upsert tylko z syncId i obrazem
+        const recipeImage = await RecipeImage.upsert(
           database,
           recipe.syncId,
           formData.image

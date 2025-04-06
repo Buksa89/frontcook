@@ -4,9 +4,7 @@
  */
 
 import * as FileSystem from 'expo-file-system';
-// Komentujemy import ImageManipulator, ponieważ go nie mamy
-// W realnej aplikacji należałoby zainstalować ten pakiet: expo install expo-image-manipulator
-// import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 // Stałe wymiary obrazów odpowiadające złotej proporcji
 const TARGET_WIDTH = 1024;
@@ -14,127 +12,140 @@ const TARGET_HEIGHT = 633;
 const THUMBNAIL_SIZE = 80; // Rozmiar miniatury (kwadrat)
 
 /**
- * Sprawdza czy obraz wymaga przetworzenia
- * @param imagePath Ścieżka do obrazu
- * @returns true jeśli obraz wymaga przetworzenia
+ * Normalizuje dane base64, usuwając prefiks jeśli istnieje
+ * @param base64 Dane w formacie base64
+ * @returns Znormalizowany string base64 bez prefiksu
  */
-export const needsProcessing = (imagePath?: string): boolean => {
-  // Jeśli nie ma obrazu, nie ma co przetwarzać
-  if (!imagePath) return false;
-
-  // Sprawdź czy obraz już był przetwarzany (np. ma specjalny format nazwy)
-  const isProcessed = imagePath.includes('processed_');
-  return !isProcessed;
+export const normalizeBase64 = (base64?: string): string | undefined => {
+  if (!base64) return undefined;
+  
+  // Usuń prefiks "data:image/jpeg;base64," jeśli istnieje
+  if (base64.includes('base64,')) {
+    return base64.split('base64,')[1];
+  }
+  return base64;
 };
 
 /**
- * Przycina obraz do określonego rozmiaru 1024x633 (złota proporcja)
- * i tworzy miniaturę 80x80
- * @param imagePath Ścieżka do obrazu
- * @param syncId ID używane w nazwie pliku
- * @returns Obiekt ze ścieżkami do przetworzonego obrazu i miniatury lub null w przypadku błędu
+ * Sprawdza czy obraz wymaga przetworzenia
+ * @param newImageBase64 Nowe dane obrazu w formacie base64
+ * @param existingImageBase64 Opcjonalne istniejące dane obrazu w formacie base64
+ * @returns true jeśli obraz wymaga przetworzenia
+ */
+export const needsProcessing = (newImageBase64?: string, existingImageBase64?: string): boolean => {
+  // Jeśli nie ma danych obrazu, nie ma co przetwarzać
+  if (!newImageBase64) return false;
+
+  // Jeśli nie ma istniejącego obrazu, a mamy nowy obraz, to trzeba go przetworzyć
+  if (!existingImageBase64) return true;
+  
+  // Normalizujemy oba base64 (usuwamy prefiksy)
+  const normalizedNew = normalizeBase64(newImageBase64);
+  const normalizedExisting = normalizeBase64(existingImageBase64);
+  
+  // Porównaj znormalizowane dane
+  return normalizedNew !== normalizedExisting;
+};
+
+/**
+ * Konwertuje base64 string do URI pliku
+ * @param base64 Dane obrazu w formacie base64
+ * @returns URI pliku tymczasowego
+ */
+export const base64ToTempFile = async (base64: string): Promise<string> => {
+  try {
+    const tempDir = FileSystem.cacheDirectory + 'temp/';
+    const dirInfo = await FileSystem.getInfoAsync(tempDir);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
+    }
+    
+    const tempFilePath = tempDir + 'temp_' + Date.now() + '.jpg';
+    
+    // Sprawdź czy base64 zawiera prefiks 'data:'
+    const fileContent = base64.startsWith('data:') 
+      ? base64 
+      : `data:image/jpeg;base64,${base64}`;
+    
+    await FileSystem.writeAsStringAsync(tempFilePath, fileContent, {
+      encoding: FileSystem.EncodingType.Base64
+    });
+    
+    return tempFilePath;
+  } catch (error) {
+    console.error('Błąd podczas konwersji base64 do pliku:', error);
+    throw error;
+  }
+};
+
+/**
+ * Przycina obraz do określonego rozmiaru i tworzy miniaturę
+ * @param imageData Dane obrazu (base64 string lub ścieżka do pliku)
+ * @param syncId ID używane do identyfikacji obrazu
+ * @returns Obiekt z przetworzonymi danymi obrazu i miniatury
  */
 export const cropToSize = async (
-  imagePath: string,
+  imageData: string,
   syncId: string
 ): Promise<{ mainImage: string | null, thumbnail: string | null }> => {
   try {
-    if (!imagePath) {
-      console.error('Brak obrazu do przetworzenia');
+    if (!imageData) {
+      console.error('Brak danych obrazu do przetworzenia');
       return { mainImage: null, thumbnail: null };
     }
     
-    console.log(`Przetwarzanie obrazu: ${imagePath} do rozmiaru ${TARGET_WIDTH}x${TARGET_HEIGHT} (złota proporcja)`);
-
-    // Sprawdź czy plik istnieje
-    const fileInfo = await FileSystem.getInfoAsync(imagePath);
-    if (!fileInfo.exists) {
-      console.error(`Plik nie istnieje: ${imagePath}`);
-      return { mainImage: null, thumbnail: null };
-    }
-
-    // W rzeczywistej implementacji należałoby użyć ImageManipulator
-    // Poniżej jest symulacja działania, w praktyce należy odkomentować kod i użyć faktycznego ImageManipulator
-
-    // Przygotuj nazwy plików wyjściowych
-    const fileExtension = imagePath.split('.').pop() || 'jpg';
-    const dirPath = `${FileSystem.documentDirectory}recipeimage/`;
-    const outputFileName = `${dirPath}processed_${syncId}.${fileExtension}`;
-    const thumbnailFileName = `${dirPath}thumbnail_${syncId}.${fileExtension}`;
+    // Określ źródło obrazu (ścieżka do pliku lub base64)
+    let imagePath = imageData;
+    let needsCleanup = false;
     
-    // Upewnij się, że katalog istnieje
-    const dirInfo = await FileSystem.getInfoAsync(dirPath);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+    // Jeśli dane są w formacie base64, zapisz je do pliku tymczasowego
+    if (!imageData.startsWith('/') && !imageData.includes('file://')) {
+      try {
+        imagePath = await base64ToTempFile(imageData);
+        needsCleanup = true;
+      } catch (error) {
+        console.error('Błąd konwersji base64 do pliku:', error);
+        return { mainImage: null, thumbnail: null };
+      }
     }
-
-    /* 
-    // Faktyczna implementacja z ImageManipulator dla głównego obrazu (odkomentuj po instalacji)
-    const manipResult = await ImageManipulator.manipulateAsync(
+    
+    // Przetwarzanie głównego obrazu
+    const mainImageResult = await ImageManipulator.manipulateAsync(
       imagePath,
-      [
-        { resize: { width: TARGET_WIDTH, height: TARGET_HEIGHT } },
-        { crop: { 
-            originX: 0, 
-            originY: 0, 
-            width: TARGET_WIDTH, 
-            height: TARGET_HEIGHT 
-          } 
-        }
-      ],
-      { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
+      [{ resize: { width: TARGET_WIDTH, height: TARGET_HEIGHT } }],
+      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
     );
-
-    // Zapisz przetworzony obraz
-    await FileSystem.copyAsync({
-      from: manipResult.uri,
-      to: outputFileName
-    });
-
-    // Tworzenie miniatury (kwadratowej)
-    // Przycięcie środkowego fragmentu obrazu do kwadratu
+    
+    // Przetwarzanie miniatury
     const thumbnailResult = await ImageManipulator.manipulateAsync(
       imagePath,
-      [
-        // Najpierw przycinamy do kwadratu, biorąc środkową część obrazu
-        { crop: {
-            originX: Math.max(0, Math.round((manipResult.width - manipResult.height) / 2)),
-            originY: Math.max(0, Math.round((manipResult.height - manipResult.width) / 2)),
-            width: Math.min(manipResult.width, manipResult.height),
-            height: Math.min(manipResult.width, manipResult.height)
-          }
-        },
-        // Następnie skalujemy do docelowego rozmiaru
-        { resize: { width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE } }
-      ],
-      { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
+      [{ resize: { width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
     );
-
-    // Zapisz miniaturę
-    await FileSystem.copyAsync({
-      from: thumbnailResult.uri,
-      to: thumbnailFileName
-    });
-    */
-
-    // Tymczasowo kopiujemy plik bez przetwarzania (do zastąpienia prawdziwą implementacją)
-    await FileSystem.copyAsync({
-      from: imagePath,
-      to: outputFileName
+    
+    // Jeśli utworzyliśmy plik tymczasowy, usuń go
+    if (needsCleanup) {
+      try {
+        await FileSystem.deleteAsync(imagePath, { idempotent: true });
+      } catch (cleanupError) {
+        console.warn('Nie udało się usunąć pliku tymczasowego:', cleanupError);
+      }
+    }
+    
+    // Konwertuj URI do base64
+    const mainImageBase64 = await FileSystem.readAsStringAsync(mainImageResult.uri, {
+      encoding: FileSystem.EncodingType.Base64
     });
     
-    // Tymczasowo kopiujemy ten sam plik jako miniaturę (do zastąpienia)
-    await FileSystem.copyAsync({
-      from: imagePath,
-      to: thumbnailFileName
+    const thumbnailBase64 = await FileSystem.readAsStringAsync(thumbnailResult.uri, {
+      encoding: FileSystem.EncodingType.Base64
     });
-
-    console.log(`Obraz przetworzony i zapisany jako: ${outputFileName}`);
-    console.log(`Miniatura zapisana jako: ${thumbnailFileName}`);
     
-    return { 
-      mainImage: outputFileName, 
-      thumbnail: thumbnailFileName 
+    console.log('Obraz przetworzony pomyślnie');
+    
+    return {
+      mainImage: mainImageBase64,
+      thumbnail: thumbnailBase64
     };
   } catch (error) {
     console.error('Błąd podczas przetwarzania obrazu:', error);
@@ -143,25 +154,50 @@ export const cropToSize = async (
 };
 
 /**
- * Znajduje ścieżkę do miniatury na podstawie ścieżki do głównego obrazu
- * @param mainImagePath Ścieżka do głównego obrazu
- * @returns Ścieżka do miniatury lub null jeśli nie znaleziono
+ * Generuje ścieżki do zapisu plików obrazów
+ * @param syncId ID używane w nazwie pliku
+ * @returns Ścieżki do plików obrazu i miniatury
  */
-export const getThumbnailPath = (mainImagePath?: string): string | null => {
-  if (!mainImagePath) return null;
+export const generateImagePaths = (syncId: string): { mainImagePath: string, thumbnailPath: string } => {
+  const dirPath = `${FileSystem.documentDirectory}recipeimage/`;
+  const mainImagePath = `${dirPath}processed_${syncId}.jpg`;
+  const thumbnailPath = `${dirPath}thumbnail_${syncId}.jpg`;
   
-  // Sprawdź czy to jest już przetworzony obraz
-  if (!mainImagePath.includes('processed_')) return null;
-  
-  // Zamień prefix processed_ na thumbnail_
-  const thumbnailPath = mainImagePath.replace('processed_', 'thumbnail_');
-  
-  return thumbnailPath;
+  return { mainImagePath, thumbnailPath };
+};
+
+/**
+ * Zapisuje dane obrazu do pliku
+ * @param imageData Dane obrazu w formacie base64
+ * @param filePath Ścieżka docelowa pliku
+ * @returns Ścieżka zapisanego pliku lub null w przypadku błędu
+ */
+export const saveImageToFile = async (imageData: string, filePath: string): Promise<string | null> => {
+  try {
+    // Upewnij się, że katalog docelowy istnieje
+    const dirPath = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+    const dirInfo = await FileSystem.getInfoAsync(dirPath);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+    }
+    
+    // Zapis pliku
+    await FileSystem.writeAsStringAsync(filePath, imageData, {
+      encoding: FileSystem.EncodingType.Base64
+    });
+    
+    return filePath;
+  } catch (error) {
+    console.error('Błąd podczas zapisywania obrazu do pliku:', error);
+    return null;
+  }
 };
 
 // Domyślny eksport dla zgodności z Expo Router
 export default {
   needsProcessing,
   cropToSize,
-  getThumbnailPath
+  generateImagePaths,
+  saveImageToFile,
+  base64ToTempFile
 }; 

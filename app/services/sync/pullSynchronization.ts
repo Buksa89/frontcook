@@ -12,6 +12,7 @@ import api from '../../api/api';
 import AppData from '../../../database/models/AppData';
 import syncApi from '../../api/sync';
 import { SyncItemType, SyncResponse } from '../../api/sync';
+import RecipeImage from '../../../database/models/RecipeImage';
 
 // Batch size for data synchronization
 const BATCH_SIZE = 20;
@@ -25,7 +26,8 @@ const MODEL_CLASSES = {
   'shopping_item': ShoppingItem,
   'user_settings': UserSettings,
   'notification': Notification,
-  'app_data': AppData
+  'app_data': AppData,
+  'recipe_image': RecipeImage
 };
 
 /**

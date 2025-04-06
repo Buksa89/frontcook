@@ -12,6 +12,7 @@ import Notification from '../../../database/models/Notification';
 import AppData from '../../../database/models/AppData';
 import syncApi from '../../api/sync';
 import { SyncItemType } from '../../api/sync';
+import RecipeImage from '../../../database/models/RecipeImage';
 
 // Bezpośrednie mapowanie klas modeli na typy obiektów
 const MODEL_CLASS_TO_OBJECT_TYPE = new Map<any, string>([
@@ -21,7 +22,8 @@ const MODEL_CLASS_TO_OBJECT_TYPE = new Map<any, string>([
   [Ingredient, 'ingredient'],
   [ShoppingItem, 'shopping_item'],
   [UserSettings, 'user_settings'],
-  [Notification, 'notification']
+  [Notification, 'notification'],
+  [RecipeImage, 'recipe_image']
 ]);
 
 // Mapowanie typów obiektów na klasy modeli (odwrotne mapowanie)
@@ -33,7 +35,8 @@ const OBJECT_TYPE_TO_MODEL_CLASS = {
   'shopping_item': ShoppingItem,
   'user_settings': UserSettings,
   'notification': Notification,
-  'app_data': AppData
+  'app_data': AppData,
+  'recipe_image': RecipeImage
 };
 
 /**
@@ -177,7 +180,8 @@ export async function pushSynchronization(user: string): Promise<void> {
     Ingredient,
     Notification,
     UserSettings,
-    ShoppingItem
+    ShoppingItem,
+    RecipeImage
   ];
   
   let hasMoreItems = true;

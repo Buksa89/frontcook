@@ -231,7 +231,7 @@ export default class ShoppingItem extends SyncModel {
     }
   }
 
-  static async createOrUpdate(
+  static async upsert(
     database: Database,
     text: string
   ): Promise<ShoppingItem> {

@@ -168,7 +168,7 @@ export const AddShopingItemMenu: React.FC<AddShopingItemMenuProps> = ({
         // Formatujemy tekst w formacie "ilość jednostka nazwa"
         const itemText = `${formatScaledValue(scaledAmount)} ${ingredient.unit || ''} ${ingredient.name}`.trim();
         
-        await ShoppingItem.createOrUpdate(database, itemText);
+        await ShoppingItem.upsert(database, itemText);
       }
 
       // Zamykamy modal bez wyświetlania powiadomienia

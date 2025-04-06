@@ -112,7 +112,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
     if (!newItemText.trim()) return;
 
     try {
-      await ShoppingItem.createOrUpdate(database, newItemText);
+      await ShoppingItem.upsert(database, newItemText);
       setNewItemText('');
     } catch (error) {
       console.error("Błąd dodawania produktu:", error);

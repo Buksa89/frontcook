@@ -309,13 +309,19 @@ export default class SyncModel extends Model {
       
       // Create a new record using the processed data
       try {
+
+        // Wywołaj metodę pre_pull_sync przed jakimikolwiek operacjami synchronizacji
+        const updatedServerObject = await this.pre_pull_sync(database, serverObject);
+
         // First handle the setup of relations
         // This allows relation data to be properly set before the record is created
-        const objectToSave = await this.setRelations(mappedServerObject, database);
+        const objectToSave = await this.setRelations(updatedServerObject, database);
         
         // Now create the record with the processed data
         const newRecord = await this.createAsSynced<T>(database, objectToSave);
         
+        // Wywołaj post_pull_sync po utworzeniu nowego rekordu
+        await this.post_pull_sync(database, newRecord, serverObject);
         
         return {
           success: true,
@@ -356,8 +362,12 @@ export default class SyncModel extends Model {
         
         // Update the existing record with the processed data
         try {
-          // Set relations before updating the record
-          const objectToSave = await this.setRelations(mappedServerObject, database);
+          // Wywołaj metodę pre_pull_sync przed jakimikolwiek operacjami synchronizacji
+          const updatedServerObject = await this.pre_pull_sync(database, serverObject);
+
+          // First handle the setup of relations
+          // This allows relation data to be properly set before the record is created
+          const objectToSave = await this.setRelations(updatedServerObject, database);
           
           await existingRecord.updateAsSynced(record => {
             // Apply all processed fields to the record
@@ -370,6 +380,9 @@ export default class SyncModel extends Model {
           });
           
           console.log(`[DB ${this.table}] Updated record with syncId: ${syncId}`);
+          
+          // Wywołaj post_pull_sync po aktualizacji istniejącego rekordu
+          await this.post_pull_sync(database, existingRecord, serverObject);
           
           return {
             success: true,
@@ -391,5 +404,28 @@ export default class SyncModel extends Model {
         };
       }
     }
+  }
+  
+  // Empty method to be overridden by child classes
+  // Executed after pullSyncUpdate operations, regardless of the operation result
+  static async post_pull_sync<T extends SyncModel>(
+    database: Database,
+    record: T,
+    serverObject: Record<string, any>
+  ): Promise<void> {
+    // Empty implementation in base class
+    // Child classes can override this method to implement custom post-sync logic
+    return;
+  }
+
+  // Empty method to be overridden by child classes
+  // Executed before pullSyncUpdate operations
+  static async pre_pull_sync<T extends SyncModel>(
+    database: Database,
+    serverObject: Record<string, any>
+  ): Promise<Record<string, any>> {
+    // Empty implementation in base class
+    // Child classes can override this method to implement custom pre-sync logic
+    return serverObject;
   }
 } 

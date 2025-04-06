@@ -7,6 +7,7 @@ import { ServingsInput } from './ServingsInput';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import Tag from '../../../database/models/Tag';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { showToast } from '../../components/Toast';
 
 interface RecipeFormData {
@@ -50,6 +51,25 @@ export const RecipeForm = ({
     onDataChange('servings', servings.toString());
   };
 
+  const convertImageToBase64 = async (uri: string): Promise<string | null> => {
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) {
+        console.error(`Plik nie istnieje: ${uri}`);
+        return null;
+      }
+      
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      return base64;
+    } catch (error) {
+      console.error('Błąd podczas konwersji obrazu do base64:', error);
+      return null;
+    }
+  };
+
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -72,7 +92,19 @@ export const RecipeForm = ({
     });
 
     if (!result.canceled) {
-      onDataChange('image', result.assets[0].uri);
+      // Konwertujemy URI obrazu na dane base64
+      const base64 = await convertImageToBase64(result.assets[0].uri);
+      if (base64) {
+        onDataChange('image', base64);
+      } else {
+        showToast({
+          type: 'error',
+          text1: 'Błąd',
+          text2: 'Nie udało się przetworzyć obrazu',
+          visibilityTime: 4000,
+          position: 'bottom'
+        });
+      }
     }
   };
 
@@ -97,7 +129,19 @@ export const RecipeForm = ({
     });
 
     if (!result.canceled) {
-      onDataChange('image', result.assets[0].uri);
+      // Konwertujemy URI obrazu na dane base64
+      const base64 = await convertImageToBase64(result.assets[0].uri);
+      if (base64) {
+        onDataChange('image', base64);
+      } else {
+        showToast({
+          type: 'error',
+          text1: 'Błąd',
+          text2: 'Nie udało się przetworzyć obrazu',
+          visibilityTime: 4000,
+          position: 'bottom'
+        });
+      }
     }
   };
 
@@ -132,7 +176,14 @@ export const RecipeForm = ({
             <Text style={styles.label}>Obrazek</Text>
             {data.image ? (
               <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: data.image }} style={styles.imagePreview} />
+                <Image 
+                  source={{ 
+                    uri: data.image.startsWith('data:') 
+                      ? data.image 
+                      : `data:image/jpeg;base64,${data.image}` 
+                  }} 
+                  style={styles.imagePreview} 
+                />
                 <TouchableOpacity 
                   style={styles.removeImageButton}
                   onPress={() => onDataChange('image', null)}

@@ -6,6 +6,7 @@ import syncApi from './sync';
 import textImportRecipeApi from './textImportRecipe';
 import pdfUploadApi from './pdfUpload';
 import ninjaAppsApi from './ninjaApps';
+import recipeImageApi from './recipeImage';
 
 export { 
   AuthApi, 
@@ -14,7 +15,8 @@ export {
   syncApi,
   textImportRecipeApi,
   pdfUploadApi,
-  ninjaAppsApi
+  ninjaAppsApi,
+  recipeImageApi
 };
 
 export default api; 

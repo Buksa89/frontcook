@@ -17,13 +17,14 @@ import AppData from '../../../database/models/AppData';
 import pullSynchronization from './pullSynchronization';
 import pushSynchronization from './pushSynchronization';
 import AuthService from '../auth/authService';
+import RecipeImage from '../../../database/models/RecipeImage';
 
 
 
 const BATCH_SIZE = 20;
 const SYNC_INTERVAL = 10000; // Changed to 10 seconds as requested
 
-type TableName = 'shopping_items' | 'recipes' | 'ingredients' | 'tags' | 'user_settings' | 'recipe_tags' | 'notifications';
+type TableName = 'shopping_items' | 'recipes' | 'ingredients' | 'tags' | 'user_settings' | 'recipe_tags' | 'notifications' | 'recipe_images';
 
 // Map of object types to model classes
 const MODEL_CLASSES = {
@@ -33,7 +34,8 @@ const MODEL_CLASSES = {
   'ingredient': Ingredient,
   'shopping_item': ShoppingItem,
   'user_settings': UserSettings,
-  'notification': Notification
+  'notification': Notification,
+  'recipe_image': RecipeImage
 };
 
 class SyncService {

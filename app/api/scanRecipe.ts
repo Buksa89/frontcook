@@ -27,9 +27,6 @@ const scanRecipeApi = {
       // Get the filename from the URI
       const filename = imageUri.split('/').pop() || 'screenshot.jpg';
       
-      // Log the image URI for debugging
-      console.log('Image URI:', imageUri);
-      
       // Append the image to the FormData with the correct format for React Native
       formData.append('screenshot', {
         uri: imageUri,
@@ -63,7 +60,6 @@ const scanRecipeApi = {
       }
       
       const data = await response.json();
-      console.log('Response data:', data);
       return data;
     } catch (error) {
       console.error('Scan recipe error:', error);

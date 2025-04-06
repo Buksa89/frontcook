@@ -121,7 +121,7 @@ export default function DebugScreen() {
 
   const loadAllData = async () => {
     try {
-      const tableNames = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings', 'notifications', 'app_data'];
+      const tableNames = ['recipes', 'ingredients', 'tags', 'recipe_tags', 'shopping_items', 'user_settings', 'notifications', 'app_data', 'recipe_images'];
       const tablesData: { [key: string]: any[] } = {};
 
       for (const tableName of tableNames) {

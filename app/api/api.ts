@@ -208,14 +208,15 @@ class ApiClient {
     if (DEBUG) {
       // console.log(`🚀 API REQUEST: ${options.method || 'GET'} ${url}`);
       
+      // Log request payload in DEBUG mode (except for FormData)
       if (options.body instanceof FormData) {
-        console.log('📦 Request Payload: [FormData]');
-      } else if (options.body && typeof options.body === 'string') {
+        // Usunięto log z FormData
+      } else if (options.body) {
         try {
-          const requestPayload = JSON.parse(options.body);
-          console.log('📦 Request Payload:', this.sanitizePayloadForLogging(requestPayload));
+          const bodyObj = JSON.parse(options.body.toString());
+          console.log('📦 Request Payload:', this.sanitizePayloadForLogging(bodyObj));
         } catch (e) {
-          console.log('📦 Request Payload: [Invalid JSON format]');
+          console.log('📦 Request Payload: [unable to parse]');
         }
       }
     }
@@ -351,8 +352,23 @@ class ApiClient {
         return {} as T;
       }
       
+      // Sprawdź Content-Type odpowiedzi
+      const contentType = response.headers.get('Content-Type') || '';
+      
+      // Jeśli to nie JSON, obsłuż jako plik lub inny typ odpowiedzi
+      if (!contentType.includes('application/json')) {
+
+        // Zwróć całą odpowiedź dla plików i innych typów danych
+        return response as unknown as T;
+      }
+      
       // Parsuj odpowiedź jako JSON
       const responseData = await response.json();
+      
+      // // Log raw response data in DEBUG mode
+      // if (DEBUG) {
+      //   console.log(`📦 API RESPONSE:`, this.sanitizeResponseForLogging(responseData));
+      // }
       
       // Nie loguj pomyślnych odpowiedzi
       return responseData;
@@ -422,7 +438,6 @@ class ApiClient {
       options.body = data;
       // Important: Do not set Content-Type for FormData in React Native
       // The browser/fetch will set it automatically with the correct boundary
-      console.log('Sending FormData');
     } else {
       options.body = JSON.stringify(data);
       options.headers = {

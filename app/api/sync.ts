@@ -71,7 +71,14 @@ export interface AppDataSync extends BaseSyncItem {
   csv_lock?: number | null; // Zmienione na number, ponieważ to też timestamp
 }
 
-export type SyncItemType = ShoppingItemSync | RecipeSync | IngredientSync | TagSync | RecipeTagSync | UserSettingsSync | AppDataSync;
+export interface RecipeImageSync extends BaseSyncItem {
+  object_type: 'recipe_image';
+  image: string | null;
+  thumbnail: string | null;
+  recipe_sync_id: string; // Referencja do syncId przepisu, do którego należy obraz
+}
+
+export type SyncItemType = ShoppingItemSync | RecipeSync | IngredientSync | TagSync | RecipeTagSync | UserSettingsSync | AppDataSync | RecipeImageSync;
 
 export interface SyncRequest {
   shopping_items?: ShoppingItemSync[];
@@ -80,6 +87,7 @@ export interface SyncRequest {
   tags?: TagSync[];
   recipe_tags?: RecipeTagSync[];
   user_settings?: UserSettingsSync[];
+  recipe_images?: RecipeImageSync[];
 }
 
 export interface SyncResponse {
@@ -90,6 +98,7 @@ export interface SyncResponse {
   recipe_tags?: RecipeTagSync[];
   user_settings?: UserSettingsSync[];
   app_data?: AppDataSync[];
+  recipe_images?: RecipeImageSync[];
 }
 
 // Przyjmuje tylko obiekt Date
