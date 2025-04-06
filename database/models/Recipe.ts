@@ -25,6 +25,7 @@ interface RecipeData {
   video?: string;
   source?: string;
   selectedTags?: any[];
+  image?: string | null;
 }
 
 export default class Recipe extends SyncModel {
@@ -185,104 +186,40 @@ export default class Recipe extends SyncModel {
     }
   }
   
-  // Update method following the ShoppingItem and Ingredient pattern
-  static async update(
-    database: Database,
-    recipeId: string,
-    name?: string,
-    instructions?: string,
-    description?: string | null,
-    image?: string | null,
-    rating?: number,
-    isApproved?: boolean,
-    prepTime?: number,
-    totalTime?: number,
-    servings?: number,
-    notes?: string | null,
-    nutrition?: string | null,
-    video?: string | null,
-    source?: string | null,
-    // Optional SyncModel fields
-    syncId?: string,
-    syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: Date,
-    isDeleted?: boolean
-  ): Promise<Recipe | null> {
-    try {
-      const recipe = await database
-        .get<Recipe>('recipes')
-        .find(recipeId);
-      
-      if (!recipe) {
-        console.log(`[DB ${this.table}] Recipe with id ${recipeId} not found`);
-        return null;
-      }
-      
-      console.log(`[DB ${this.table}] Updating recipe ${recipeId} with provided fields`);
-      
-      // Use the update method directly from the model instance
-      await recipe.update(record => {
-        // Update only provided fields
-        if (name !== undefined) record.name = name;
-        if (instructions !== undefined) record.instructions = instructions;
-        if (description !== undefined) record.description = description;
-        if (image !== undefined) record.image = image;
-        if (rating !== undefined) record.rating = rating;
-        if (isApproved !== undefined) record.isApproved = isApproved;
-        if (prepTime !== undefined) record.prepTime = prepTime;
-        if (totalTime !== undefined) record.totalTime = totalTime;
-        if (servings !== undefined) record.servings = servings;
-        if (notes !== undefined) record.notes = notes;
-        if (nutrition !== undefined) record.nutrition = nutrition;
-        if (video !== undefined) record.video = video;
-        if (source !== undefined) record.source = source;
-        
-        // Update SyncModel fields if provided
-        if (syncId !== undefined) record.syncId = syncId;
-        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
-        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
-        if (isDeleted !== undefined) record.isDeleted = isDeleted;
-      });
-      
-      console.log(`[DB ${this.table}] Successfully updated recipe ${recipeId}`);
-      return recipe;
-    } catch (error) {
-      console.error(`[DB ${this.table}] Error updating recipe: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
   // Helper method to save a recipe (create or update)
-  static async saveRecipe(database: Database, data: RecipeData, existingRecipe?: Recipe): Promise<Recipe> {
+  static async upsertByManagement(database: Database, data: RecipeData, id?: string): Promise<Recipe> {
     try {
-      console.log(`[DB ${this.table}] Saving recipe ${data.name} (${existingRecipe ? 'update' : 'create'})`);
+      console.log(`[DB ${this.table}] Saving recipe ${data.name}`);
       let recipe: Recipe;
+      let existingRecipe: Recipe | null = null;
+      
+      // Check if we have an id, which would indicate an existing recipe
+      if (id) {
+        try {
+          existingRecipe = await database.get<Recipe>('recipes').find(id);
+          console.log(`[DB ${this.table}] Found existing recipe with id ${id}`);
+        } catch (error) {
+          console.log(`[DB ${this.table}] Recipe with id ${id} not found, will create new`);
+          existingRecipe = null;
+        }
+      }
 
       if (existingRecipe) {
-        // Update existing recipe using our static update method
-        const updatedRecipe = await Recipe.update(
-          database,
-          existingRecipe.id,
-          data.name,
-          data.instructions,
-          data.description || null,
-          existingRecipe.image, // Keep existing image
-          existingRecipe.rating, // Keep existing rating
-          existingRecipe.isApproved, // Keep approval state
-          parseInt(data.prepTime || '0'), // Default to 0 if not provided
-          parseInt(data.totalTime || '0'), // Default to 0 if not provided
-          parseInt(data.servings || '1') || 1, // Default to 1 if not provided or conversion fails
-          data.notes || null,
-          data.nutrition || null,
-          data.video || null,
-          data.source || null
-        );
+        // Update existing recipe
+        await existingRecipe.update(record => {
+          record.name = data.name;
+          record.instructions = data.instructions;
+          record.description = data.description || null;
+          record.prepTime = parseInt(data.prepTime || '0');
+          record.totalTime = parseInt(data.totalTime || '0');
+          record.servings = parseInt(data.servings || '1') || 1;
+          record.notes = data.notes || null;
+          record.nutrition = data.nutrition || null;
+          record.video = data.video || null;
+          record.source = data.source || null;
+        });
 
-        if (!updatedRecipe) {
-          throw new Error(`Failed to update recipe with id ${existingRecipe.id}`);
-        }
-
-        recipe = updatedRecipe;
+        recipe = existingRecipe;
 
         // Handle tags update
         if (data.selectedTags) {
@@ -348,7 +285,7 @@ export default class Recipe extends SyncModel {
           data.description || null,
           null, // No image for new recipes
           0, // Default rating for new recipes
-          false, // New recipes are not approved by default
+          true, // New recipes are approved by default
           parseInt(data.prepTime || '0'), // Default to 0 if not provided
           parseInt(data.totalTime || '0'), // Default to 0 if not provided
           parseInt(data.servings || '1') || 1, // Default to 1 if not provided or conversion fails
@@ -376,6 +313,53 @@ export default class Recipe extends SyncModel {
         recipe.id,
         data.ingredients
       );
+      
+      // Handle recipe image if it exists and recipe has syncId
+      if (data.image) {
+        try {
+          console.log(`[DB ${this.table}] Saving image for recipe: ${recipe.id}, syncId: ${recipe.syncId}`);
+          
+          // Use RecipeImage.upsert method to save the image
+          const recipeImage = await RecipeImage.upsert(
+            database,
+            recipe.syncId,
+            data.image
+          );
+          
+          if (recipeImage) {
+            console.log(`[DB ${this.table}] Successfully saved image for recipe: ${recipe.id}, syncId: ${recipe.syncId}`);
+          } else {
+            console.error(`[DB ${this.table}] Failed to save image for recipe: ${recipe.id}`);
+          }
+        } catch (error) {
+          console.error(`[DB ${this.table}] Error saving recipe image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      } else if (data.image === null && recipe.syncId) {
+        // If image was removed, update the RecipeImage record
+        try {
+          console.log(`[DB ${this.table}] Removing image for recipe: ${recipe.id}, syncId: ${recipe.syncId}`);
+          
+          const existingRecipeImages = await database.get<RecipeImage>('recipe_images')
+            .query(Q.where('sync_id', recipe.syncId))
+            .fetch();
+            
+          if (existingRecipeImages.length > 0) {
+            await existingRecipeImages[0].update(record => {
+              record.image = undefined;
+              record.thumbnail = undefined;
+            });
+            console.log(`[DB ${this.table}] Removed images for recipe: ${recipe.id}`);
+          }
+        } catch (error) {
+          console.error(`[DB ${this.table}] Error removing recipe image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      // Approve recipe if it's not approved yet and it's an update
+      if (existingRecipe && !existingRecipe.isApproved) {
+        await recipe.toggleApproval();
+        console.log(`[DB ${this.table}] Approved recipe ${recipe.id}`);
+      }
 
       console.log(`[DB ${this.table}] Successfully saved recipe ${recipe.id} (${recipe.name})`);
       return recipe;
@@ -399,28 +383,8 @@ export default class Recipe extends SyncModel {
           .fetch()
       ]);
 
-      // First mark recipe as deleted using the static update method
-      await Recipe.update(
-        this.database,
-        this.id,
-        undefined, // name - keep existing
-        undefined, // instructions - keep existing
-        undefined, // description - keep existing
-        undefined, // image - keep existing
-        undefined, // rating - keep existing
-        undefined, // isApproved - keep existing
-        undefined, // prepTime - keep existing
-        undefined, // totalTime - keep existing
-        undefined, // servings - keep existing
-        undefined, // notes - keep existing
-        undefined, // nutrition - keep existing
-        undefined, // video - keep existing
-        undefined, // source - keep existing
-        undefined, // syncId - keep existing
-        undefined, // syncStatusField - will be set automatically
-        undefined, // lastUpdate - will be set automatically
-        true       // isDeleted - mark as deleted
-      );
+      // First mark recipe as deleted using the parent class markAsDeleted method
+      await super.markAsDeleted();
       
       // Now mark all related records as deleted using their markAsDeleted methods
       await Promise.all([
@@ -441,23 +405,9 @@ export default class Recipe extends SyncModel {
   async updateRating(newRating: number): Promise<void> {
     try {
       console.log(`[DB ${this.table}] Updating recipe ${this.id} rating to ${newRating}`);
-      await Recipe.update(
-        this.database,
-        this.id,
-        undefined, // name - keep existing
-        undefined, // instructions - keep existing
-        undefined, // description - keep existing
-        undefined, // image - keep existing
-        newRating, // rating - update to new value
-        undefined, // isApproved - keep existing
-        undefined, // prepTime - keep existing
-        undefined, // totalTime - keep existing
-        undefined, // servings - keep existing
-        undefined, // notes - keep existing
-        undefined, // nutrition - keep existing
-        undefined, // video - keep existing
-        undefined  // source - keep existing
-      );
+      await this.update(record => {
+        record.rating = newRating;
+      });
       console.log(`[DB ${this.table}] Successfully updated recipe ${this.id} rating`);
     } catch (error) {
       console.error(`[DB ${this.table}] Error updating recipe rating: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -469,23 +419,9 @@ export default class Recipe extends SyncModel {
     try {
       const newApprovalState = !this.isApproved;
       console.log(`[DB ${this.table}] Toggling recipe ${this.id} approval to ${newApprovalState}`);
-      await Recipe.update(
-        this.database,
-        this.id,
-        undefined, // name - keep existing
-        undefined, // instructions - keep existing
-        undefined, // description - keep existing
-        undefined, // image - keep existing
-        undefined, // rating - keep existing
-        newApprovalState, // isApproved - toggle value
-        undefined, // prepTime - keep existing
-        undefined, // totalTime - keep existing
-        undefined, // servings - keep existing
-        undefined, // notes - keep existing
-        undefined, // nutrition - keep existing
-        undefined, // video - keep existing
-        undefined  // source - keep existing
-      );
+      await this.update(record => {
+        record.isApproved = newApprovalState;
+      });
       console.log(`[DB ${this.table}] Successfully toggled recipe ${this.id} approval`);
     } catch (error) {
       console.error(`[DB ${this.table}] Error toggling recipe approval: ${error instanceof Error ? error.message : 'Unknown error'}`);

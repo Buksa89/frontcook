@@ -49,7 +49,7 @@ async function upsertItem(item: SyncItemType): Promise<void> {
     
     // All our models extend SyncModel, so they should have pullSyncUpdate
     // We use 'any' here to bypass TypeScript's type checking for method access
-    const result = await (ModelClass as any).pullSyncUpdate(database, item);
+    const result = await (ModelClass as any).upsertBySync(database, item);
     
     // Log the result (can be removed in production)
     console.log(`[SyncService] ${result.message}`);

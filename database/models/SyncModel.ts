@@ -5,6 +5,7 @@ import { Database } from '@nozbe/watermelondb'
 import { v4 as uuidv4 } from 'uuid'
 import AuthService from '../../app/services/auth/authService'
 import { Q } from '@nozbe/watermelondb'
+import { snakeToCamel, camelToSnake } from '../../app/utils/syncUtils'
 
 // Define our own SyncStatus type that matches what we're using
 type SyncStatus = 'pending' | 'synced' | 'conflict'
@@ -24,24 +25,6 @@ export default class SyncModel extends Model {
   // Helper method to check if record needs synchronization
   get needsSync(): boolean {
     return this.syncStatusField === 'pending' || this.syncStatusField === 'conflict';
-  }
-
-  // Helper method to convert snake_case to camelCase
-  static snakeToCamel(snakeCase: string): string {
-    return snakeCase.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-  }
-
-  // Helper method to convert camelCase to snake_case
-  static camelToSnake(camelCase: string): string {
-    return camelCase.replace(/([A-Z])/g, '_$1').toLowerCase();
-  }
-
-  // Helper method to determine if update is needed based on comparing dates
-  needUpdate(serverDate: Date): boolean {
-    // Compare dates
-    const localTime = this.lastUpdate;
-    
-    return serverDate.getTime() > localTime.getTime();
   }
 
   // Override update method to automatically update sync fields
@@ -81,61 +64,6 @@ export default class SyncModel extends Model {
         
         return this;
       });
-  }
-
-  // Helper method to update record and mark it as synced
-  async updateAsSynced(recordUpdater?: (record: this) => void): Promise<this> {
-    // Tworzymy wrapper dla recordUpdater, który dodatkowo ustawi status na 'synced'
-    const syncedRecordUpdater = (record: this) => {
-      // Najpierw zastosuj oryginalne zmiany, jeśli zostały podane
-      if (recordUpdater) {
-        recordUpdater(record);
-      }
-      
-      // Następnie ustaw status synchronizacji na 'synced', niezależnie od tego,
-      // czy recordUpdater coś zmienił, czy nie
-      record.syncStatusField = 'synced';
-    };
-    
-    // Użyj standardowej metody update z naszym wrapper'em
-    return await this.update(syncedRecordUpdater);
-  }
-
-  // Method to prepare a record for pushing to server
-  // Converts camelCase fields to snake_case and removes unnecessary fields
-  prepareForPush(): Record<string, any> {
-    // Get all fields from the record
-    const rawData: Record<string, any> = { ...this._raw };
-    
-    // Fields to exclude from the push data
-    const excludedFields = ['id', 'owner', 'sync_status'];
-    
-    // Prepare data for server
-    const serverData: Record<string, any> = {};
-    
-    // Process all fields
-    Object.entries(rawData).forEach(([key, value]) => {
-      // Skip excluded fields
-      if (!excludedFields.includes(key)) {
-        // Convert the key to snake_case if needed
-        const snakeKey = SyncModel.camelToSnake(key);
-        
-        // Handle Date objects - convert to timestamp for server
-        if (key === 'last_update' && value instanceof Date) {
-          serverData[snakeKey] = value.getTime();
-        } else {
-          // Add the field to server data
-          serverData[snakeKey] = value;
-        }
-      }
-    });
-    
-    return serverData;
-  }
-
-  // Static version of prepareForPush for use with collections of records
-  static prepareRecordsForPush(records: SyncModel[]): Record<string, any>[] {
-    return records.map(record => record.prepareForPush());
   }
 
   // Helper method to mark record as deleted
@@ -192,240 +120,155 @@ export default class SyncModel extends Model {
       });
   }
 
-  // Helper method to create a record from server data and mark it as synced
-  static async createAsSynced<T extends SyncModel>(
-    this: { new(): T } & typeof SyncModel,
-    database: Database,
-    serverData: Record<string, any>
-  ): Promise<T> {
-    
-    // Copy server data without modifications
-    const processedData = {...serverData};
-    
-    // Utwórz funkcję recordUpdater z odpowiednim typem SyncModel
-    const serverDataUpdater = (newRecord: SyncModel) => {
-      // Zastosuj wszystkie pola z przygotowanych danych
-      Object.entries(processedData).forEach(([key, value]) => {
-        // Przypisz wartość do pola bezpośrednio - bez sprawdzania id
-        (newRecord as any)[key] = value;
-      });
-            
-      // Jawnie ustaw status synchronizacji na 'synced'
-      newRecord.syncStatusField = 'synced';
-    };
-    
-    // Wywołaj statyczną metodę create z odpowiednimi parametrami
-    return await SyncModel.create.call(
-      this,
-      database,
-      serverDataUpdater
-    ) as T;
-  }
+  // #########  SYNC  #########
 
-  // Method to check if a server object already exists in the local database
-  // This can be overridden in derived classes to change the matching logic
-  static async existsInLocalDatabase<T extends SyncModel>(
+  // Method to find an existing record by sync_id and owner
+  static async getExistingRecord<T extends SyncModel>(
     this: { new(): T } & typeof SyncModel,
     database: Database,
-    serverObject: Record<string, any>
-  ): Promise<boolean> {
-    // Default implementation: match by syncId
-    // Check both syncId (camelCase) and sync_id (snake_case)
-    const syncId = serverObject.sync_id;
-    
-    if (!syncId) {
-      return false;
-    }
-    
-    const records = await database
-      .get<T>(this.table)
-      .query(Q.where('sync_id', syncId))
-      .fetch();
-      
-    return records.length > 0;
-  }
-
-  // Method to get a model from the local database by sync_id
-  // Can be used to retrieve a model instead of just checking existence
-  static async getModelBySyncId<T extends SyncModel>(
-    this: { new(): T } & typeof SyncModel,
-    database: Database,
-    syncId: string
+    serverData: Record<string, any>,
+    owner: string | null
   ): Promise<T | null> {
-    if (!syncId) {
-      return null;
-    }
+    // Extract sync_id from the server data
+    const syncId = serverData.sync_id;
     
+    // Find a record with the given sync_id and matching owner
     const records = await database
       .get<T>(this.table)
-      .query(Q.where('sync_id', syncId))
+      .query(
+        Q.and(
+          Q.where('sync_id', syncId),
+          Q.where('owner', owner)
+        )
+      )
       .fetch();
-      
+    
+    // Return the first record if found, otherwise null
     return records.length > 0 ? records[0] : null;
   }
 
-  // Static method to set relations from server object
-  // Can be overridden in derived classes to handle specific relations
-  static async setRelations<T extends SyncModel>(
-    serverObject: Record<string, any>,
-    database: Database
+  // Method to be called before upsertBySync operations
+  // Can be overridden by child classes to implement custom pre-sync logic
+  static async deserialize<T extends SyncModel>(
+    database: Database,
+    serverData: Record<string, any>,
+    existingRecord: T | null
   ): Promise<Record<string, any>> {
-    // Empty base implementation
-    // Derived classes should override this to implement relation handling
-    return serverObject;
+    // Transform snake_case to camelCase keys
+    const transformedData: Record<string, any> = {};
+    Object.entries(serverData).forEach(([key, value]) => {
+      // Transform snake_case to camelCase for field names
+      const camelKey = snakeToCamel(key);
+      transformedData[camelKey] = value;
+    });
+    return transformedData;
   }
 
-  // Method for synchronizing updates between server and local database
-  // Implementation will be built step by step
-  static async pullSyncUpdate<T extends SyncModel>(
+  // Method for inserting or updating a record based on sync_id
+  static async upsertBySync<T extends SyncModel>(
     this: { new(): T } & typeof SyncModel,
     database: Database,
-    serverObject: Record<string, any>
-  ): Promise<{ success: boolean; message: string }> {
-    // Get the syncId for logging purposes
-    const syncId = serverObject.sync_id;
-
-    // Konwersja timestampa na obiekt Date - z serwera przychodzi number (timestamp) z milisekundową precyzją
-    if (serverObject.last_update) {
-      // Przychodząca wartość jest już liczbą milisekund, więc konwersja zachowuje pełną precyzję
-      serverObject.last_update = new Date(serverObject.last_update);
-      // console.log(`[SyncModel] Server date for ${syncId}: ${serverObject.last_update.toISOString()}`);
-    }
+    recordData: Record<string, any>
+  ): Promise<T> {
+    // Get the active user
+    const activeUser = await AuthService.getActiveUser();
     
-    // First, check if the object exists in the local database
-    const exists = await this.existsInLocalDatabase<T>(database, serverObject);
+    // Extract sync_id from the record data
+    const syncId = recordData.sync_id;
     
-    // Case 1: Object doesn't exist in local database
-    if (!exists) {
-      // Preprocess server data to convert snake_case fields to camelCase
-      const mappedServerObject: Record<string, any> = {};
+    // Try to find an existing record
+    const existingRecord = await this.getExistingRecord<T>(database, recordData, activeUser);
+    
+    // Process the data through preUpsertBySync
+    
+    const serverDate = new Date(recordData.last_update);
+    
+    
+    // If the record exists, check if update is needed
+    if (existingRecord) {
+      // If no server date provided or the server date is newer, perform the update
+      const updateNeeded = existingRecord.needUpdate(serverDate);
       
-      // Process all fields from serverObject
-      Object.entries(serverObject).forEach(([key, value]) => {
-        // Convert all keys from snake_case to camelCase
-        const camelKey = SyncModel.snakeToCamel(key);
-        mappedServerObject[camelKey] = value;
-      });
-      
-      // Create a new record using the processed data
-      try {
+      if (updateNeeded) {
 
-        // Wywołaj metodę pre_pull_sync przed jakimikolwiek operacjami synchronizacji
-        const updatedServerObject = await this.pre_pull_sync(database, serverObject);
-
-        // First handle the setup of relations
-        // This allows relation data to be properly set before the record is created
-        const objectToSave = await this.setRelations(updatedServerObject, database);
+        const deserializedData = await this.deserialize<T>(database, recordData, existingRecord);
         
-        // Now create the record with the processed data
-        const newRecord = await this.createAsSynced<T>(database, objectToSave);
-        
-        // Wywołaj post_pull_sync po utworzeniu nowego rekordu
-        await this.post_pull_sync(database, newRecord, serverObject);
-        
-        return {
-          success: true,
-          message: `Created new record ${this.table} with syncId: ${syncId}`
-        };
-      } catch (createError) {
-        const errorMessage = createError instanceof Error ? createError.message : 'Unknown error';
-        throw new Error(`Failed to create record: ${errorMessage}`);
-      }
-    } 
-    // Case 2: Object exists in local database
-    else {
-      // Find the existing record using our new method
-      const existingRecord = await this.getModelBySyncId<T>(database, syncId);
-      
-      // This should not happen since we already checked existence, but just to be safe
-      if (!existingRecord) {
-        throw new Error(`Record with syncId ${syncId} was found to exist but couldn't be retrieved`);
-      }
-      
-      // Check if the server data is newer than our local data
-      const serverDate = serverObject.last_update;
-      
-      // Use the needUpdate method to check if an update is needed
-      const needsUpdate = existingRecord.needUpdate(serverDate);
-      
-      // If update is needed
-      if (needsUpdate) {
-        // Preprocess server data to convert snake_case fields to camelCase
-        const mappedServerObject: Record<string, any> = {};
-        
-        // Process all fields from serverObject
-        Object.entries(serverObject).forEach(([key, value]) => {
-          // Convert all keys from snake_case to camelCase
-          const camelKey = SyncModel.snakeToCamel(key);
-          mappedServerObject[camelKey] = value;
-        });
-        
-        // Update the existing record with the processed data
-        try {
-          // Wywołaj metodę pre_pull_sync przed jakimikolwiek operacjami synchronizacji
-          const updatedServerObject = await this.pre_pull_sync(database, serverObject);
-
-          // First handle the setup of relations
-          // This allows relation data to be properly set before the record is created
-          const objectToSave = await this.setRelations(updatedServerObject, database);
-          
-          await existingRecord.updateAsSynced(record => {
-            // Apply all processed fields to the record
-            Object.entries(objectToSave).forEach(([key, value]) => {
-              // Apply value to the record
-                        (record as any)[key] = value;
-            });
-            
-            // The updateAsSynced method will automatically set syncStatusField to 'synced'
+        await existingRecord.update((record: any) => {
+          // Apply the provided data
+          Object.entries(deserializedData).forEach(([key, value]) => {
+            (record as any)[key] = value;
           });
-          
-          console.log(`[DB ${this.table}] Updated record with syncId: ${syncId}`);
-          
-          // Wywołaj post_pull_sync po aktualizacji istniejącego rekordu
-          await this.post_pull_sync(database, existingRecord, serverObject);
-          
-          return {
-            success: true,
-            message: `Updated existing record with syncId: ${syncId}`
-          };
-        } catch (updateError) {
-          const errorMessage = updateError instanceof Error ? updateError.message : 'Unknown error';
-          throw new Error(`Failed to update record: ${errorMessage}`);
-        }
-      } 
-      // No update needed
-      else {
-        // Log that we're skipping this object
-        console.log(`[DB ${this.table}] Object with syncId: ${syncId} skipped (no update needed)`);
-        
-        return {
-          success: true,
-          message: `No update needed for record with syncId: ${syncId}`
-        };
+          // Set syncStatusField to 'synced'
+          record.syncStatusField = 'synced';
+        });
       }
+      return existingRecord;
     }
-  }
-  
-  // Empty method to be overridden by child classes
-  // Executed after pullSyncUpdate operations, regardless of the operation result
-  static async post_pull_sync<T extends SyncModel>(
-    database: Database,
-    record: T,
-    serverObject: Record<string, any>
-  ): Promise<void> {
-    // Empty implementation in base class
-    // Child classes can override this method to implement custom post-sync logic
-    return;
+    
+    // If the record doesn't exist, create a new one
+    const deserializedData = await this.deserialize<T>(database, recordData, existingRecord);
+
+    return await this.create<T>(
+      database,
+      (newRecord: T) => {
+        // Set the sync_id provided by the caller
+        newRecord.syncId = syncId;
+        // Apply the provided data
+        Object.entries(deserializedData).forEach(([key, value]) => {
+          (newRecord as any)[key] = value;
+        });
+        // Set syncStatusField to 'synced'
+        newRecord.syncStatusField = 'synced';
+      }
+    );
   }
 
-  // Empty method to be overridden by child classes
-  // Executed before pullSyncUpdate operations
-  static async pre_pull_sync<T extends SyncModel>(
-    database: Database,
-    serverObject: Record<string, any>
-  ): Promise<Record<string, any>> {
-    // Empty implementation in base class
-    // Child classes can override this method to implement custom pre-sync logic
-    return serverObject;
+  needUpdate(serverDate: Date): boolean {
+    // Compare dates
+    const localTime = this.lastUpdate;
+    
+    return serverDate.getTime() > localTime.getTime();
   }
-} 
+
+  // #########  SYNC PUSH  #########
+  // Method to prepare a record for pushing to server
+  // Converts camelCase fields to snake_case and removes unnecessary fields
+  serialize(): Record<string, any> {
+    // Get all fields from the record
+    const rawData: Record<string, any> = { ...this._raw };
+    
+    // Fields to exclude from the push data
+    const excludedFields = ['id', 'owner', 'sync_status'];
+    
+    // Prepare data for server
+    const serverData: Record<string, any> = {};
+    
+    // Process all fields
+    Object.entries(rawData).forEach(([key, value]) => {
+      // Skip excluded fields
+      if (!excludedFields.includes(key)) {
+        // Convert the key to snake_case if needed
+        const snakeKey = camelToSnake(key);
+        
+        // Handle Date objects - convert to timestamp for server
+        if (key === 'last_update' && value instanceof Date) {
+          serverData[snakeKey] = value.getTime();
+        } else {
+          // Add the field to server data
+          serverData[snakeKey] = value;
+        }
+      }
+    });
+    
+    return serverData;
+  }
+
+  // Static version of prepareForPush for use with collections of records
+  static serializeRecords(records: SyncModel[]): Record<string, any>[] {
+    return records.map(record => record.serialize());
+  }
+
+
+
+
+}

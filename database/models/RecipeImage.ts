@@ -153,49 +153,6 @@ class RecipeImage extends SyncModel {
     }
   }
 
-  // Metoda statyczna do aktualizacji obrazu przepisu
-  static async update(
-    database: Database,
-    recipeImageId: string,
-    image?: string | null,
-    // Optional SyncModel fields
-    syncId?: string,
-    syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: Date,
-    isDeleted?: boolean
-  ): Promise<RecipeImage | null> {
-    try {
-      const recipeImage = await database
-        .get<RecipeImage>('recipe_images')
-        .find(recipeImageId);
-      
-      if (!recipeImage) {
-        console.log(`[DB ${this.table}] RecipeImage with id ${recipeImageId} not found`);
-        return null;
-      }
-      
-      console.log(`[DB ${this.table}] Updating recipe image ${recipeImageId} with provided fields`);
-      
-      // Use the update method directly from the model instance
-      await recipeImage.update(record => {
-        // Update only provided fields
-        if (image !== undefined) record.image = image || undefined;
-        
-        // Update SyncModel fields if provided
-        if (syncId !== undefined) record.syncId = syncId;
-        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
-        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
-        if (isDeleted !== undefined) record.isDeleted = isDeleted;
-      });
-      
-      console.log(`[DB ${this.table}] Successfully updated recipe image ${recipeImageId}`);
-      return recipeImage;
-    } catch (error) {
-      console.error(`[DB ${this.table}] Error updating recipe image: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
   // Nadpisujemy metodę update, aby automatycznie przetwarzać obraz jeśli potrzeba
   async update(
     recordUpdater?: (record: this) => void
@@ -279,26 +236,41 @@ class RecipeImage extends SyncModel {
   
   // Implementacja metody pre_pull_sync dla RecipeImage
   // Ta metoda jest wywoływana przed synchronizacją RecipeImage (gdyby model był synchronizowany)
-  static async pre_pull_sync<T extends SyncModel>(
+  static async deserialize(
     database: Database,
-    serverObject: Record<string, any>
+    serverData: Record<string, any>,
+    existingRecord: RecipeImage | null
   ): Promise<Record<string, any>> {
     try {
-      // Pobierz syncId z obiektu servera
-      const syncId = serverObject.sync_id;
-      console.log(`[RecipeImage.pre_pull_sync] Wywołano dla syncId: ${syncId}`);
+      // Najpierw wywołaj deserialize z klasy nadrzędnej, aby przetworzyć podstawowe dane
+      const deserializedData = await super.deserialize(database, serverData, existingRecord);
       
-      // Wywołaj metodę do pobrania obrazu z API i zaktualizuj serverObject
-      const updatedServerObject = await RecipeImage.retrieve_image_from_api(database, syncId, serverObject);
+      // Pobierz syncId z obiektu serwera
+      const syncId = serverData.sync_id;
+      console.log(`[RecipeImage.deserialize] Wywołano dla syncId: ${syncId}`);
       
-      console.log(`[RecipeImage.pre_pull_sync] Zaktualizowano dane obrazu dla syncId: ${syncId}`);
+      // Jeśli serverData nie zawiera danych obrazu, spróbuj je pobrać z API
+      if (!serverData.image && syncId) {
+        try {
+          // Wywołaj metodę do pobrania obrazu z API
+          const updatedServerObject = await RecipeImage.retrieve_image_from_api(database, syncId);
+          
+          // Jeśli udało się pobrać obraz, dodaj go do zdeserializowanych danych
+          if (updatedServerObject.image) {
+            deserializedData.image = updatedServerObject.image;
+            console.log(`[RecipeImage.deserialize] Zaktualizowano dane obrazu dla syncId: ${syncId}`);
+          }
+        } catch (error) {
+          console.error(`[RecipeImage.deserialize] Błąd pobierania obrazu: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
       
-      // Zwróć zaktualizowany obiekt serwera
-      return updatedServerObject;
+      // Zwróć zdeserializowane dane
+      return deserializedData;
     } catch (error) {
-      console.error(`[RecipeImage.pre_pull_sync] Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      // W przypadku błędu zwróć oryginalny obiekt
-      return serverObject;
+      console.error(`[RecipeImage.deserialize] Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // W przypadku błędu zwróć dane po podstawowej deserializacji
+      return await super.deserialize(database, serverData, existingRecord);
     }
   }
   

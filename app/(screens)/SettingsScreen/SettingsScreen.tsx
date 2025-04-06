@@ -73,7 +73,7 @@ export default function SettingsScreen() {
     if (!settings) return;
     
     try {
-      await settings.updateLanguage(newLanguage);
+      await LocalUserSettings.updateLanguage(database, newLanguage);
       setLanguage(newLanguage);
       setLanguageDropdownOpen(false);
     } catch (error) {

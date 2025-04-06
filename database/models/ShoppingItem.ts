@@ -98,7 +98,7 @@ export default class ShoppingItem extends SyncModel {
   }
 
   // Helper method to find existing item with same name and unit
-  static async findExisting(
+  static async getByShoppingData(
     database: Database,
     name: string,
     unit: string | null,
@@ -146,7 +146,7 @@ export default class ShoppingItem extends SyncModel {
     // Optional SyncModel fields
     syncId?: string,
     syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
+    lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<ShoppingItem> {
     // If no order is provided, get the next available order
@@ -178,67 +178,14 @@ export default class ShoppingItem extends SyncModel {
     ) as ShoppingItem;
   }
 
-  // New method: Simple update without parsing
-  static async update(
-    database: Database,
-    itemId: string,
-    name?: string,
-    amount?: number,
-    unit?: string | null,
-    type?: string | null,
-    isChecked?: boolean,
-    order?: number,
-    // Optional SyncModel fields
-    syncId?: string,
-    syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: string,
-    isDeleted?: boolean
-  ): Promise<ShoppingItem | null> {
-    try {
-      const item = await database
-        .get<ShoppingItem>('shopping_items')
-        .find(itemId);
-      
-      if (!item) {
-        console.log(`[DB ShoppingItem] Item with id ${itemId} not found`);
-        return null;
-      }
-      
-      console.log(`[DB ShoppingItem] Updating item ${itemId} with provided fields`);
-      
-      // Use the update method directly from the model instance
-      await item.update(record => {
-        // Update only provided fields
-        if (name !== undefined) record.name = name;
-        if (amount !== undefined) record.amount = amount;
-        if (unit !== undefined) record.unit = unit;
-        if (type !== undefined) record.type = type;
-        if (isChecked !== undefined) record.isChecked = isChecked;
-        if (order !== undefined) record.order = order;
-        
-        // Update SyncModel fields if provided
-        if (syncId !== undefined) record.syncId = syncId;
-        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
-        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
-        if (isDeleted !== undefined) record.isDeleted = isDeleted;
-      });
-      
-      console.log(`[DB ShoppingItem] Successfully updated item ${itemId}`);
-      return item;
-    } catch (error) {
-      console.error(`[DB ShoppingItem] Error updating item: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  static async upsert(
+  static async upsertByShoppingList(
     database: Database,
     text: string
   ): Promise<ShoppingItem> {
     try {
       const parsed = parseIngredient(text);
 
-      const existingItem = await this.findExisting(
+      const existingItem = await this.getByShoppingData(
         database,
         parsed.name,
         parsed.unit,
@@ -248,21 +195,12 @@ export default class ShoppingItem extends SyncModel {
       if (existingItem) {
         console.log(`[DB ShoppingItem] Found existing item ${existingItem.id}, updating amount`);
         
-        // Use the update method to update the existing item
-        return await this.update(
-          database,
-          existingItem.id,
-          undefined, // name - keep existing
-          existingItem.amount + parsed.amount, // amount - add the new amount
-          undefined, // unit - keep existing
-          undefined, // type - keep existing
-          undefined, // isChecked - keep existing
-          undefined, // order - keep existing
-          undefined, // syncId - keep existing
-          undefined, // syncStatusField - keep existing
-          undefined, // lastUpdate - keep existing
-          undefined  // isDeleted - keep existing
-        ) as ShoppingItem; // We know it exists so we can safely cast
+        // Używamy metody update bezpośrednio na istniejącym elemencie
+        await existingItem.update(record => {
+          record.amount = existingItem.amount + parsed.amount;
+        });
+        
+        return existingItem;
       } else {
         console.log(`[DB ShoppingItem] No existing item found, creating new item`);
         
@@ -289,55 +227,31 @@ export default class ShoppingItem extends SyncModel {
 
   async toggleChecked() {
     try {
-      if (!this.isChecked) {
         // Sprawdzamy czy istnieje już zaznaczony element o tej samej nazwie i jednostce
-        const existingCheckedItem = await ShoppingItem.findExisting(
+        const existingCheckedItem = await ShoppingItem.getByShoppingData(
           this.database,
           this.name,
           this.unit,
-          true
+          !this.isChecked
         );
 
         if (existingCheckedItem) {
           console.log(`[DB ShoppingItem] Found existing checked item ${existingCheckedItem.id}, merging amounts`);
-          // Use update to update the amount of the existing checked item
-          await ShoppingItem.update(
-            this.database,
-            existingCheckedItem.id,
-            undefined, // name - keep existing
-            existingCheckedItem.amount + this.amount, // amount - add the current amount
-            undefined, // unit - keep existing
-            undefined, // type - keep existing
-            undefined, // isChecked - keep existing
-            undefined, // order - keep existing
-            undefined, // syncId - keep existing
-            undefined, // syncStatusField - keep existing
-            undefined, // lastUpdate - keep existing
-            undefined  // isDeleted - keep existing
-          );
+          // Używamy metody update bezpośrednio na istniejącym elemencie
+          await existingCheckedItem.update(record => {
+            record.amount = existingCheckedItem.amount + this.amount;
+          });
           
           await this.markAsDeleted();
           return;
+        }else{
+          await this.update(record => {
+            record.isChecked = !this.isChecked;
+          });
         }
       }
 
-      console.log(`[DB ShoppingItem] Toggling checked status for item ${this.id}: ${this.isChecked} -> ${!this.isChecked}`);
-      // Use update to toggle the checked status
-      await ShoppingItem.update(
-        this.database,
-        this.id,
-        undefined, // name - keep existing
-        undefined, // amount - keep existing
-        undefined, // unit - keep existing
-        undefined, // type - keep existing
-        !this.isChecked, // isChecked - toggle
-        undefined, // order - keep existing
-        undefined, // syncId - keep existing
-        undefined, // syncStatusField - keep existing
-        undefined, // lastUpdate - keep existing
-        undefined  // isDeleted - keep existing
-      );
-    } catch (error) {
+     catch (error) {
       console.error(`[DB ShoppingItem] Error toggling checked status: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
@@ -349,7 +263,7 @@ export default class ShoppingItem extends SyncModel {
       console.log(`[DB ShoppingItem] Updating item ${this.id} with parsed text: "${text}" -> name=${parsed.name}, amount=${parsed.amount}, unit=${parsed.unit}`);
       
       // Sprawdzamy czy istnieje już taki sam element (inny niż ten)
-      const existingItem = await ShoppingItem.findExisting(
+      const existingItem = await ShoppingItem.getByShoppingData(
         this.database,
         parsed.name,
         parsed.unit,
@@ -359,41 +273,20 @@ export default class ShoppingItem extends SyncModel {
       if (existingItem && existingItem.id !== this.id) {
         console.log(`[DB ShoppingItem] Found existing item ${existingItem.id}, merging amounts`);
         // Use update to update the amount of the existing item
-        await ShoppingItem.update(
-          this.database,
-          existingItem.id,
-          undefined, // name - keep existing
-          existingItem.amount + parsed.amount, // amount - add the parsed amount
-          undefined, // unit - keep existing
-          undefined, // type - keep existing
-          undefined, // isChecked - keep existing
-          undefined, // order - keep existing
-          undefined, // syncId - keep existing
-          undefined, // syncStatusField - keep existing
-          undefined, // lastUpdate - keep existing
-          undefined  // isDeleted - keep existing
-        );
-        
-        // Mark this item as deleted
+        await existingItem.update(record => {
+          record.amount = existingItem.amount + parsed.amount;
+        });
         await this.markAsDeleted();
         return;
       }
       
       // Update this item with the parsed values
-      await ShoppingItem.update(
-        this.database,
-        this.id,
-        parsed.name,    // name - update with parsed name
-        parsed.amount,  // amount - update with parsed amount
-        parsed.unit,    // unit - update with parsed unit
-        null,           // type - set to null
-        undefined,      // isChecked - keep existing
-        undefined,      // order - keep existing
-        undefined,      // syncId - keep existing
-        undefined,      // syncStatusField - keep existing
-        undefined,      // lastUpdate - keep existing
-        undefined       // isDeleted - keep existing
-      );
+      await this.update(record => {
+        record.name = parsed.name;
+        record.amount = parsed.amount;
+        record.unit = parsed.unit;
+        record.type = null;
+      });
 
       console.log(`[DB ShoppingItem] Successfully updated item ${this.id}`);
     } catch (error) {

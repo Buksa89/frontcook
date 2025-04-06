@@ -14,53 +14,6 @@ export default class AppData extends SyncModel {
   @date('subscription_end') subscriptionEnd!: Date
   @text('csv_lock') csvLock!: Date
 
-  // Method to check if a server object already exists in the local database
-  // Override from SyncModel to check by user instead of syncId
-  static async existsInLocalDatabase<T extends SyncModel>(
-    this: { new(): T } & typeof SyncModel,
-    database: Database,
-    serverObject: Record<string, any>
-  ): Promise<boolean> {
-    // Get active user
-    const activeUser = await AuthService.getActiveUser();
-    
-    // Check if any app data exists for the current user
-    const records = await database
-      .get<T>(this.table)
-      .query(
-        Q.and(
-          Q.where('owner', activeUser),
-          Q.where('is_deleted', false)
-        )
-      )
-      .fetch();
-      
-    return records.length > 0;
-  }
-
-  // Method to get a model from the local database for the current user
-  // Override from SyncModel to get by user instead of syncId
-  static async getModelBySyncId<T extends SyncModel>(
-    this: { new(): T } & typeof SyncModel,
-    database: Database,
-    syncId: string
-  ): Promise<T | null> {
-    // For AppData, we ignore the syncId parameter and just get the user's record
-    const activeUser = await AuthService.getActiveUser();
-    
-    const records = await database
-      .get<T>(this.table)
-      .query(
-        Q.and(
-          Q.where('owner', activeUser),
-          Q.where('is_deleted', false)
-        )
-      )
-      .fetch();
-      
-    return records.length > 0 ? records[0] : null;
-  }
-
   // Static method to observe subscription status
   static observeSubscriptionStatus(database: Database): Observable<{ isActive: boolean, endDate: Date | null }> {
     return new Observable<{ isActive: boolean, endDate: Date | null }>(subscriber => {
@@ -143,53 +96,6 @@ export default class AppData extends SyncModel {
     }
   }
   
-  // Update method following the UserSettings pattern
-  static async update(
-    database: Database,
-    appDataId: string,
-    lastSync?: Date,
-    subscriptionEnd?: Date,
-    csvLock?: Date,
-    // Optional SyncModel fields
-    syncId?: string,
-    syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: Date,
-    isDeleted?: boolean
-  ): Promise<AppData | null> {
-    try {
-      const appData = await database
-        .get<AppData>('app_data')
-        .find(appDataId);
-      
-      if (!appData) {
-        console.log(`[DB ${this.table}] App data with id ${appDataId} not found`);
-        return null;
-      }
-      
-      // console.log(`[DB ${this.table}] Updating app data ${appDataId} with provided fields`);
-      
-      // Use the update method directly from the model instance
-      await appData.update(record => {
-        // Update only provided fields
-        if (lastSync !== undefined) record.lastSync = lastSync;
-        if (subscriptionEnd !== undefined) record.subscriptionEnd = subscriptionEnd;
-        if (csvLock !== undefined) record.csvLock = csvLock;
-        
-        // Update SyncModel fields if provided
-        if (syncId !== undefined) record.syncId = syncId;
-        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
-        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
-        if (isDeleted !== undefined) record.isDeleted = isDeleted;
-      });
-      
-      console.log(`[DB ${this.table}] Successfully updated app data ${appDataId}`);
-      return appData;
-    } catch (error) {
-      console.error(`[DB ${this.table}] Error updating app data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
   // Statyczna metoda do aktualizacji lastSync (np. dla DebugScreen)
   static async updateLastSync(
     database: Database,
@@ -198,20 +104,16 @@ export default class AppData extends SyncModel {
     try {
       // console.log(`[DB ${this.table}] Updating last sync to ${newLastSync}`);
       
-      // Get or create app data
-      const appData = await this.getOrCreate(database);
-      
-      // Update the lastSync value
-      await AppData.update(
+      // Use upsert to update or create app data with new lastSync
+      await this.upsert(
         database,
-        appData.id,
-        newLastSync,
-        undefined, // subscriptionEnd
-        undefined, // csvLock
-        undefined, // syncId
-        undefined, // syncStatusField
-        undefined, // lastUpdate
-        undefined // isDeleted
+        newLastSync, // lastSync
+        undefined,   // subscriptionEnd
+        undefined,   // csvLock
+        undefined,   // syncId
+        undefined,   // syncStatusField
+        undefined,   // lastUpdate
+        undefined    // isDeleted
       );
     } catch (error) {
       console.error(`[DB ${this.table}] Error updating last sync: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -269,6 +171,74 @@ export default class AppData extends SyncModel {
       return appData.lastSync
     } catch (error) {
       console.error(`[DB ${this.table}] Error getting last sync: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  // Static method to upsert (create or update) app data
+  static async upsert(
+    database: Database,
+    lastSync?: Date,
+    subscriptionEnd?: Date,
+    csvLock?: Date,
+    // Optional SyncModel fields
+    syncId?: string,
+    syncStatusField?: 'pending' | 'synced' | 'conflict',
+    lastUpdate?: Date,
+    isDeleted?: boolean
+  ): Promise<AppData> {
+    try {
+      const activeUser = await AuthService.getActiveUser();
+      
+      // Query app data for specific owner
+      const appDataRecords = await database.get<AppData>('app_data')
+        .query(
+          Q.and(
+            Q.where('owner', activeUser),
+            Q.where('is_deleted', false)
+          )
+        )
+        .fetch();
+      
+      let appData: AppData;
+      
+      if (appDataRecords.length > 0) {
+        // Record exists, update it
+        appData = appDataRecords[0];
+        
+        await appData.update((record: AppData) => {
+          // Update only provided fields
+          if (lastSync !== undefined) record.lastSync = lastSync;
+          if (subscriptionEnd !== undefined) record.subscriptionEnd = subscriptionEnd;
+          if (csvLock !== undefined) record.csvLock = csvLock;
+          
+          // Update SyncModel fields if provided
+          if (syncId !== undefined) record.syncId = syncId;
+          if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
+          if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
+          if (isDeleted !== undefined) record.isDeleted = isDeleted;
+        });
+        
+        // console.log(`[DB ${this.table}] Updated existing app data for user ${activeUser}`);
+      } else {
+        // No record exists, create new one
+        appData = await AppData.create(
+          database,
+          lastSync !== undefined ? lastSync : new Date(0),
+          subscriptionEnd !== undefined ? subscriptionEnd : new Date(0),
+          csvLock !== undefined ? csvLock : new Date(0),
+          syncId,
+          syncStatusField,
+          lastUpdate,
+          isDeleted
+        );
+        
+        console.log(`[DB ${this.table}] Created new app data for user ${activeUser}`);
+      }
+      
+      return appData;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error upserting app data: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }

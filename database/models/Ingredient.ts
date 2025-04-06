@@ -72,7 +72,7 @@ export default class Ingredient extends SyncModel {
         const line = ingredientLines[i];
         const parsed = parseIngredient(line);
         
-        const ingredient = await Ingredient.createIngredient(
+        const ingredient = await Ingredient.create(
           database,
           recipeId,
           parsed.name,
@@ -105,7 +105,7 @@ export default class Ingredient extends SyncModel {
 
 
   // Create method following the ShoppingItem pattern
-  static async createIngredient(
+  static async create(
     database: Database,
     recipeId: string,
     name: string,
@@ -152,171 +152,26 @@ export default class Ingredient extends SyncModel {
     }
   }
   
-  // Update method following the ShoppingItem pattern
-  static async update(
-    database: Database,
-    ingredientId: string,
-    name?: string,
-    amount?: number | null,
-    unit?: string | null,
-    recipeId?: string,
-    order?: number,
-    originalStr?: string,
-    type?: string | null,
-    // Optional SyncModel fields
-    syncId?: string,
-    syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: Date,
-    isDeleted?: boolean
-  ): Promise<Ingredient | null> {
-    try {
-      const ingredient = await database
-        .get<Ingredient>('ingredients')
-        .find(ingredientId);
-      
-      if (!ingredient) {
-        console.log(`[DB Ingredient] Ingredient with id ${ingredientId} not found`);
-        return null;
-      }
-      
-      console.log(`[DB Ingredient] Updating ingredient ${ingredientId} with provided fields`);
-      
-      // Use the update method directly from the model instance
-      await ingredient.update(record => {
-        // Update only provided fields
-        if (name !== undefined) record.name = name;
-        if (amount !== undefined) record.amount = amount;
-        if (unit !== undefined) record.unit = unit;
-        if (recipeId !== undefined) record.recipeId = recipeId;
-        if (order !== undefined) record.order = order;
-        if (originalStr !== undefined) record.originalStr = originalStr;
-        if (type !== undefined) record.type = type;
-        
-        // Update SyncModel fields if provided
-        if (syncId !== undefined) record.syncId = syncId;
-        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
-        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
-        if (isDeleted !== undefined) record.isDeleted = isDeleted;
-      });
-      
-      console.log(`[DB Ingredient] Successfully updated ingredient ${ingredientId}`);
-      return ingredient;
-    } catch (error) {
-      console.error(`[DB Ingredient] Error updating ingredient: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  // Override markAsDeleted for consistent implementation
-  async markAsDeleted(): Promise<void> {
-    try {
-      console.log(`[DB ${this.table}] Marking ingredient ${this.id} as deleted`);
-      
-      // Use the static update method to mark as deleted
-      await Ingredient.update(
-        this.database,
-        this.id,
-        undefined, // name - keep existing
-        undefined, // amount - keep existing
-        undefined, // unit - keep existing
-        undefined, // recipeId - keep existing
-        undefined, // order - keep existing
-        undefined, // originalStr - keep existing
-        undefined, // type - keep existing
-        undefined, // syncId - keep existing
-        undefined, // syncStatusField - will be set automatically
-        undefined, // lastUpdate - will be set automatically
-        true      // isDeleted - mark as deleted
-      );
-      
-      console.log(`[DB ${this.table}] Successfully marked ingredient ${this.id} as deleted`);
-    } catch (error) {
-      console.error(`[DB ${this.table}] Error marking ingredient as deleted: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  // Instance method to set relations from server object
-  async setRelations(serverObject: Record<string, any>): Promise<Record<string, any>> {
-    console.log(`[DB ${this.table}] Setting relations for ingredient with id: ${this.id}`);
+  static async deserialize(database: Database, serverData: Record<string, any>, existingRecord: Ingredient | null): Promise<Record<string, any>> {
+    const deserializedData = await super.deserialize(database, serverData, existingRecord);
     
-    // Call the static implementation directly
-    return await Ingredient.setRelations(serverObject, this.database);
-  }
-
-  // Override setRelations to handle recipe relation
-  static async setRelations<T extends SyncModel>(
-    serverObject: Record<string, any>,
-    database: Database
-  ): Promise<Record<string, any>> {
-    // Call the parent method
-    const result = await SyncModel.setRelations(serverObject, database);
-    
-    // We expect serverObject to have recipe property with sync_id
-    const recipeSyncId = serverObject.recipe;
-    
-    // Store the found ID to use when creating/updating the record
-    let recipeLocalId = null;
-    
-    // Process recipe relation if sync_id is provided
-    if (recipeSyncId) {
-      // Find the recipe with the given sync_id
-      const recipe = await this.findRecipeBySyncId(database, recipeSyncId);
+    // Jeśli serverData zawiera recipe jako sync_id
+    if (serverData.recipe) {
+      // Znajdź przepis po sync_id
+      const recipe = await Ingredient.findRecipeBySyncId(database, serverData.recipe);
       if (recipe) {
-        // Store the local ID for use in createAsSynced or update
-        recipeLocalId = recipe.id;
-        // Add to processed data directly in snake_case (for createAsSynced)
-        result.recipe_id = recipe.id;
-      } else {
-        console.log(`[DB ${this.table}] Warning: Recipe with syncId ${recipeSyncId} not found`);
+        deserializedData.recipe = recipe; // Przypisz lokalny ID przepisu
       }
     }
     
-    return result;
+    return deserializedData;
   }
 
-  // Alternative implementation using SyncModel.create directly
-  static async createAsSynced<T extends SyncModel>(
-    this: { new(): T } & typeof SyncModel,
-    database: Database,
-    serverData: Record<string, any>
-  ): Promise<T> {
-    // Extract values from server data
-    const recipeId = serverData.recipe_id;
-    const syncId = serverData.sync_id;
-    const lastUpdate = serverData.last_update;
-    
-    // Use SyncModel.create directly (instead of SyncModel.createAsSynced)
-    // This gives us more control over all fields in a single operation
-    return await SyncModel.create.call(
-      this,
-      database,
-      (record: SyncModel) => {
-        const ingredient = record as Ingredient;
-        
-        // Set all fields from server data
-        ingredient.syncId = syncId;
-        ingredient.syncStatusField = 'synced';
-        ingredient.lastUpdate = lastUpdate; // Preserve server timestamp
-        ingredient.isDeleted = serverData.is_deleted || false;
-        
-        // Set ingredient-specific fields
-        ingredient.name = serverData.name || '';
-        ingredient.amount = serverData.amount;
-        ingredient.unit = serverData.unit;
-        ingredient.order = serverData.order || 0;
-        ingredient.originalStr = serverData.original_str || '';
-        ingredient.type = serverData.type;
-        ingredient.recipeId = recipeId;
-        
-      }
-    ) as T;
-  }
 
   // Override prepareForPush to properly handle relations
-  prepareForPush(): Record<string, any> {
+  serialize(): Record<string, any> {
     // Get base data from parent class
-    const baseData = super.prepareForPush();
+    const baseData = super.serialize();
     baseData.recipe = this.recipe.syncId;
     
     return baseData;

@@ -50,7 +50,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
             confirmClearAll();
           }}
         >
-          <MaterialIcons name="delete-sweep" size={22} color="#ff4444" />
+          <MaterialIcons name="delete" size={24} color="#ff4444" />
         </TouchableOpacity>
       ),
     });
@@ -112,7 +112,7 @@ const ShoppingListScreenComponent = ({ uncheckedItems, checkedItems }: {
     if (!newItemText.trim()) return;
 
     try {
-      await ShoppingItem.upsert(database, newItemText);
+      await ShoppingItem.upsertByShoppingList(database, newItemText);
       setNewItemText('');
     } catch (error) {
       console.error("Błąd dodawania produktu:", error);

@@ -86,6 +86,28 @@ export default class Tag extends SyncModel {
     );
   }
 
+  // Helper method to get the next order value
+  static async getNextOrder(database: Database): Promise<number> {
+    try {
+      const activeUser = await AuthService.getActiveUser();
+      const lastTag = await database
+        .get<Tag>('tags')
+        .query(
+          Q.where('is_deleted', false),
+          Q.sortBy('order', Q.desc),
+          Q.where('owner', activeUser),
+          Q.take(1)
+        )
+        .fetch();
+      
+      const maxOrder = lastTag.length > 0 ? lastTag[0].order : -1;
+      return maxOrder + 1;
+    } catch (error) {
+      console.error(`[DB ${this.table}] Error getting next order value: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return Date.now(); // Use timestamp as fallback
+    }
+  }
+
   // Helper method for creating tags
   static async create(
     database: Database, 
@@ -100,12 +122,7 @@ export default class Tag extends SyncModel {
     try {
       // If no order is provided, get the next available order
       if (order === undefined) {
-        const lastTag = await database
-          .get<Tag>('tags')
-          .query(Q.sortBy('order', Q.desc), Q.take(1))
-          .fetch();
-        
-        order = lastTag.length > 0 ? lastTag[0].order + 1 : 0;
+        order = await this.getNextOrder(database);
       }
       
       // Use the parent SyncModel.create method
@@ -127,52 +144,7 @@ export default class Tag extends SyncModel {
         }
       ) as Tag;
     } catch (error) {
-      console.error(`[DB Tag] Error creating tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
-  // Static update method
-  static async update(
-    database: Database,
-    tagId: string,
-    name?: string,
-    order?: number,
-    // Optional SyncModel fields
-    syncId?: string,
-    syncStatusField?: 'pending' | 'synced' | 'conflict',
-    lastUpdate?: Date,
-    isDeleted?: boolean
-  ): Promise<Tag | null> {
-    try {
-      const tag = await database
-        .get<Tag>('tags')
-        .find(tagId);
-      
-      if (!tag) {
-        console.log(`[DB Tag] Tag with id ${tagId} not found`);
-        return null;
-      }
-      
-      console.log(`[DB Tag] Updating tag ${tagId} with provided fields`);
-      
-      // Use the update method directly from the model instance
-      await tag.update(record => {
-        // Update only provided fields
-        if (name !== undefined) record.name = name.trim();
-        if (order !== undefined) record.order = order;
-        
-        // Update SyncModel fields if provided
-        if (syncId !== undefined) record.syncId = syncId;
-        if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
-        if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
-        if (isDeleted !== undefined) record.isDeleted = isDeleted;
-      });
-      
-      console.log(`[DB Tag] Successfully updated tag ${tagId}`);
-      return tag;
-    } catch (error) {
-      console.error(`[DB Tag] Error updating tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`[DB ${this.table}] Error creating tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
@@ -188,19 +160,14 @@ export default class Tag extends SyncModel {
 
       console.log(`[DB ${this.table}] Marking tag ${this.id} and ${relatedRecipeTags.length} related recipe_tags as deleted`);
 
-      await Tag.update(
-        this.database,
-        this.id,
-        undefined, // name - keep existing
-        undefined, // order - keep existing
-        undefined, // syncId - keep existing
-        undefined, // syncStatusField
-        undefined, // lastUpdate
-        true       // isDeleted - mark as deleted
-      );
-
-      for (const recipeTag of relatedRecipeTags) {
-        await recipeTag.markAsDeleted();
+      // First mark tag as deleted using the parent class markAsDeleted method
+      await super.markAsDeleted();
+      
+      // Now mark all related recipe_tags as deleted using their markAsDeleted methods
+      if (relatedRecipeTags.length > 0) {
+        await Promise.all(
+          relatedRecipeTags.map(recipeTag => recipeTag.markAsDeleted())
+        );
       }
       
       console.log(`[DB ${this.table}] Successfully marked tag ${this.id} and ${relatedRecipeTags.length} related recipe_tags as deleted`);

@@ -114,48 +114,6 @@ const EditRecipeScreen = ({
     );
   };
 
-  const saveRecipeWithImage = async (recipe: Recipe) => {
-    if (formData.image && recipe.syncId) {
-      try {
-        console.log(`[RecipeManagement] Zapisuję obraz dla przepisu: ${recipe.id}, syncId: ${recipe.syncId}`);
-        
-        // Używamy metody upsert tylko z syncId i obrazem
-        const recipeImage = await RecipeImage.upsert(
-          database,
-          recipe.syncId,
-          formData.image
-        );
-        
-        if (recipeImage) {
-          console.log(`[RecipeManagement] Zapisano obraz dla przepisu: ${recipe.id}, syncId: ${recipe.syncId}`);
-        } else {
-          console.error(`[RecipeManagement] Nie udało się zapisać obrazu dla przepisu: ${recipe.id}`);
-        }
-      } catch (error) {
-        console.error('Error saving recipe image:', error);
-      }
-    } else if (!formData.image && recipe.syncId) {
-      // Jeśli usunięto obraz, również musimy zaktualizować rekord RecipeImage
-      try {
-        console.log(`[RecipeManagement] Usuwanie obrazu dla przepisu: ${recipe.id}, syncId: ${recipe.syncId}`);
-        
-        const existingRecipeImages = await database.get<RecipeImage>('recipe_images')
-          .query(Q.where('sync_id', recipe.syncId))
-          .fetch();
-          
-        if (existingRecipeImages.length > 0) {
-          await existingRecipeImages[0].update(record => {
-            record.image = undefined;
-            record.thumbnail = undefined;
-          });
-          console.log(`[RecipeManagement] Usunięto obrazy dla przepisu: ${recipe.id}`);
-        }
-      } catch (error) {
-        console.error('Error removing recipe image:', error);
-      }
-    }
-  };
-
   const handleSubmit = async () => {
     if (!formData.name || !formData.ingredients || !formData.instructions) {
       Alert.alert('Błąd', 'Wypełnij wymagane pola (nazwa, składniki, instrukcje)');
@@ -163,14 +121,13 @@ const EditRecipeScreen = ({
     }
 
     try {
-      const savedRecipe = await Recipe.saveRecipe(database, formData, existingRecipe || undefined);
+      await Recipe.upsertByManagement(
+        database, 
+        formData, 
+        existingRecipe ? existingRecipe.id : undefined
+      );
       
-      // Po zapisaniu przepisu, zapisujemy obraz
-      await saveRecipeWithImage(savedRecipe);
-      
-      // Jeśli przepis istnieje i nie jest jeszcze zatwierdzony, zatwierdzamy go
       if (existingRecipe && !existingRecipe.isApproved) {
-        await existingRecipe.toggleApproval();
         // Przekierowujemy na listę przepisów po zaakceptowaniu
         router.push({
           pathname: '/(screens)/RecipeListScreen/RecipeListScreen'
@@ -189,18 +146,6 @@ const EditRecipeScreen = ({
     if (!existingRecipe) return;
 
     try {
-      // Usuń także powiązany obraz jeśli istnieje
-      if (existingRecipe.syncId) {
-        const existingRecipeImages = await database.get<RecipeImage>('recipe_images')
-          .query(Q.where('sync_id', existingRecipe.syncId))
-          .fetch();
-          
-        if (existingRecipeImages.length > 0) {
-          await existingRecipeImages[0].markAsDeleted();
-          console.log(`[RecipeManagement] Usunięto obraz dla przepisu: ${existingRecipe.id}, syncId: ${existingRecipe.syncId}`);
-        }
-      }
-      
       // Usuń przepis
       await existingRecipe.markAsDeleted();
       
