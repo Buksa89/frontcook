@@ -1,10 +1,12 @@
 import { text } from '@nozbe/watermelondb/decorators';
 import SyncModel from './SyncModel';
-import { needsProcessing, cropToSize, generateImagePaths, saveImageToFile } from '../../app/utils/imageProcessor';
+import { processImageFromTemp } from '../../app/utils/imageProcessor';
 import { Database } from '@nozbe/watermelondb';
 import { Q } from '@nozbe/watermelondb';
 import recipeImageApi from '../../app/api/recipeImage';
 import * as FileSystem from 'expo-file-system';
+import { needsProcessing } from '../../app/utils/imageProcessor';
+import { Observable } from 'rxjs';
 
 class RecipeImage extends SyncModel {
   static table = 'recipe_images';
@@ -22,62 +24,63 @@ class RecipeImage extends SyncModel {
     return this.thumbnail;
   }
 
+  // Metoda do przetwarzania obrazu
+  static async processImage(
+    image: string | null,
+    syncId: string
+  ): Promise<{ mainImagePath: string | null, thumbnailPath: string | null }> {
+    if (!image) {
+      return { mainImagePath: null, thumbnailPath: null };
+    }
+
+    try {
+      // Pobierz ścieżkę istniejącego obrazu
+      const existingImagePath = `${FileSystem.documentDirectory}images/${syncId}.jpg`;
+
+      // Sprawdź czy obraz wymaga przetworzenia
+      const shouldProcess = await needsProcessing(image, existingImagePath);
+
+      if (shouldProcess) {
+        const processedImages = await processImageFromTemp(image, syncId);
+        return processedImages;
+      } else {
+        // Zakładamy że istnieje też miniatura jeśli istnieje główny obraz
+        const thumbPath = existingImagePath?.replace('.jpg', '_thumb.jpg');
+        return {
+          mainImagePath: existingImagePath,
+          thumbnailPath: thumbPath
+        };
+      }
+    } catch (error) {
+      console.error(`[RecipeImage.processImage] Error during processing for SyncId ${syncId}: ${error}`);
+      return { mainImagePath: null, thumbnailPath: null };
+    }
+  }
+
   // Metoda statyczna do tworzenia nowego obrazu przepisu
   static async create(
     database: Database,
     syncId: string,
-    image: string | null,
+    image: string | null, // Teraz to ścieżka do pliku tymczasowego
     // Optional SyncModel fields
     syncStatusField?: 'pending' | 'synced' | 'conflict',
     lastUpdate?: Date,
     isDeleted?: boolean
   ): Promise<RecipeImage> {
     try {
-      console.log(`[RecipeImage] Tworzenie nowego obrazu dla syncId: ${syncId}`);
+      // Przetwórz obraz tymczasowy i uzyskaj ścieżki do plików
+      const { mainImagePath, thumbnailPath } = await RecipeImage.processImage(image, syncId);
       
-      // Przetwórz obraz przed utworzeniem rekordu, jeśli jest dostępny
-      let processedImagePath: string | undefined = undefined;
-      let processedThumbnailPath: string | undefined = undefined;
-      
-      // Przy tworzeniu zawsze przetwarzamy obraz jeśli istnieje
-      // Nie ma potrzeby sprawdzać needsProcessing, bo nie ma z czym porównać
-      if (image && syncId) {
-        try {
-          console.log(`[RecipeImage] Przetwarzanie obrazu podczas tworzenia dla syncId: ${syncId}`);
-          
-          // Przetwórz obraz - otrzymujemy dane w base64
-          const processedImages = await cropToSize(image, syncId);
-          
-          if (processedImages.mainImage && processedImages.thumbnail) {
-            // Generuj ścieżki do plików
-            const { mainImagePath, thumbnailPath } = generateImagePaths(syncId);
-            
-            // Zapisz pliki
-            const savedMainImagePath = await saveImageToFile(processedImages.mainImage, mainImagePath);
-            const savedThumbnailPath = await saveImageToFile(processedImages.thumbnail, thumbnailPath);
-            
-            // Zapamiętaj ścieżki do plików
-            processedImagePath = savedMainImagePath || undefined;
-            processedThumbnailPath = savedThumbnailPath || undefined;
-            
-            console.log(`[RecipeImage] Obraz przetworzony i zapisany podczas tworzenia dla syncId: ${syncId}`);
-          }
-        } catch (processingError) {
-          console.error(`[RecipeImage] Błąd podczas przetwarzania obrazu przy tworzeniu:`, processingError);
-          // Nie przerywamy działania, kontynuujemy z tworzeniem rekordu bez obrazu
-        }
-      }
-      
-      // Tworzymy obiekt RecipeImage z wszystkimi danymi od razu
+      // Tworzymy obiekt RecipeImage z przetworzonymi obrazami
       const recipeImage = await SyncModel.create.call(
         this as unknown as (new () => SyncModel) & typeof SyncModel,
         database,
         (record: SyncModel) => {
           const recipeImageRecord = record as RecipeImage;
           
-          // Zapisujemy przetworzone obrazy lub ustawiamy undefined
-          recipeImageRecord.image = processedImagePath;
-          recipeImageRecord.thumbnail = processedThumbnailPath;
+          // Zapisujemy ścieżki do plików
+          recipeImageRecord.image = mainImagePath || undefined;
+          recipeImageRecord.thumbnail = thumbnailPath || undefined;
           recipeImageRecord.syncId = syncId;
           
           // Set optional SyncModel fields if provided
@@ -87,7 +90,6 @@ class RecipeImage extends SyncModel {
         }
       ) as RecipeImage;
       
-      console.log(`[RecipeImage] Pomyślnie utworzono obraz dla syncId: ${syncId}`);
       return recipeImage;
     } catch (error) {
       console.error(`[RecipeImage] Błąd podczas tworzenia obrazu:`, error);
@@ -96,11 +98,11 @@ class RecipeImage extends SyncModel {
   }
 
   // Metoda statyczna do tworzenia lub aktualizacji obrazu przepisu (upsert)
-  // Przyjmuje syncId przepisu i obraz jako base64 string
+  // Przyjmuje syncId przepisu i ścieżkę do pliku tymczasowego
   static async upsert(
     database: Database,
     syncId: string,
-    image: string | null, // Obraz w formacie base64
+    image: string | null, // Teraz to ścieżka do pliku tymczasowego
     // Optional SyncModel fields
     syncStatusField?: 'pending' | 'synced' | 'conflict',
     lastUpdate?: Date,
@@ -111,164 +113,97 @@ class RecipeImage extends SyncModel {
       const existingRecipeImages = await database.get<RecipeImage>('recipe_images')
         .query(Q.where('sync_id', syncId))
         .fetch();
-        
+
       if (existingRecipeImages.length > 0) {
         // Aktualizujemy istniejący RecipeImage
         const recipeImage = existingRecipeImages[0];
-        
-        // Aktualizujemy rekord - funkcja update automatycznie przetworzy obraz jeśli potrzeba
+        // Najpierw przetwórz obraz jeśli istnieje, używając wydzielonej metody
+        const { mainImagePath, thumbnailPath } = await RecipeImage.processImage(image, syncId);
+
+        // Aktualizujemy rekord z już przetworzonymi obrazami
         await recipeImage.update(record => {
-          // Ustawiamy obraz lub czyścimy jeśli null
-          if (image !== undefined) record.image = image || undefined;
-          
-          // Update SyncModel fields if provided
-          if (syncStatusField !== undefined) record.syncStatusField = syncStatusField;
+          // Ustawiamy przetworzone ścieżki obrazów, jeśli są dostępne
+          if (mainImagePath) {
+            record.image = mainImagePath;
+            record.thumbnail = thumbnailPath || undefined;
+          } else if (image === null) {
+            // Jeśli image jest null, usuwamy obraz
+            record.image = undefined;
+            record.thumbnail = undefined;
+          }
+
+          // Update SyncModel fields if provided, otherwise mark as pending
+          record.syncStatusField = syncStatusField || 'pending'; // Default to pending on update
           if (lastUpdate !== undefined) record.lastUpdate = lastUpdate;
           if (isDeleted !== undefined) record.isDeleted = isDeleted;
         });
-        
         return recipeImage;
       } else {
         // Nie znaleziono, tworzymy nowy obiekt
         try {
-          // Wykorzystujemy metodę create do utworzenia nowego obiektu z obrazem w formacie base64
+          // Wykorzystujemy metodę create do utworzenia nowego obiektu ze ścieżką do pliku
           const recipeImage = await RecipeImage.create(
-            database, 
-            syncId, 
+            database,
+            syncId,
             image,
-            syncStatusField,
+            syncStatusField || 'pending', // Default to pending on create
             lastUpdate,
             isDeleted
           );
-          console.log(`[RecipeImage] Utworzono nowy obraz dla syncId: ${syncId} przez upsert`);
           return recipeImage;
         } catch (createError) {
-          console.error(`[RecipeImage] Błąd podczas tworzenia obrazu w upsert:`, createError);
+          console.error(`[RecipeImage.upsert] Error during create call within upsert for SyncId ${syncId}:`, createError);
           return null;
         }
       }
     } catch (error) {
-      console.error(`[RecipeImage] Błąd podczas upsert obrazu:`, error);
+      console.error(`[RecipeImage.upsert] Top-level error for SyncId ${syncId}:`, error);
       return null;
     }
   }
 
-  // Nadpisujemy metodę update, aby automatycznie przetwarzać obraz jeśli potrzeba
-  async update(
-    recordUpdater?: (record: this) => void
-  ): Promise<this> {
-    // Zapamiętaj aktualny obraz
-    const originalImage = this.image;
-    let currentImage = this.image;
-    
-    // Najpierw zastosuj standardowe aktualizacje w pamięci, żeby sprawdzić czy obraz się zmienia
-    if (recordUpdater) {
-      const tempRecord = { ...this, image: this.image } as this;
-      recordUpdater(tempRecord);
-      currentImage = tempRecord.image;
-    }
-    
-    // Sprawdzamy, czy potrzebujemy przetwarzać obraz 
-    // Jeśli image się zmienił i jest to base64 (a nie ścieżka)
-    const needsImageProcessing = 
-      this.syncId !== undefined && 
-      currentImage !== undefined && 
-      currentImage !== originalImage && 
-      needsProcessing(currentImage, originalImage);
-    
-    // Jeśli potrzebujemy przetwarzać obraz, robimy to przed aktualizacją
-    let newImagePath: string | undefined = undefined;
-    let newThumbnailPath: string | undefined = undefined;
-    
-    if (needsImageProcessing && this.syncId && currentImage) {
-      try {
-        console.log(`[RecipeImage] Przetwarzanie obrazu podczas update: ${this.syncId}`);
-        
-        // Przetwórz obraz - otrzymujemy dane w base64
-        const processedImages = await cropToSize(currentImage, this.syncId);
-        
-        if (processedImages.mainImage && processedImages.thumbnail) {
-          // Generuj ścieżki do plików
-          const { mainImagePath, thumbnailPath } = generateImagePaths(this.syncId);
-          
-          // Zapisz pliki
-          const savedMainImage = await saveImageToFile(processedImages.mainImage, mainImagePath);
-          const savedThumbnail = await saveImageToFile(processedImages.thumbnail, thumbnailPath);
-          
-          newImagePath = savedMainImage || undefined;
-          newThumbnailPath = savedThumbnail || undefined;
-          
-          console.log(`[RecipeImage] Obraz przetworzony i zapisany podczas update dla: ${this.syncId}`);
-        }
-      } catch (error) {
-        console.error(`[RecipeImage] Błąd podczas przetwarzania obrazu:`, error);
-      }
-    }
-    
-    // Wykonaj pojedynczą aktualizację z wszystkimi zmianami
-    return await super.update(record => {
-      // Najpierw zastosuj standardowe aktualizacje
-      if (recordUpdater) {
-        recordUpdater(record);
-      }
-      
-      // Jeśli mamy przetworzone obrazy I nadal mamy ten sam obraz który przewarzaliśmy
-      // (żeby nie nadpisać nowego obrazu ustawionego przez recordUpdater)
-      if (newImagePath && newThumbnailPath && record.image === currentImage) {
-        // Usuń stare pliki, jeśli istnieją i są różne od nowych
-        if (originalImage && originalImage !== newImagePath && originalImage.startsWith('/')) {
-          FileSystem.deleteAsync(originalImage, { idempotent: true })
-            .catch(err => console.error(`[RecipeImage] Błąd usuwania pliku ${originalImage}:`, err));
-        }
-        
-        if (this.thumbnail && this.thumbnail !== newThumbnailPath && this.thumbnail.startsWith('/')) {
-          FileSystem.deleteAsync(this.thumbnail, { idempotent: true })
-            .catch(err => console.error(`[RecipeImage] Błąd usuwania pliku ${this.thumbnail}:`, err));
-        }
-        
-        // Zaktualizuj ścieżki do plików
-        record.image = newImagePath;
-        record.thumbnail = newThumbnailPath;
-        console.log(`[RecipeImage] Ścieżki do plików zaktualizowane dla: ${this.syncId}`);
-      }
-    });
-  }
   
   // Implementacja metody pre_pull_sync dla RecipeImage
   // Ta metoda jest wywoływana przed synchronizacją RecipeImage (gdyby model był synchronizowany)
-  static async deserialize(
+  static async deserialize<T extends SyncModel>(
     database: Database,
     serverData: Record<string, any>,
-    existingRecord: RecipeImage | null
+    existingRecord: T | null
   ): Promise<Record<string, any>> {
+    // Ensure the existing record is treated as RecipeImage or null for logic within
+    const specificExistingRecord = existingRecord as RecipeImage | null;
+
     try {
       // Najpierw wywołaj deserialize z klasy nadrzędnej, aby przetworzyć podstawowe dane
       const deserializedData = await super.deserialize(database, serverData, existingRecord);
-      
+
       // Pobierz syncId z obiektu serwera
       const syncId = serverData.sync_id;
-      console.log(`[RecipeImage.deserialize] Wywołano dla syncId: ${syncId}`);
-      
-      // Jeśli serverData nie zawiera danych obrazu, spróbuj je pobrać z API
-      if (!serverData.image && syncId) {
-        try {
-          // Wywołaj metodę do pobrania obrazu z API
-          const updatedServerObject = await RecipeImage.retrieve_image_from_api(database, syncId);
-          
-          // Jeśli udało się pobrać obraz, dodaj go do zdeserializowanych danych
-          if (updatedServerObject.image) {
-            deserializedData.image = updatedServerObject.image;
-            console.log(`[RecipeImage.deserialize] Zaktualizowano dane obrazu dla syncId: ${syncId}`);
-          }
-        } catch (error) {
-          console.error(`[RecipeImage.deserialize] Błąd pobierania obrazu: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+      if (!syncId) {
+          return deserializedData; // Return base deserialized data if no syncId
       }
-      
+
+      try {
+        // Wywołaj metodę do pobrania obrazu z API
+        // Pass syncId explicitly
+        const updatedServerObject = await RecipeImage.retrieve_image_from_api(database, syncId);
+
+        // Jeśli udało się pobrać obraz (retrieve_image_from_api zwraca teraz obiekt z polem image jako ścieżką temp)
+        if (updatedServerObject.image) {
+          // Tutaj nie przetwarzamy obrazu, tylko przekazujemy ścieżkę tymczasową dalej.
+          // Właściwe przetwarzanie (processImage) powinno nastąpić w upsertBySync (lub podobnej metodzie)
+          // po deserializacji, jeśli logika aplikacji tego wymaga.
+          // Na potrzeby samego deserialize, po prostu przypisujemy ścieżkę.
+          deserializedData.image = updatedServerObject.image;
+        }
+      } catch (error) {
+        console.error(`[RecipeImage.deserialize] Błąd pobierania obrazu z API dla syncId ${syncId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
       // Zwróć zdeserializowane dane
       return deserializedData;
     } catch (error) {
-      console.error(`[RecipeImage.deserialize] Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`[RecipeImage.deserialize] Główny błąd dla syncId ${serverData.sync_id || 'N/A'}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // W przypadku błędu zwróć dane po podstawowej deserializacji
       return await super.deserialize(database, serverData, existingRecord);
     }
@@ -281,8 +216,6 @@ class RecipeImage extends SyncModel {
     serverObject: Record<string, any> = {}
   ): Promise<Record<string, any>> {
     try {
-      console.log(`[RecipeImage.retrieve_image_from_api] Wywołanie API dla syncId: ${syncId}`);
-      
       // Użyj nowego API do pobrania obrazu jako Blob
       const imageBlob = await recipeImageApi.retrieveImage(syncId);
       
@@ -302,13 +235,26 @@ class RecipeImage extends SyncModel {
       
       // Zwróć surowe dane base64 bez przetwarzania
       if (base64Image) {
-        // Zaktualizuj serverObject o dane base64
+        // Zapisz base64 do pliku tymczasowego
+        const tempDir = FileSystem.cacheDirectory + 'temp/';
+        const dirInfo = await FileSystem.getInfoAsync(tempDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
+        }
+        
+        const tempFilePath = tempDir + 'temp_' + syncId + '_' + Date.now() + '.jpg';
+        
+        // Zapisz base64 do pliku
+        await FileSystem.writeAsStringAsync(tempFilePath, `data:image/jpeg;base64,${base64Image}`, {
+          encoding: FileSystem.EncodingType.Base64
+        });
+        
+        // Zaktualizuj serverObject o ścieżkę do pliku zamiast danych base64
         const updatedServerObject = {
           ...serverObject,
-          image: base64Image
+          image: tempFilePath // Zwraca ścieżkę do pliku tymczasowego
         };
         
-        console.log(`[RecipeImage.retrieve_image_from_api] Pobrano obraz dla syncId: ${syncId}`);
         return updatedServerObject;
       }
       
@@ -318,6 +264,34 @@ class RecipeImage extends SyncModel {
       console.error(`[RecipeImage.retrieve_image_from_api] Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return serverObject; // Zwróć oryginalny obiekt w przypadku błędu
     }
+  }
+
+  // Metoda statyczna do obserwowania zmian w obrazach dla konkretnego przepisu
+  // Ta metoda jest nieużywana w przepływie edycji, jeśli usuniemy obserwatora recipeImage
+  // Można ją zostawić na później lub usunąć, jeśli nie jest potrzebna gdzie indziej.
+  static observeForRecipe(database: Database, syncId: string): Observable<RecipeImage | null> {
+    return database
+      .get<RecipeImage>('recipe_images')
+      .query(
+        Q.and(
+          Q.where('sync_id', syncId),
+          Q.where('is_deleted', false)
+        )
+      )
+      .observeWithColumns(['image', 'thumbnail'])
+      .pipe(records => {
+        return new Observable(subscriber => {
+          const subscription = records.subscribe(images => {
+            if (images.length === 0) {
+              subscriber.next(null);
+            } else {
+              subscriber.next(images[0]);
+            }
+          });
+          
+          return () => subscription.unsubscribe();
+        });
+      });
   }
 }
 

@@ -9,6 +9,7 @@ import Tag from '../../../database/models/Tag';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { showToast } from '../../components/Toast';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 interface RecipeFormData {
   name: string;
@@ -51,7 +52,7 @@ export const RecipeForm = ({
     onDataChange('servings', servings.toString());
   };
 
-  const convertImageToBase64 = async (uri: string): Promise<string | null> => {
+  const saveImageToTempFile = async (uri: string): Promise<string | null> => {
     try {
       const fileInfo = await FileSystem.getInfoAsync(uri);
       if (!fileInfo.exists) {
@@ -59,13 +60,34 @@ export const RecipeForm = ({
         return null;
       }
       
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      
-      return base64;
+      try {
+        const manipResult = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { width: 1024 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        
+        const tempDir = FileSystem.cacheDirectory + 'temp/';
+        const dirInfo = await FileSystem.getInfoAsync(tempDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
+        }
+        
+        const fileName = `temp_image_${Date.now()}.jpg`;
+        const tempFilePath = tempDir + fileName;
+        
+        await FileSystem.copyAsync({
+          from: manipResult.uri,
+          to: tempFilePath
+        });
+        
+        return tempFilePath;
+      } catch (manipError) {
+        console.error('Błąd podczas optymalizacji obrazu:', manipError);
+        return null;
+      }
     } catch (error) {
-      console.error('Błąd podczas konwersji obrazu do base64:', error);
+      console.error('Błąd podczas zapisywania obrazu do pliku tymczasowego:', error);
       return null;
     }
   };
@@ -85,17 +107,16 @@ export const RecipeForm = ({
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: false,
       quality: 1,
       aspect: [16, 9],
     });
 
     if (!result.canceled) {
-      // Konwertujemy URI obrazu na dane base64
-      const base64 = await convertImageToBase64(result.assets[0].uri);
-      if (base64) {
-        onDataChange('image', base64);
+      const tempFilePath = await saveImageToTempFile(result.assets[0].uri);
+      if (tempFilePath) {
+        onDataChange('image', tempFilePath);
       } else {
         showToast({
           type: 'error',
@@ -129,10 +150,9 @@ export const RecipeForm = ({
     });
 
     if (!result.canceled) {
-      // Konwertujemy URI obrazu na dane base64
-      const base64 = await convertImageToBase64(result.assets[0].uri);
-      if (base64) {
-        onDataChange('image', base64);
+      const tempFilePath = await saveImageToTempFile(result.assets[0].uri);
+      if (tempFilePath) {
+        onDataChange('image', tempFilePath);
       } else {
         showToast({
           type: 'error',
@@ -176,11 +196,10 @@ export const RecipeForm = ({
             <Text style={styles.label}>Obrazek</Text>
             {data.image ? (
               <View style={styles.imagePreviewContainer}>
-                <Image 
+                <Image
+                  key={data.image}
                   source={{ 
-                    uri: data.image.startsWith('data:') 
-                      ? data.image 
-                      : `data:image/jpeg;base64,${data.image}` 
+                    uri: data.image ? data.image : undefined 
                   }} 
                   style={styles.imagePreview} 
                 />

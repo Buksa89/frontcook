@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Modal } from 'react-native';
 import database from '../../../database';
 import { Q } from '@nozbe/watermelondb';
 import AuthService from '../../services/auth/authService';
@@ -47,6 +47,23 @@ const isLikelyTimestamp = (key: string, value: any): boolean => {
   return keyContainsDateHint && (isNumericTimestamp || isStringTimestamp);
 };
 
+// Sprawdza czy wartość wygląda jak ścieżka do obrazu
+const isImagePath = (key: string, value: any): boolean => {
+  if (typeof value !== 'string' || !value) return false;
+  
+  // Sprawdź, czy klucz sugeruje, że to obrazek
+  const isImageKey = key === 'image' || key === 'thumbnail' || key.includes('image') || key.includes('photo') || key.includes('thumbnail');
+  
+  // Sprawdź, czy ścieżka wygląda na ścieżkę do pliku obrazu
+  const isImagePathPattern = value.includes('.jpg') || 
+                            value.includes('.jpeg') || 
+                            value.includes('.png') || 
+                            value.includes('/images/') || 
+                            value.includes('/temp/');
+  
+  return isImageKey && isImagePathPattern;
+};
+
 export default function DebugScreen() {
   const [tables, setTables] = useState<{ [key: string]: any[] }>({});
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -54,6 +71,7 @@ export default function DebugScreen() {
   const [activeUser, setActiveUser] = useState<string | null>(null);
   const [activeSubscription, setActiveSubscription] = useState<boolean | null>(null);
   const [subscriptionEndDate, setSubscriptionEndDate] = useState<Date | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllData();
@@ -210,6 +228,22 @@ export default function DebugScreen() {
             );
           }
           
+          // Sprawdź czy to jest ścieżka do obrazu w tabeli recipe_images
+          if (selectedTable === 'recipe_images' && isImagePath(key, value)) {
+            return (
+              <TouchableOpacity 
+                key={key}
+                onPress={() => setPreviewImage(value as string)}
+                style={styles.imagePathContainer}
+              >
+                <Text style={styles.imagePathText}>
+                  {key}: <Text style={styles.imagePathValue}>{String(value)}</Text>
+                </Text>
+                <Text style={styles.viewImageText}>Pokaż obraz</Text>
+              </TouchableOpacity>
+            );
+          }
+          
           // Standardowe wyświetlanie dla pozostałych pól
           return (
             <Text key={key} style={styles.recordField}>
@@ -220,8 +254,47 @@ export default function DebugScreen() {
     </View>
   );
 
+  // Komponent do podglądu obrazów
+  const ImagePreviewModal = () => (
+    <Modal
+      visible={!!previewImage}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setPreviewImage(null)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Podgląd obrazu</Text>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setPreviewImage(null)}
+            >
+              <Text style={styles.closeButtonText}>Zamknij</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {previewImage ? (
+            <View style={styles.imageContainer}>
+              <Image 
+                source={{ uri: previewImage }} 
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.imagePath}>{previewImage}</Text>
+            </View>
+          ) : (
+            <Text style={styles.errorText}>Nie można wyświetlić obrazu</Text>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
+      <ImagePreviewModal />
+      
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Debug Panel</Text>
         <View style={styles.userInfoContainer}>
@@ -425,5 +498,89 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     fontStyle: 'italic'
+  },
+  // Nowe style dla podglądu obrazów
+  imagePathContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  imagePathText: {
+    fontSize: 14,
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  imagePathValue: {
+    color: '#0066cc',
+    textDecorationLine: 'underline',
+  },
+  viewImageText: {
+    color: '#007AFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#e6f7ff',
+    borderRadius: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    width: '95%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  closeButtonText: {
+    color: '#333',
+    fontSize: 14,
+  },
+  imageContainer: {
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: 300,
+    marginBottom: 16,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  imagePath: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    padding: 20,
   },
 }); 

@@ -31,7 +31,7 @@ export const ScanRecipeModal = ({ visible, onClose, onScanSuccess }: ScanRecipeM
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: false,
       quality: 1,
     });

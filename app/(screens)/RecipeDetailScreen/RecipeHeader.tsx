@@ -1,34 +1,67 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet, Share, Alert, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import Recipe from '../../../database/models/Recipe';
 import Ingredient from '../../../database/models/Ingredient';
 import { formatTime } from '../../../app/utils/timeFormat';
-import { needsProcessing, getThumbnailPath } from '../../utils/imageProcessor';
+import { needsProcessing } from '../../utils/imageProcessor';
 
 interface RecipeHeaderProps {
   recipe: Recipe;
   ingredients?: Ingredient[];
 }
 
-export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) => {
-  const [displayImage, setDisplayImage] = useState<string | null>(null);
-  
-  useEffect(() => {
-    // Pobierz obraz z RecipeImage na podstawie syncId
-    const loadImage = async () => {
-      try {
-        const image = await recipe.getImageFromRecipeImage();
-        setDisplayImage(image);
-      } catch (error) {
-        console.error(`Błąd podczas pobierania obrazu dla przepisu ${recipe.name}:`, error);
-        setDisplayImage(recipe.image); // Fallback do bezpośredniego pola image
-      }
-    };
-    
-    loadImage();
-  }, [recipe]);
+const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) => {
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [isFetchingImage, setIsFetchingImage] = useState(true);
+
+  // Use useFocusEffect to fetch image when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      const fetchImagePath = async () => {
+        if (!recipe) {
+          if(isMounted) setImagePath(null);
+          return;
+        }
+        // Reset state before fetching
+        if(isMounted) {
+          setIsFetchingImage(true);
+          setImagePath(null);
+        }
+        try {
+          console.log(`[RecipeHeader FocusEffect] Fetching image path for Recipe ID: ${recipe.id}`);
+          const path = await recipe.getImageFromRecipeImage();
+          if (isMounted) {
+            console.log(`[RecipeHeader FocusEffect] Fetched image path: ${path}`);
+            setImagePath(path);
+          }
+        } catch (error) {
+          console.error(`[RecipeHeader FocusEffect] Error fetching image path for Recipe ID ${recipe.id}:`, error);
+          if (isMounted) {
+            setImagePath(null); // Set to null on error
+          }
+        } finally {
+          if (isMounted) {
+            setIsFetchingImage(false);
+          }
+        }
+      };
+
+      fetchImagePath();
+
+      return () => {
+        isMounted = false;
+        console.log(`[RecipeHeader FocusEffect] Cleanup for Recipe ID: ${recipe?.id}`);
+        // Optional: Cancel fetch if needed, although usually not necessary here
+      };
+    }, [recipe]) // Dependency on recipe ensures refetch if the recipe instance changes fundamentally
+  );
+
+  // Get main image from fetched path
+  const displayImage = imagePath;
 
   const handleShareRecipe = async () => {
     try {
@@ -114,19 +147,26 @@ export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) =>
         console.log('Recipe shared successfully');
       }
     } catch (error) {
-      console.error('Error sharing recipe:', error);
+      console.error('Błąd podczas udostępniania przepisu:', error);
       Alert.alert('Błąd', 'Nie udało się udostępnić przepisu.');
     }
   };
 
   return (
     <View style={styles.header}>
-      {displayImage ? (
+      {isFetchingImage ? (
+        <View style={styles.imagePlaceholder}>
+          {/* Optional: Add a loading indicator */}
+        </View>
+      ) : displayImage ? (
         <Image
-          source={{ uri: displayImage }}
+          key={displayImage}
+          source={{ 
+            uri: displayImage 
+          }}
           style={styles.image}
           resizeMode="cover"
-          onError={() => console.log('Błąd ładowania zdjęcia:', recipe.name)}
+          onError={(e) => console.log(`[RecipeHeader] Błąd ładowania zdjęcia ${displayImage}:`, e.nativeEvent.error)}
         />
       ) : (
         <View style={styles.imagePlaceholder}>
@@ -156,9 +196,9 @@ export const RecipeHeader = ({ recipe, ingredients = [] }: RecipeHeaderProps) =>
   );
 };
 
-// Add default export for Expo Router compatibility
-export default RecipeHeader;
+export { RecipeHeader };
 
+// Re-add the missing styles definition
 const styles = StyleSheet.create({
   header: {
     position: 'relative',

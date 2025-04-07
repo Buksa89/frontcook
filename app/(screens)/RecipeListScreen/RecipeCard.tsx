@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
 import { withObservables } from '@nozbe/watermelondb/react';
 import { AntDesign, MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { switchMap, map } from 'rxjs/operators';
-import { Observable, from } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 import database from '../../../database';
 import Tag from '../../../database/models/Tag';
 import Recipe from '../../../database/models/Recipe';
@@ -13,7 +14,6 @@ import { Q } from '@nozbe/watermelondb';
 import { AddShopingItemMenu } from '../../../app/components/AddShopingItemMenu';
 import { ServingsProvider, useServings } from '../../(screens)/RecipeDetailScreen/ServingsContext';
 import { formatTime } from '../../../app/utils/timeFormat';
-import { getThumbnailPath } from '../../utils/imageProcessor';
 
 // Komponent opakowujący ServingsProvider, który ustawia początkowe wartości
 const ServingsProviderWithInitialValue = ({ children, servings }: { children: React.ReactNode, servings: number | null }) => {
@@ -50,9 +50,52 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
-  const [thumbnailImage, setThumbnailImage] = useState<string | null>(null);
-  const [recipeImage, setRecipeImage] = useState<string | null>(null);
-  
+  const [thumbnailPath, setThumbnailPath] = useState<string | null>(null);
+  const [isFetchingImage, setIsFetchingImage] = useState(true);
+
+  // Use useFocusEffect to fetch thumbnail when the card potentially becomes visible
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      const fetchThumbnail = async () => {
+        if (!recipe) {
+          if(isMounted) setThumbnailPath(null);
+          return;
+        }
+        // Reset fetching state before fetch
+        if(isMounted) {
+          setIsFetchingImage(true);
+          setThumbnailPath(null);
+        }
+        try {
+          console.log(`[RecipeCard FocusEffect] Fetching thumbnail for Recipe ID: ${recipe.id}`);
+          const path = await recipe.getThumbnailFromRecipeImage();
+          if (isMounted) {
+            console.log(`[RecipeCard FocusEffect] Fetched thumbnail path: ${path}`);
+            setThumbnailPath(path);
+          }
+        } catch (error) {
+          console.error(`[RecipeCard FocusEffect] Error fetching thumbnail for Recipe ID ${recipe.id}:`, error);
+          if (isMounted) {
+            setThumbnailPath(null); // Set to null on error
+          }
+        } finally {
+          if (isMounted) {
+            setIsFetchingImage(false);
+          }
+        }
+      };
+      fetchThumbnail();
+      return () => {
+        isMounted = false;
+         console.log(`[RecipeCard FocusEffect] Cleanup for Recipe ID: ${recipe?.id}`);
+      };
+      // Note: The dependency array might need adjustment depending on how RecipeCard is used.
+      // If the list itself re-renders with new recipe objects, [recipe] is fine.
+      // If the same RecipeCard instance might receive different recipe props, this might need tuning.
+    }, [recipe]) 
+  );
+
   // Ensure recipe object has all required properties to prevent rendering issues
   const safeRecipe = {
     id: recipe?.id || '',
@@ -63,33 +106,10 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
     totalTime: recipe?.totalTime || null,
     servings: recipe?.servings || null,
   };
-  
-  useEffect(() => {
-    const loadImages = async () => {
-      try {
-        // Pobierz miniaturę z RecipeImage
-        const thumbnail = await recipe.getThumbnailFromRecipeImage();
-        setThumbnailImage(thumbnail);
-        
-        // Pobierz obraz z RecipeImage jeśli nie ma miniatury
-        if (!thumbnail) {
-          const image = await recipe.getImageFromRecipeImage();
-          setRecipeImage(image);
-        }
-      } catch (error) {
-        console.error(`Błąd podczas pobierania obrazów dla przepisu ${recipe.name}:`, error);
-        // Fallback do bezpośredniego pola image
-        if (safeRecipe.image) {
-          const thumbnailPath = getThumbnailPath(safeRecipe.image);
-          setThumbnailImage(thumbnailPath);
-          setRecipeImage(safeRecipe.image);
-        }
-      }
-    };
-    
-    loadImages();
-  }, [recipe]);
-  
+
+  // Use the fetched thumbnail path
+  const thumbnailImage = thumbnailPath;
+
   const openAddShopingItemMenu = () => {
     setMenuVisible(true);
   };
@@ -157,23 +177,16 @@ const RecipeCard = ({ recipe, tags, ingredients }: RecipeCardProps) => {
         delayLongPress={500}
       >
         <View style={[styles.imageContainer, styles.imagePlaceholder]}>
-          {thumbnailImage ? (
+          {isFetchingImage ? (
+            <View style={[styles.image, styles.imagePlaceholder]} /> // Show placeholder while fetching
+          ) : thumbnailImage ? (
             <Image
-              source={{ uri: thumbnailImage }}
+              key={thumbnailImage} // Add key
+              source={{ 
+                uri: thumbnailImage 
+                }}
               style={styles.image}
-              onError={() => console.log('Błąd ładowania miniatury:', safeRecipe.name)}
-            />
-          ) : recipeImage ? (
-            <Image
-              source={{ uri: recipeImage }}
-              style={styles.image}
-              onError={() => console.log('Błąd ładowania zdjęcia:', safeRecipe.name)}
-            />
-          ) : safeRecipe.image ? (
-            <Image
-              source={{ uri: safeRecipe.image }}
-              style={styles.image}
-              onError={() => console.log('Błąd ładowania zdjęcia:', safeRecipe.name)}
+              onError={(e) => console.log(`[RecipeCard] Błąd ładowania miniatury ${thumbnailImage}:`, e.nativeEvent.error)}
             />
           ) : (
             <AntDesign name="picture" size={24} color="#bbb" />
@@ -284,7 +297,7 @@ const enhance = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => 
           .query(Q.where('recipe_id', recipe.id))
           .observe();
       })
-    )
+    ),
 }));
 
 export const EnhancedRecipeCard = enhance(RecipeCard);

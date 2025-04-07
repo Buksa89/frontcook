@@ -256,23 +256,19 @@ const RecipeDetailsScreen = ({ recipe, tags, ingredients }: RecipeDetailsScreenP
 const enhance = withObservables(['recipeId'], ({ recipeId }: { recipeId: string }) => ({
   recipe: database.get<Recipe>('recipes').findAndObserve(recipeId),
   tags: Tag.observeForRecipe(database, recipeId),
-  ingredients: Ingredient.observeForRecipe(database, recipeId)
+  ingredients: Ingredient.observeForRecipe(database, recipeId),
 }));
 
 const EnhancedRecipeDetailsScreen = enhance(RecipeDetailsScreen);
 
 export default function RecipeDetails() {
   const params = useLocalSearchParams();
-  const recipeId = typeof params.recipeId === 'string' ? params.recipeId : undefined;
-                   
+  const recipeId = params.recipeId as string;
+  
   if (!recipeId) {
-    return (
-      <View style={styles.container}>
-        <Text>Nie znaleziono przepisu</Text>
-      </View>
-    );
+    return <Text>Nie znaleziono przepisu</Text>;
   }
-
+  
   return <EnhancedRecipeDetailsScreen recipeId={recipeId} />;
 }
 

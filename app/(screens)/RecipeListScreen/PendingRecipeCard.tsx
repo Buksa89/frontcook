@@ -7,19 +7,19 @@ import Recipe from '../../../database/models/Recipe';
 import Tag from '../../../database/models/Tag';
 import database from '../../../database';
 import { formatTime } from '../../../app/utils/timeFormat';
-import { getThumbnailPath } from '../../utils/imageProcessor';
+import RecipeImage from '../../../database/models/RecipeImage';
+import { of } from 'rxjs';
 
 // Komponent karty przepisu oczekującego na zatwierdzenie
 interface PendingRecipeCardProps {
   recipe: Recipe;
   tags: Tag[];
+  recipeImage: RecipeImage | null;
 }
 
-const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
+const PendingRecipeCard = ({ recipe, tags, recipeImage }: PendingRecipeCardProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [thumbnailImage, setThumbnailImage] = useState<string | null>(null);
-  const [recipeImage, setRecipeImage] = useState<string | null>(null);
   
   // Ensure recipe object has all required properties to prevent rendering issues
   const safeRecipe = {
@@ -30,31 +30,8 @@ const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
     totalTime: recipe?.totalTime || null,
   };
   
-  useEffect(() => {
-    const loadImages = async () => {
-      try {
-        // Pobierz miniaturę z RecipeImage
-        const thumbnail = await recipe.getThumbnailFromRecipeImage();
-        setThumbnailImage(thumbnail);
-        
-        // Pobierz obraz z RecipeImage jeśli nie ma miniatury
-        if (!thumbnail) {
-          const image = await recipe.getImageFromRecipeImage();
-          setRecipeImage(image);
-        }
-      } catch (error) {
-        console.error(`Błąd podczas pobierania obrazów dla przepisu ${recipe.name}:`, error);
-        // Fallback do bezpośredniego pola image
-        if (safeRecipe.image) {
-          const thumbnailPath = getThumbnailPath(safeRecipe.image);
-          setThumbnailImage(thumbnailPath);
-          setRecipeImage(safeRecipe.image);
-        }
-      }
-    };
-    
-    loadImages();
-  }, [recipe]);
+  // Get image paths from recipeImage if available
+  const thumbnailImage = recipeImage?.thumbnail || safeRecipe.image;
 
   // Skip rendering if recipe is invalid
   if (!recipe || typeof recipe !== 'object') {
@@ -100,18 +77,6 @@ const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
         {thumbnailImage ? (
           <Image
             source={{ uri: thumbnailImage }}
-            style={styles.image}
-            onError={() => console.log('Błąd ładowania miniatury:', safeRecipe.name)}
-          />
-        ) : recipeImage ? (
-          <Image
-            source={{ uri: recipeImage }}
-            style={styles.image}
-            onError={() => console.log('Błąd ładowania zdjęcia:', safeRecipe.name)}
-          />
-        ) : safeRecipe.image ? (
-          <Image
-            source={{ uri: safeRecipe.image }}
             style={styles.image}
             onError={() => console.log('Błąd ładowania zdjęcia:', safeRecipe.name)}
           />
@@ -163,13 +128,16 @@ const PendingRecipeCard = ({ recipe, tags }: PendingRecipeCardProps) => {
   );
 };
 
-// Enhance PendingRecipeCard do obserwacji tagów przepisu
-const enhancePendingCard = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => ({
+// Enhance component to observe recipe tags and recipe image
+const enhance = withObservables(['recipe'], ({ recipe }: { recipe: Recipe }) => ({
   recipe,
   tags: Tag.observeForRecipe(database, recipe.id),
+  recipeImage: recipe.syncId 
+    ? RecipeImage.observeForRecipe(database, recipe.syncId)
+    : of(null)
 }));
 
-export const EnhancedPendingRecipeCard = enhancePendingCard(PendingRecipeCard);
+export const EnhancedPendingRecipeCard = enhance(PendingRecipeCard);
 
 // Add default export for Expo Router compatibility
 export default EnhancedPendingRecipeCard;
