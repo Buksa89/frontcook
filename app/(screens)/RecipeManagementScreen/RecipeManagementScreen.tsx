@@ -63,16 +63,21 @@ const EditRecipeScreen = ({
       currentRecipeIdRef.current = currentRecipeId; // Update the ref immediately
       initialLoadDone.current = false; // Reset load flag for the new recipe
       setInitialImagePath(undefined); // Mark as fetching
+      console.log(`[Initial Image Effect] Recipe changed to ${currentRecipeId}. Fetching initial image path...`);
 
       const fetchImagePath = async () => {
         try {
           // Use the existing method to get the image path from RecipeImage
           const path = await existingRecipe.getImageFromRecipeImage();
           if (isMounted) {
+            // console.log(`[Initial Image Effect] Fetched initial image path: ${path} for recipe ${currentRecipeId}`);
             setInitialImagePath(path); // Set fetched path (can be null)
           }
         } catch (error) {
-          setInitialImagePath(null); // Set to null on error
+          console.error(`[Initial Image Effect] Error fetching initial image path for ${currentRecipeId}:`, error); // Keep error log
+          if (isMounted) {
+            setInitialImagePath(null); // Set to null on error
+          }
         }
       };
       fetchImagePath();
@@ -82,6 +87,7 @@ const EditRecipeScreen = ({
         currentRecipeIdRef.current = undefined;
         initialLoadDone.current = false;
         setInitialImagePath(null); // No image for new recipe
+        // console.log("[Initial Image Effect] Navigated to new recipe screen.");
     }
   }, [existingRecipe]); // Dependency only on existingRecipe
 
@@ -92,6 +98,7 @@ const EditRecipeScreen = ({
     // Populate form only when initial load isn't done AND we have the recipe data
     // Wait for initialImagePath to be determined (it is 'undefined' while fetching)
     if (existingRecipe && !initialLoadDone.current && initialImagePath !== undefined) {
+        // console.log(`[Form Effect] Performing initial form data load for recipe ${currentRecipeId}, using initial image path: ${initialImagePath}`);
         setFormData({
             name: existingRecipe.name,
             description: existingRecipe.description || '',
@@ -111,6 +118,7 @@ const EditRecipeScreen = ({
     } else if (existingRecipe && initialLoadDone.current) {
         // After initial load, only update observer-driven fields if needed
         // IMPORTANT: DO NOT update formData.image here
+        // console.log(`[Form Effect] Initial load done for ${currentRecipeId}. Updating observer fields (tags, ingredients).`);
         setFormData(prev => ({
             ...prev,
             selectedTags: initialSelectedTags || [],
@@ -118,6 +126,7 @@ const EditRecipeScreen = ({
         }));
     } else if (!existingRecipe && !initialLoadDone.current && initialImagePath === null) {
         // Handle case for adding a NEW recipe (initialImagePath is set to null by the other effect)
+        // console.log("[Form Effect] Setting up form for new recipe.");
         setFormData({ // Reset form for new recipe
             name: '', description: '', prepTime: '', totalTime: '', servings: '',
             ingredients: '', instructions: '', notes: '', selectedTags: [],
@@ -148,8 +157,9 @@ const EditRecipeScreen = ({
 
   const handleFieldChange = (field: keyof typeof formData, value: string | Tag[] | null) => {
     // When image changes, we know it's a user action after initial load
-    if (field === 'image') {
-    }
+    // if (field === 'image') {
+    //     console.log("[handleFieldChange] Image changed by user input to:", value);
+    // }
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -182,30 +192,39 @@ const EditRecipeScreen = ({
       return;
     }
 
+    // console.log(`[handleSubmit] Starting submit. Current formData.image: ${formData.image}`);
+
     try {
       // formData.image now holds either the initial path OR the new temp URI
       const tempImagePath = await saveImageToTempFile(formData.image);
+      // console.log(`[handleSubmit] saveImageToTempFile result: ${tempImagePath}`);
 
       const formDataWithImagePath = {
         ...formData,
         image: tempImagePath // Pass the path (temp or processed temp) to backend logic
       };
 
+      // console.log(`[handleSubmit] Calling upsertByManagement with image path: ${formDataWithImagePath.image}`);
       await Recipe.upsertByManagement(
         database,
         formDataWithImagePath,
         existingRecipe ? existingRecipe.id : undefined
       );
+      // console.log(`[handleSubmit] upsertByManagement finished.`);
 
       if (existingRecipe && !existingRecipe.isApproved) {
+          // console.log('[handleSubmit] Recipe updated and was not approved, navigating to list.');
         router.push({
           pathname: '/(screens)/RecipeListScreen/RecipeListScreen'
         });
       } else {
-        setTimeout(() => router.back(), 0);
+          // console.log('[handleSubmit] Save successful, navigating back.');
+          // Delay navigation slightly to prevent race condition with layout mounting
+          setTimeout(() => router.back(), 0);
+        // router.back(); // Original call causing error
       }
     } catch (error) {
-      console.error('[handleSubmit] Error saving recipe:', error);
+      console.error('[handleSubmit] Error saving recipe:', error); // Keep error log
       Alert.alert('Błąd', existingRecipe ? 'Nie udało się zaktualizować przepisu' : 'Nie udało się dodać przepisu');
     }
   };
@@ -214,18 +233,21 @@ const EditRecipeScreen = ({
     if (!existingRecipe) return;
 
     try {
+        // console.log(`[handleDelete] Attempting to delete recipe ID: ${existingRecipe.id}`);
       await existingRecipe.markAsDeleted();
+      // console.log(`[handleDelete] Recipe marked as deleted. Navigating to list.`);
       router.push({
         pathname: '/(screens)/RecipeListScreen/RecipeListScreen'
       });
     } catch (error) {
-      console.error('[handleDelete] Error deleting recipe:', error);
+      console.error('[handleDelete] Error deleting recipe:', error); // Keep error log
       Alert.alert('Błąd', 'Nie udało się usunąć przepisu');
     }
   };
 
   // Render RecipeForm with the current formData
   // The RecipeForm component will display formData.image
+  // console.log(`[Render] Rendering RecipeForm with formData.image: ${formData.image}`);
   return (
     <RecipeForm
       data={formData}
@@ -240,6 +262,7 @@ const EditRecipeScreen = ({
 
 // Remove recipeImage observation from enhance
 const enhance = withObservables(['recipeId'], ({ recipeId }: EnhanceProps) => {
+  // console.log(`[enhance] Observing recipeId: ${recipeId}`);
   return {
       existingRecipe: recipeId
         ? database.get<Recipe>('recipes').findAndObserve(recipeId)
@@ -262,5 +285,6 @@ const EnhancedEditRecipeScreen = enhance(EditRecipeScreen);
 export default function AddRecipe() {
   const params = useLocalSearchParams();
   const recipeId = params.recipeId as string | undefined;
+  // console.log(`[AddRecipe] Initializing screen with recipeId: ${recipeId}`);
   return <EnhancedEditRecipeScreen recipeId={recipeId} />;
 } 

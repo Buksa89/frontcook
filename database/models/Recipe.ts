@@ -71,10 +71,9 @@ export default class Recipe extends SyncModel {
         return this.image;
       }
       
-      const imagePath = recipeImages[0].image || null;
-      return imagePath;
+      return recipeImages[0].image || null;
     } catch (error) {
-      console.error(`[Recipe.getImageFromRecipeImage] Error fetching image for Recipe ID ${this.id}, Sync ID ${this.syncId}:`, error);
+      console.error(`Error in Recipe.getImageFromRecipeImage for Recipe ID ${this.id}:`, error);
       return null;
     }
   }
@@ -85,7 +84,7 @@ export default class Recipe extends SyncModel {
       if (!this.syncId) {
         return null;
       }
-      
+
       const recipeImages = await this.database
         .get<RecipeImage>('recipe_images')
         .query(
@@ -95,15 +94,14 @@ export default class Recipe extends SyncModel {
           )
         )
         .fetch();
-      
+
       if (recipeImages.length === 0) {
         return null;
       }
       
-      const thumbnailPath = recipeImages[0].thumbnail || null;
-      return thumbnailPath;
+      return recipeImages[0].thumbnail || null;
     } catch (error) {
-      console.error(`[Recipe.getThumbnail] Error fetching thumbnail for Recipe ID ${this.id}, Sync ID ${this.syncId}:`, error);
+      console.error(`Error in Recipe.getThumbnailFromRecipeImage for Recipe ID ${this.id}:`, error);
       return null;
     }
   }
@@ -329,28 +327,34 @@ export default class Recipe extends SyncModel {
           
           if (recipeImage) {
           } else {
-            console.error(`[DB ${this.table}] POST-UPSERT IMAGE: Failed. RecipeImage.upsert returned null for Sync ID: ${recipe.syncId}`);
+            console.error(`Failed RecipeImage.upsert for Sync ID: ${recipe.syncId}`);
           }
         } catch (error) {
-          console.error(`[DB ${this.table}] POST-UPSERT IMAGE: Error during RecipeImage.upsert call for Sync ID ${recipe.syncId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.error(`Error during RecipeImage.upsert call for Sync ID ${recipe.syncId}:`, error);
         }
       } else if (data.image === null && recipe.syncId) {
-        const existingRecipeImages = await database.get<RecipeImage>('recipe_images')
-          .query(Q.where('sync_id', recipe.syncId))
-          .fetch();
-          
-        if (existingRecipeImages.length > 0) {
-          const imgToDelete = existingRecipeImages[0];
-          await imgToDelete.update(record => {
-            record.image = undefined;
-            record.thumbnail = undefined;
-          });
+        // If image was removed, update the RecipeImage record
+        try {
+          const existingRecipeImages = await database.get<RecipeImage>('recipe_images')
+            .query(Q.where('sync_id', recipe.syncId))
+            .fetch();
+            
+          if (existingRecipeImages.length > 0) {
+            const imgToDelete = existingRecipeImages[0];
+            await imgToDelete.update(record => {
+              record.image = undefined;
+              record.thumbnail = undefined;
+            });
+          }
+        } catch (error) {
+          console.error(`Error removing recipe image for Sync ID ${recipe.syncId}:`, error);
         }
       }
 
       // Approve recipe if it's not approved yet and it's an update
       if (existingRecipe && !existingRecipe.isApproved) {
         await recipe.toggleApproval();
+        console.log(`[DB ${this.table}] Approved recipe ${recipe.id}`);
       }
 
       console.log(`[DB ${this.table}] Successfully saved recipe ${recipe.id} (${recipe.name})`);

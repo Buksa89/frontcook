@@ -81,6 +81,7 @@ export const RecipeForm = ({
           to: tempFilePath
         });
         
+        console.log(`Zapisano obraz tymczasowy: ${tempFilePath}`);
         return tempFilePath;
       } catch (manipError) {
         console.error('Błąd podczas optymalizacji obrazu:', manipError);
@@ -198,12 +199,13 @@ export const RecipeForm = ({
               <View style={styles.imagePreviewContainer}>
                 <Image
                   key={data.image}
-                  source={{ 
-                    uri: data.image ? data.image : undefined 
-                  }} 
-                  style={styles.imagePreview} 
+                  source={{
+                    uri: data.image ? data.image : undefined
+                  }}
+                  style={styles.imagePreview}
+                  onError={(e) => console.warn(`Error loading image in RecipeForm: ${data.image}`, e.nativeEvent.error)}
                 />
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.removeImageButton}
                   onPress={() => onDataChange('image', null)}
                 >
@@ -212,14 +214,14 @@ export const RecipeForm = ({
               </View>
             ) : (
               <View style={styles.imagePicker}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.imagePickerButton}
                   onPress={takePhoto}
                 >
                   <MaterialIcons name="camera-alt" size={24} color="#5c7ba9" />
                   <Text style={styles.imagePickerText}>Zrób zdjęcie</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.imagePickerButton}
                   onPress={pickImage}
                 >

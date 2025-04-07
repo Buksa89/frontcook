@@ -46,42 +46,63 @@ export const needsProcessing = async (newImagePath?: string, existingImagePath?:
 };
 
 /**
+ * Próbuje usunąć stary obrazek i miniaturę powiązane z danym syncId.
+ * Nie rzuca błędu, jeśli pliki nie istnieją.
+ */
+const cleanupOldImages = async (syncId: string) => {
+  const dirPath = `${FileSystem.documentDirectory}images/`;
+  // console.log(`[ImageProcessor Cleanup] Attempting to cleanup old images for syncId: ${syncId}`);
+  try {
+    // Odczytaj zawartość katalogu
+    const files = await FileSystem.readDirectoryAsync(dirPath);
+    
+    // Znajdź pliki pasujące do wzorca syncId (*.jpg) i thumb_syncId (*.jpg)
+    const oldMainImages = files.filter(f => f.startsWith(`${syncId}_`) && f.endsWith('.jpg'));
+    const oldThumbnails = files.filter(f => f.startsWith(`thumb_${syncId}_`) && f.endsWith('.jpg'));
+    
+    const filesToDelete = [...oldMainImages, ...oldThumbnails];
+    
+    if (filesToDelete.length > 0) {
+      // console.log(`[ImageProcessor Cleanup] Found old files to delete:`, filesToDelete);
+      for (const file of filesToDelete) {
+        try {
+          await FileSystem.deleteAsync(`${dirPath}${file}`, { idempotent: true });
+          // console.log(`[ImageProcessor Cleanup] Deleted old file: ${file}`);
+        } catch (deleteError) {
+          console.warn(`[ImageProcessor Cleanup] Failed to delete old file ${file}:`, deleteError); // Keep warning
+        }
+      }
+    } else {
+        // console.log(`[ImageProcessor Cleanup] No old files found for syncId: ${syncId}`);
+    }
+  } catch (error) {
+    // Ignorujemy błędy (np. katalog nie istnieje przy pierwszym razie)
+    // console.warn(`[ImageProcessor Cleanup] Error reading directory or finding files for cleanup:`, error);
+  }
+};
+
+/**
  * Przetwarza obraz z pliku tymczasowego, tworzy główny obraz i miniaturę
  * 
  * @param tempImagePath Ścieżka do pliku tymczasowego
- * @param syncId ID używane do nazwania plików
- * @param existingImagePath Opcjonalna ścieżka do istniejącego obrazu dla porównania
+ * @param syncId ID używane do grupowania plików (ale nie jako jedyna część nazwy)
  * @returns Obiekt z ścieżkami do głównego obrazu i miniatury
  */
 export const processImageFromTemp = async (
-  tempImagePath: string | null, 
-  syncId: string,
-  existingImagePath?: string
+  tempImagePath: string | null,
+  syncId: string
 ): Promise<{ mainImagePath: string | null, thumbnailPath: string | null }> => {
   if (!tempImagePath) {
     return { mainImagePath: null, thumbnailPath: null };
   }
 
   try {
-    // Sprawdź czy obraz wymaga przetworzenia
-    if (!await needsProcessing(tempImagePath, existingImagePath)) {
-      console.log(`[ImageProcessor] Obraz nie wymaga przetworzenia dla syncId: ${syncId}`);
-      
-      // Usuń plik tymczasowy, ale zachowaj istniejący obraz
-      try {
-        await FileSystem.deleteAsync(tempImagePath, { idempotent: true });
-      } catch (cleanupError) {
-        console.warn('Nie udało się usunąć pliku tymczasowego:', cleanupError);
-      }
-      
-      // Zakładamy że istnieje też miniatura jeśli istnieje główny obraz
-      const thumbPath = existingImagePath?.replace('.jpg', '_thumb.jpg');
-      
-      return { 
-        mainImagePath: existingImagePath || null, 
-        thumbnailPath: thumbPath || null 
-      };
+    // Nie potrzebujemy już needsProcessing, bo zawsze tworzymy nowe pliki
+    /*
+    if (!await needsProcessing(tempImagePath)) { // needsProcessing doesn't need existingImagePath anymore
+      // ... stara logika pomijania ...
     }
+    */
 
     // Utwórz docelowy katalog jeśli nie istnieje
     const dirPath = `${FileSystem.documentDirectory}images/`;
@@ -89,55 +110,73 @@ export const processImageFromTemp = async (
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
     }
-    
-    // Ścieżki do zapisania obrazów
-    const mainImagePath = `${dirPath}${syncId}.jpg`;
-    const thumbnailPath = `${dirPath}thumb_${syncId}.jpg`;
-    
+
+    // -- Czyszczenie starych obrazów PRZED zapisaniem nowych --
+    await cleanupOldImages(syncId);
+
+    // Generuj unikalne nazwy plików z timestampem
+    const timestamp = Date.now();
+    const mainImageFilename = `${syncId}_${timestamp}.jpg`;
+    const thumbnailFilename = `thumb_${syncId}_${timestamp}.jpg`;
+    const mainImagePath = `${dirPath}${mainImageFilename}`;
+    const thumbnailPath = `${dirPath}${thumbnailFilename}`;
+    // console.log(`[ImageProcessor] New paths: Main=${mainImagePath}, Thumb=${thumbnailPath}`);
+
     // Przetwarzanie głównego obrazu
+    // console.log(`[ImageProcessor] Processing main image from ${tempImagePath}`);
     const mainImageResult = await ImageManipulator.manipulateAsync(
       tempImagePath,
       [{ resize: { width: TARGET_WIDTH, height: TARGET_HEIGHT } }],
       { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
     );
-    
+    // console.log(`[ImageProcessor] Main image processed to temp URI: ${mainImageResult.uri}`);
+
     // Przetwarzanie miniatury
+    // console.log(`[ImageProcessor] Processing thumbnail from ${tempImagePath}`);
     const thumbnailResult = await ImageManipulator.manipulateAsync(
       tempImagePath,
       [{ resize: { width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE } }],
       { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
     );
-    
+    // console.log(`[ImageProcessor] Thumbnail processed to temp URI: ${thumbnailResult.uri}`);
+
     // Kopiuj przetworzone obrazy do docelowych lokalizacji
+    // console.log(`[ImageProcessor] Copying main image to ${mainImagePath}`);
     await FileSystem.copyAsync({
       from: mainImageResult.uri,
       to: mainImagePath
     });
-    
+    // console.log(`[ImageProcessor] Copying thumbnail to ${thumbnailPath}`);
     await FileSystem.copyAsync({
       from: thumbnailResult.uri,
       to: thumbnailPath
     });
-    
-    // Usuń plik tymczasowy
+    // console.log(`[ImageProcessor] Copy complete.`);
+
+    // Usuń plik tymczasowy (z ImagePicker/kamery)
     try {
+      // console.log(`[ImageProcessor] Deleting source temp file: ${tempImagePath}`);
       await FileSystem.deleteAsync(tempImagePath, { idempotent: true });
     } catch (cleanupError) {
-      console.warn('Nie udało się usunąć pliku tymczasowego:', cleanupError);
+      console.warn('[ImageProcessor] Failed to delete source temp file:', cleanupError); // Keep warning
     }
-    
+
     // Usuń pliki tymczasowe z ImageManipulator
     try {
+      // console.log(`[ImageProcessor] Deleting manipulator temp files: ${mainImageResult.uri}, ${thumbnailResult.uri}`);
       await FileSystem.deleteAsync(mainImageResult.uri, { idempotent: true });
       await FileSystem.deleteAsync(thumbnailResult.uri, { idempotent: true });
     } catch (cleanupError) {
-      console.warn('Nie udało się usunąć tymczasowych plików z ImageManipulator:', cleanupError);
+      console.warn('[ImageProcessor] Failed to delete manipulator temp files:', cleanupError); // Keep warning
     }
-    
-    console.log(`[ImageProcessor] Obrazy przetworzone i zapisane dla syncId: ${syncId}`);
+
+    // console.log(`[ImageProcessor] Image processing successful for syncId: ${syncId}`);
     return { mainImagePath, thumbnailPath };
+
   } catch (error) {
-    console.error('Błąd podczas przetwarzania obrazu:', error);
+    // console.error(`[ImageProcessor] Error during processing image for syncId ${syncId}:`, error);
+    // console.error(`[ImageProcessor] Error stack: ${error instanceof Error ? error.stack : 'No stack'}`);
+    console.error(`Error processing image for syncId ${syncId}:`, error); // Keep generic error
     return { mainImagePath: null, thumbnailPath: null };
   }
 };
@@ -174,9 +213,11 @@ export const saveImageToTempFile = async (imageData: string | null): Promise<str
       encoding: FileSystem.EncodingType.Base64
     });
     
+    // console.log(`[ImageProcessor] Zapisano obraz do pliku tymczasowego: ${tempFilePath}`);
     return tempFilePath;
   } catch (error) {
-    console.error('Błąd podczas zapisywania obrazu do pliku tymczasowego:', error);
+    // console.error('Błąd podczas zapisywania obrazu do pliku tymczasowego:', error);
+    console.error('Error saving image to temp file:', error); // Keep generic error
     return null;
   }
 };

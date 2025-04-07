@@ -52,7 +52,7 @@ class RecipeImage extends SyncModel {
         };
       }
     } catch (error) {
-      console.error(`[RecipeImage.processImage] Error during processing for SyncId ${syncId}: ${error}`);
+      console.error('Error in RecipeImage.processImage:', error);
       return { mainImagePath: null, thumbnailPath: null };
     }
   }
@@ -92,7 +92,7 @@ class RecipeImage extends SyncModel {
       
       return recipeImage;
     } catch (error) {
-      console.error(`[RecipeImage] Błąd podczas tworzenia obrazu:`, error);
+      console.error('Error in RecipeImage.create:', error);
       throw error;
     }
   }
@@ -152,12 +152,12 @@ class RecipeImage extends SyncModel {
           );
           return recipeImage;
         } catch (createError) {
-          console.error(`[RecipeImage.upsert] Error during create call within upsert for SyncId ${syncId}:`, createError);
+          console.error('Error creating RecipeImage in upsert:', createError);
           return null;
         }
       }
     } catch (error) {
-      console.error(`[RecipeImage.upsert] Top-level error for SyncId ${syncId}:`, error);
+      console.error('Error in RecipeImage.upsert:', error);
       return null;
     }
   }
@@ -195,15 +195,16 @@ class RecipeImage extends SyncModel {
           // po deserializacji, jeśli logika aplikacji tego wymaga.
           // Na potrzeby samego deserialize, po prostu przypisujemy ścieżkę.
           deserializedData.image = updatedServerObject.image;
+        } else {
         }
       } catch (error) {
-        console.error(`[RecipeImage.deserialize] Błąd pobierania obrazu z API dla syncId ${syncId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(`Error fetching image from API during deserialize for syncId ${syncId}:`, error);
       }
 
       // Zwróć zdeserializowane dane
       return deserializedData;
     } catch (error) {
-      console.error(`[RecipeImage.deserialize] Główny błąd dla syncId ${serverData.sync_id || 'N/A'}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`Error in RecipeImage.deserialize for syncId ${serverData.sync_id || 'N/A'}:`, error);
       // W przypadku błędu zwróć dane po podstawowej deserializacji
       return await super.deserialize(database, serverData, existingRecord);
     }
@@ -252,7 +253,7 @@ class RecipeImage extends SyncModel {
         // Zaktualizuj serverObject o ścieżkę do pliku zamiast danych base64
         const updatedServerObject = {
           ...serverObject,
-          image: tempFilePath // Zwraca ścieżkę do pliku tymczasowego
+          image: tempFilePath
         };
         
         return updatedServerObject;
@@ -261,7 +262,7 @@ class RecipeImage extends SyncModel {
       // Jeśli nie udało się pobrać obrazu, zwróć oryginalny obiekt
       return serverObject;
     } catch (error) {
-      console.error(`[RecipeImage.retrieve_image_from_api] Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`Error in RecipeImage.retrieve_image_from_api for syncId ${syncId}:`, error);
       return serverObject; // Zwróć oryginalny obiekt w przypadku błędu
     }
   }
