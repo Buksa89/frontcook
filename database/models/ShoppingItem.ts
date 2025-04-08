@@ -294,4 +294,50 @@ export default class ShoppingItem extends SyncModel {
       throw error;
     }
   }
+
+  // Implementacja createFromSyncData dla klasy ShoppingItem
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof ShoppingItem,
+    database: Database,
+    deserializedData: Record<string, any>,
+  ): Promise<T> {
+
+    // Przygotuj argumenty dla ShoppingItem.create na podstawie deserializedData
+    const name = deserializedData.name || 'Unnamed Item'; // Wymagane pole
+    const amount = Number(deserializedData.amount) || 1; // Wymagane pole, domyślnie 1?
+    const unit = deserializedData.unit || null;
+    const isChecked = !!deserializedData.isChecked;
+    const type = deserializedData.type || null;
+    const syncId = deserializedData.syncId;
+    // 'order' jest opcjonalne w ShoppingItem.create, pobierzmy je z danych, jeśli istnieje
+    const order = deserializedData.order !== undefined ? Number(deserializedData.order) : undefined;
+
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced';
+    const isDeleted = !!deserializedData.isDeleted;
+    let lastUpdate: Date | undefined = undefined;
+    if ('lastUpdate' in deserializedData && deserializedData.lastUpdate) {
+      try { lastUpdate = new Date(deserializedData.lastUpdate); } catch (e) { lastUpdate = new Date(); }
+    } else {
+      lastUpdate = new Date(); // Fallback
+    }
+
+    // Wywołaj istniejącą metodę ShoppingItem.create, przekazując wszystkie dane
+    const newShoppingItem = await (ShoppingItem.create as any)(
+      database,
+      name,
+      amount,
+      unit,
+      isChecked,
+      type,
+      order,
+      // Przekaż pola synchronizacji jawnie
+      syncId,
+      syncStatus,
+      lastUpdate,
+      isDeleted
+    );
+
+    return newShoppingItem as unknown as T;
+  }
 } 

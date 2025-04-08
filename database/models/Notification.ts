@@ -220,6 +220,49 @@ export default class Notification extends SyncModel {
     ) as Notification;
   }
 
+  // Implementacja createFromSyncData dla klasy Notification
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof Notification,
+    database: Database,
+    deserializedData: Record<string, any>,
+  ): Promise<T> {
+    const syncId = deserializedData.syncId;
+
+    // Przygotuj argumenty dla Notification.create na podstawie deserializedData
+    const content = deserializedData.content || 'No content'; // Wymagane pole
+    const type = deserializedData.type || 'info'; // Wymagane pole, domyślnie 'info'?
+    const isReaded = !!deserializedData.isReaded;
+    const link = deserializedData.link || null;
+    // 'order' jest opcjonalne w Notification.create, pobierzmy je z danych, jeśli istnieje
+    const order = deserializedData.order !== undefined ? Number(deserializedData.order) : undefined;
+
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced';
+    const isDeleted = !!deserializedData.isDeleted;
+    let lastUpdate: Date | undefined = undefined;
+    if ('lastUpdate' in deserializedData && deserializedData.lastUpdate) {
+      try { lastUpdate = new Date(deserializedData.lastUpdate); } catch (e) { lastUpdate = new Date(); }
+    } else {
+      lastUpdate = new Date(); // Fallback
+    }
+
+    // Wywołaj istniejącą metodę Notification.create, przekazując wszystkie dane
+    const newNotification = await (Notification.create as any)(
+      database,
+      content,
+      type,
+      isReaded,
+      link,
+      order,
+      // Przekaż pola synchronizacji jawnie
+      syncId,
+      syncStatus,
+      lastUpdate,
+      isDeleted
+    );
+
+    return newNotification as unknown as T;
+  }
 
   async markAsRead() {
     try {

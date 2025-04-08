@@ -202,18 +202,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return response.access;
     } catch (error) {
       console.error('[AuthContext] Błąd podczas odświeżania tokenu:', error);
-      // Wyczyść tylko tokeny, bez pełnego wylogowania
-      await AuthStorage.clearAccessToken();
-      await AuthStorage.clearRefreshToken();
-      setAccessToken(null);
       
-      showToast({
-        type: 'error',
-        text1: 'Sesja wygasła',
-        text2: 'Twoja sesja wygasła. Zaloguj się ponownie.',
-        visibilityTime: 4000,
-        position: 'bottom'
-      });
+      // Sprawdź, czy błąd wskazuje na wygaśnięty refresh token
+      const isRefreshTokenExpired = 
+        error instanceof Error && 
+        (error.message.includes('Refresh token expired') || 
+         (error as any).response?.data?.detail?.includes('Refresh token expired')); // Check nested error data if applicable
+
+      if (isRefreshTokenExpired) {
+        console.warn('[AuthContext] Refresh token wygasł. Wymagane ponowne zalogowanie.');
+        // Nie wykonuj pełnego wylogowania, tylko wyczyść tokeny
+        await AuthStorage.clearAccessToken();
+        await AuthStorage.clearRefreshToken();
+        setAccessToken(null);
+        
+        // Pokaż bardziej konkretny komunikat
+        showToast({
+          type: 'error',
+          text1: 'Sesja wygasła',
+          text2: 'Twoja sesja wygasła bezpowrotnie. Zaloguj się ponownie.',
+          visibilityTime: 4000,
+          position: 'bottom'
+        });
+      } else {
+        // Dla innych błędów odświeżania, tylko czyść tokeny i pokaż ogólny komunikat
+        console.warn('[AuthContext] Inny błąd odświeżania tokenu. Czyszczenie tokenów.');
+        await AuthStorage.clearAccessToken();
+        await AuthStorage.clearRefreshToken();
+        setAccessToken(null);
+        
+        showToast({
+          type: 'error',
+          text1: 'Błąd sesji',
+          text2: 'Wystąpił problem z sesją. Spróbuj ponownie lub zaloguj się.',
+          visibilityTime: 4000,
+          position: 'bottom'
+        });
+      }
       return null;
     }
   };

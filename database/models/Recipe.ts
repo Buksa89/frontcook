@@ -365,6 +365,62 @@ export default class Recipe extends SyncModel {
     }
   }
 
+  // Implementacja createFromSyncData dla klasy Recipe
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof Recipe,
+    database: Database,
+    deserializedData: Record<string, any>,
+  ): Promise<T> {
+
+    // Przygotuj argumenty dla Recipe.create na podstawie deserializedData
+    const name = deserializedData.name || 'Unnamed Recipe'; // Wymagane pole
+    const instructions = deserializedData.instructions || ''; // Wymagane pole
+    const description = deserializedData.description || null;
+    const image = deserializedData.image || null;
+    const rating = Number(deserializedData.rating) || 0;
+    // Uwaga: Recipe.create domyślnie ustawia isApproved na true. Użyjmy wartości z serwera, jeśli jest.
+    const isApproved = 'isApproved' in deserializedData ? !!deserializedData.isApproved : true;
+    const prepTime = Number(deserializedData.prepTime) || 0;
+    const totalTime = Number(deserializedData.totalTime) || 0;
+    const servings = Number(deserializedData.servings) || 1;
+    const notes = deserializedData.notes || null;
+    const nutrition = deserializedData.nutrition || null;
+    const video = deserializedData.video || null;
+    const source = deserializedData.source || null;
+
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced'; // Nowy z serwera jest 'synced'
+    const isDeleted = !!deserializedData.isDeleted;
+    const lastUpdate = new Date(deserializedData.lastUpdate);
+    const syncId = deserializedData.syncId;
+
+    // Wywołaj istniejącą metodę Recipe.create, przekazując wszystkie dane
+    // Używamy 'as any' aby obejść błąd lintera związany z niezgodnością sygnatur 'create'
+    const newRecipe = await (Recipe.create as any)(
+      database,
+      name,
+      instructions,
+      description,
+      image,
+      rating,
+      isApproved, // Przekazujemy wartość isApproved
+      prepTime,
+      totalTime,
+      servings,
+      notes,
+      nutrition,
+      video,
+      source,
+      // Przekaż pola synchronizacji jawnie
+      syncId,          // syncId z serwera
+      syncStatus,      // 'synced'
+      lastUpdate,      // data z serwera lub fallback
+      isDeleted        // isDeleted z serwera
+    );
+
+    return newRecipe as unknown as T;
+  }
+
   async markAsDeleted(): Promise<void> {
     try {
       // Get all related records before marking recipe as deleted

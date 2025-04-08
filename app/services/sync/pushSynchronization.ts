@@ -121,7 +121,6 @@ async function upsertItem(item: SyncItemType): Promise<void> {
     const result = await (ModelClass as any).pullSyncUpdate(database, item);
     
     // Log the result
-    console.log(`[SyncService] ${result.message}`);
     
   } catch (error) {
     console.error(`[SyncService] Error upserting item:`, error);
@@ -155,7 +154,7 @@ async function processServerResponse(response: SyncItemType[], pendingItems: Syn
     console.log(`[SyncService] No items returned from server, marking local items as synced`);
     
     for (const item of pendingItems) {
-      await item.updateAsSynced();
+      await upsertItem(item);
     }
     
     console.log('[SyncService] Successfully updated local items to synced status');

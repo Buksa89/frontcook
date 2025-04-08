@@ -178,7 +178,6 @@ export default class SyncModel extends Model {
     
     // Try to find an existing record
     const existingRecord = await this.getExistingRecord<T>(database, recordData, activeUser);
-    
     // Process the data through preUpsertBySync
     
     const serverDate = new Date(recordData.last_update);
@@ -205,22 +204,11 @@ export default class SyncModel extends Model {
       return existingRecord;
     }
     
-    // If the record doesn't exist, create a new one
-    const deserializedData = await this.deserialize<T>(database, recordData, existingRecord);
-
-    return await this.create<T>(
-      database,
-      (newRecord: T) => {
-        // Set the sync_id provided by the caller
-        newRecord.syncId = syncId;
-        // Apply the provided data
-        Object.entries(deserializedData).forEach(([key, value]) => {
-          (newRecord as any)[key] = value;
-        });
-        // Set syncStatusField to 'synced'
-        newRecord.syncStatusField = 'synced';
-      }
-    );
+    // If the record doesn't exist, create a new one using the dedicated method
+    const deserializedData = await this.deserialize<T>(database, recordData, null);
+    
+    // Use the new createFromSyncData method instead of this.create
+    return await this.createFromSyncData<T>(database, deserializedData);
   }
 
   needUpdate(serverDate: Date): boolean {
@@ -268,7 +256,14 @@ export default class SyncModel extends Model {
     return records.map(record => record.serialize());
   }
 
-
-
-
+  // Nowa metoda do tworzenia rekordu na podstawie danych z synchronizacji
+  // Powinna być nadpisana przez klasy potomne!
+  static async createFromSyncData<T extends SyncModel>(
+    this: { new(): T } & typeof SyncModel,
+    database: Database,
+    deserializedData: Record<string, any>,
+  ): Promise<T> {
+    console.error(`[SyncModel.createFromSyncData] Method not implemented for table ${this.table}. Child model MUST override this method.`);
+    throw new Error(`createFromSyncData must be overridden in ${this.name}`);
+  }
 }

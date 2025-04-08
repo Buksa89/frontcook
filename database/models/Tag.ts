@@ -149,6 +149,49 @@ export default class Tag extends SyncModel {
     }
   }
 
+  // Implementacja createFromSyncData dla klasy Tag
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof Tag,
+    database: Database,
+    deserializedData: Record<string, any>,
+  ): Promise<T> {
+
+    // Przygotuj argumenty dla Tag.create na podstawie deserializedData
+    const name = deserializedData.name || 'Unnamed Tag'; // Wymagane pole
+    // Pole 'order' jest opcjonalne w Tag.create, pobierzmy je z danych, jeśli istnieje
+    const order = deserializedData.order !== undefined ? Number(deserializedData.order) : undefined;
+
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced'; // Nowy z serwera jest 'synced'
+    const isDeleted = !!deserializedData.isDeleted;
+    const syncId = deserializedData.syncId;
+    let lastUpdate: Date | undefined = undefined;
+    if ('lastUpdate' in deserializedData && deserializedData.lastUpdate) {
+      try {
+        lastUpdate = new Date(deserializedData.lastUpdate);
+      } catch (e) {
+        lastUpdate = new Date(); // Fallback
+      }
+    } else {
+      lastUpdate = new Date(); // Fallback
+    }
+
+    // Wywołaj istniejącą metodę Tag.create, przekazując wszystkie dane
+    // Używamy 'as any' aby obejść potencjalny błąd lintera (chociaż tutaj sygnatury mogą być bardziej zgodne)
+    const newTag = await (Tag.create as any)(
+      database,
+      name,
+      order, // Przekazujemy opcjonalne 'order'
+      // Przekaż pola synchronizacji jawnie
+      syncId,          // syncId z serwera
+      syncStatus,      // 'synced'
+      lastUpdate,      // data z serwera lub fallback
+      isDeleted        // isDeleted z serwera
+    );
+
+    return newTag as unknown as T;
+  }
+
   // Override markAsDeleted to also delete related recipe_tags
   async markAsDeleted(): Promise<void> {
     try {

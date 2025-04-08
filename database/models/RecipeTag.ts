@@ -124,6 +124,88 @@ export default class RecipeTag extends SyncModel {
     return tags.length > 0 ? tags[0] : null;
   }
 
+  // Dodajemy deserialize, aby znaleźć lokalne ID przed createFromSyncData
+  static async deserialize(database: Database, serverData: Record<string, any>, existingRecord: RecipeTag | null): Promise<Record<string, any>> {
+    const deserializedData = await super.deserialize(database, serverData, existingRecord);
+
+    // Znajdź recipeId
+    const recipeSyncId = serverData.recipe || serverData.recipe_id; // Sprawdź obie możliwe nazwy pola
+    if (recipeSyncId) {
+      const recipe = await this.findRecipeBySyncId(database, recipeSyncId);
+      if (recipe) {
+        deserializedData.recipeId = recipe.id;
+      } else {
+        // Rzuć błąd, jeśli przepis nie został znaleziony
+        throw new Error(`[DB ${this.table}] Recipe with sync_id ${recipeSyncId} not found during deserialization for RecipeTag.`);
+      }
+      // Usuń pole, z którego wzięliśmy syncId (po konwersji mogło to być 'recipe' lub 'recipeId')
+      delete deserializedData.recipe;
+      delete deserializedData.recipeId; 
+    }
+
+    // Znajdź tagId
+    const tagSyncId = serverData.tag || serverData.tag_id; // Sprawdź obie możliwe nazwy pola
+    if (tagSyncId) {
+      const tag = await this.findTagBySyncId(database, tagSyncId);
+      if (tag) {
+        deserializedData.tagId = tag.id;
+      } else {
+        // Rzuć błąd, jeśli tag nie został znaleziony
+        throw new Error(`[DB ${this.table}] Tag with sync_id ${tagSyncId} not found during deserialization for RecipeTag.`);
+      }
+      // Usuń pole, z którego wzięliśmy syncId (po konwersji mogło to być 'tag' lub 'tagId')
+      delete deserializedData.tag;
+      delete deserializedData.tagId;
+    }
+
+    return deserializedData;
+  }
+
+  // Implementacja createFromSyncData dla klasy RecipeTag
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof RecipeTag,
+    database: Database,
+    deserializedData: Record<string, any>,
+    syncId: string
+  ): Promise<T> {
+
+    // Pobierz recipeId i tagId bezpośrednio z deserializedData (wynik działania RecipeTag.deserialize)
+    const recipeId = deserializedData.recipeId as string | undefined;
+    const tagId = deserializedData.tagId as string | undefined;
+
+    // Usuwamy tę walidację, ponieważ błąd jest rzucany już w deserialize
+    // if (!recipeId || !tagId) {
+    //   // Jeśli deserialize nie znalazło któregoś obiektu i nie ustawiło ID, rzuć błąd
+    //   throw new Error(`Cannot create recipe tag ${syncId} without valid recipeId and tagId.`);
+    // }
+    
+
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced';
+    const isDeleted = !!deserializedData.isDeleted;
+    let lastUpdate: Date | undefined = undefined;
+    if ('lastUpdate' in deserializedData && deserializedData.lastUpdate) {
+      try { lastUpdate = new Date(deserializedData.lastUpdate); } catch (e) {
+        lastUpdate = new Date(); // Fallback
+      }
+    } else {
+      lastUpdate = new Date(); // Fallback
+    }
+
+    // Wywołaj istniejącą metodę RecipeTag.create, przekazując wszystkie dane
+    const newRecipeTag = await (RecipeTag.create as any)(
+      database,
+      recipeId!, // Dodajemy '!' bo wiemy, że deserialize rzuciłoby błąd, gdyby było undefined
+      tagId!,    // Dodajemy '!' bo wiemy, że deserialize rzuciłoby błąd, gdyby było undefined
+      // Przekaż pola synchronizacji jawnie
+      syncId,
+      syncStatus,
+      lastUpdate,
+      isDeleted
+    );
+
+    return newRecipeTag as unknown as T;
+  }
 
   // Override prepareForPush to properly handle relations
   serialize(): Record<string, any> {

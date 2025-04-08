@@ -52,7 +52,6 @@ async function upsertItem(item: SyncItemType): Promise<void> {
     const result = await (ModelClass as any).upsertBySync(database, item);
     
     // Log the result (can be removed in production)
-    console.log(`[SyncService] ${result.message}`);
     
   } catch (error) {
     throw error;

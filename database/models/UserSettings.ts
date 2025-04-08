@@ -185,4 +185,39 @@ export default class UserSettings extends SyncModel {
       throw error;
     }
   }
+
+  // Implementacja createFromSyncData dla klasy UserSettings
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof UserSettings,
+    database: Database,
+    deserializedData: Record<string, any>,
+  ): Promise<T> {
+
+    // Przygotuj argumenty dla UserSettings.create na podstawie deserializedData
+    const language = deserializedData.language || 'pl'; // Domyślna wartość
+
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced';
+    const isDeleted = !!deserializedData.isDeleted;
+    const syncId = deserializedData.syncId;
+    let lastUpdate: Date | undefined = undefined;
+    if ('lastUpdate' in deserializedData && deserializedData.lastUpdate) {
+      try { lastUpdate = new Date(deserializedData.lastUpdate); } catch (e) { lastUpdate = new Date(); }
+    } else {
+      lastUpdate = new Date(); // Fallback
+    }
+
+    // Wywołaj istniejącą metodę UserSettings.create, przekazując wszystkie dane
+    const newUserSettings = await (UserSettings.create as any)(
+      database,
+      language,
+      // Przekaż pola synchronizacji jawnie
+      syncId,
+      syncStatus,
+      lastUpdate,
+      isDeleted
+    );
+
+    return newUserSettings as unknown as T;
+  }
 }

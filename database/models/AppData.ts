@@ -242,4 +242,60 @@ export default class AppData extends SyncModel {
       throw error;
     }
   }
+
+  // Implementacja createFromSyncData dla klasy AppData
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof AppData,
+    database: Database,
+    deserializedData: Record<string, any>,
+  ): Promise<T> {
+    const syncId = deserializedData.syncId;
+
+    // Przygotuj argumenty dla AppData.create na podstawie deserializedData
+    let lastSync: Date | undefined = undefined;
+    if ('lastSync' in deserializedData && deserializedData.lastSync) {
+      try { lastSync = new Date(deserializedData.lastSync); } catch (e) { lastSync = new Date(0); }
+    } else {
+      lastSync = new Date(0); // Domyślna wartość z AppData.create
+    }
+    
+    let subscriptionEnd: Date | undefined = undefined;
+    if ('subscriptionEnd' in deserializedData && deserializedData.subscriptionEnd) {
+      try { subscriptionEnd = new Date(deserializedData.subscriptionEnd); } catch (e) { subscriptionEnd = new Date(0); }
+    } else {
+      subscriptionEnd = new Date(0); // Domyślna wartość z AppData.create
+    }
+    
+    let csvLock: Date | undefined = undefined;
+    if ('csvLock' in deserializedData && deserializedData.csvLock) {
+      try { csvLock = new Date(deserializedData.csvLock); } catch (e) { csvLock = new Date(0); }
+    } else {
+      csvLock = new Date(0); // Domyślna wartość z AppData.create
+    }
+
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced';
+    const isDeleted = !!deserializedData.isDeleted;
+    let lastUpdate: Date | undefined = undefined;
+    if ('lastUpdate' in deserializedData && deserializedData.lastUpdate) {
+      try { lastUpdate = new Date(deserializedData.lastUpdate); } catch (e) { lastUpdate = new Date(); }
+    } else {
+      lastUpdate = new Date(); // Fallback
+    }
+
+    // Wywołaj istniejącą metodę AppData.create, przekazując wszystkie dane
+    const newAppData = await (AppData.create as any)(
+      database,
+      lastSync,
+      subscriptionEnd,
+      csvLock,
+      // Przekaż pola synchronizacji jawnie
+      syncId,
+      syncStatus,
+      lastUpdate,
+      isDeleted
+    );
+
+    return newAppData as unknown as T;
+  }
 }

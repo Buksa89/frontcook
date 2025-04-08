@@ -7,6 +7,7 @@ import recipeImageApi from '../../app/api/recipeImage';
 import * as FileSystem from 'expo-file-system';
 import { needsProcessing } from '../../app/utils/imageProcessor';
 import { Observable } from 'rxjs';
+import AuthService from '../../app/services/auth/authService';
 
 class RecipeImage extends SyncModel {
   static table = 'recipe_images';
@@ -245,8 +246,10 @@ class RecipeImage extends SyncModel {
         
         const tempFilePath = tempDir + 'temp_' + syncId + '_' + Date.now() + '.jpg';
         
-        // Zapisz base64 do pliku
-        await FileSystem.writeAsStringAsync(tempFilePath, `data:image/jpeg;base64,${base64Image}`, {
+        console.log(`[RecipeImage.retrieve_image_from_api] Generated tempFilePath: ${tempFilePath}`);
+        
+        // Zapisz base64 do pliku - przekazujemy TYLKO base64 string
+        await FileSystem.writeAsStringAsync(tempFilePath, base64Image, {
           encoding: FileSystem.EncodingType.Base64
         });
         
@@ -293,6 +296,45 @@ class RecipeImage extends SyncModel {
           return () => subscription.unsubscribe();
         });
       });
+  }
+
+  // Implementacja createFromSyncData dla klasy RecipeImage
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof RecipeImage,
+    database: Database,
+    deserializedData: Record<string, any>
+  ): Promise<T> {
+    // Pobierz syncId z deserializedData
+    const syncId = deserializedData.syncId as string | undefined;
+  
+    // Pobierz ścieżkę do pliku tymczasowego z deserializedData
+    const tempImagePath = deserializedData.image || null;
+    
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced';
+    const isDeleted = !!deserializedData.isDeleted;
+    let lastUpdate: Date | undefined = undefined;
+    if ('lastUpdate' in deserializedData && deserializedData.lastUpdate) {
+      try { lastUpdate = new Date(deserializedData.lastUpdate); } catch (e) {
+        lastUpdate = new Date(); // Fallback
+      }
+    } else {
+      lastUpdate = new Date(); // Fallback
+    }
+
+    // Wywołaj istniejącą metodę RecipeImage.create, przekazując wszystkie dane
+    const newRecipeImage = await (RecipeImage.create as any)(
+      database,
+      syncId, // Używamy syncId pobranego z deserializedData
+      tempImagePath, // Przekazujemy ścieżkę do pliku tymczasowego
+      // Przekaż pola synchronizacji jawnie
+      syncStatus,    // 'synced'
+      lastUpdate,    // data z serwera lub fallback
+      isDeleted      // isDeleted z serwera
+    );
+
+    // Rzutowanie na T jest potrzebne, chociaż RecipeImage.create zwraca RecipeImage
+    return newRecipeImage as unknown as T; 
   }
 }
 

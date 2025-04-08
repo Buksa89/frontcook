@@ -155,18 +155,87 @@ export default class Ingredient extends SyncModel {
   static async deserialize(database: Database, serverData: Record<string, any>, existingRecord: Ingredient | null): Promise<Record<string, any>> {
     const deserializedData = await super.deserialize(database, serverData, existingRecord);
     
-    // Jeśli serverData zawiera recipe jako sync_id
-    if (serverData.recipe) {
+    // Pobierz sync_id przepisu z oryginalnych danych serwera
+    const recipeSyncId = serverData.recipe; // Zakładamy, że pole nazywa się 'recipe' w danych z serwera
+    
+    if (recipeSyncId) {
       // Znajdź przepis po sync_id
-      const recipe = await Ingredient.findRecipeBySyncId(database, serverData.recipe);
+      const recipe = await Ingredient.findRecipeBySyncId(database, recipeSyncId);
       if (recipe) {
-        deserializedData.recipe = recipe; // Przypisz lokalny ID przepisu
+        // Zamiast przypisywać cały obiekt, przypisz tylko ID do nowego pola
+        deserializedData.recipeId = recipe.id;
+      } else {
+        // Rzuć błąd, jeśli przepis nie został znaleziony
+        throw new Error(`[DB Ingredient] Recipe with sync_id ${recipeSyncId} not found during deserialization for Ingredient.`);
       }
     }
+    
+    // Usuń oryginalne pole 'recipe' (które zawierało syncId lub zostało nadpisane w super.deserialize)
+    // z deserializedData, aby uniknąć pomyłek.
+    delete deserializedData.recipe; 
     
     return deserializedData;
   }
 
+
+  // Implementacja createFromSyncData dla klasy Ingredient
+  static async createFromSyncData<T extends SyncModel>(
+    this: typeof Ingredient,
+    database: Database,
+    deserializedData: Record<string, any>,
+    syncId: string
+  ): Promise<T> {
+
+    // Pobierz recipeId bezpośrednio z deserializedData (wynik działania zmodyfikowanego Ingredient.deserialize)
+    const recipeId = deserializedData.recipeId as string | undefined;
+
+    // Usuwamy tę walidację, ponieważ błąd jest rzucany już w deserialize
+    // if (!recipeId) {
+    //   // Jeśli deserialize nie znalazło przepisu i nie ustawiło recipeId, rzuć błąd
+    //   throw new Error(`[DB Ingredient] Cannot create ingredient ${syncId} without a valid recipeId.`);
+    // }
+    
+    // Usunięto logikę sprawdzania recipeObject i znajdowania Recipe
+
+    // Przygotuj argumenty dla Ingredient.create na podstawie deserializedData
+    const name = deserializedData.name || 'Unnamed Ingredient'; // Wymagane pole
+    const amount = deserializedData.amount !== undefined ? Number(deserializedData.amount) : null;
+    const unit = deserializedData.unit || null;
+    const order = Number(deserializedData.order) || 0; // Wymagane pole, domyślnie 0?
+    const originalStr = deserializedData.originalStr || ''; // Wymagane pole
+    const type = deserializedData.type || null;
+
+    // Przygotuj pola synchronizacji do przekazania
+    const syncStatus: 'pending' | 'synced' | 'conflict' = 'synced';
+    const isDeleted = !!deserializedData.isDeleted;
+    let lastUpdate: Date | undefined = undefined;
+    if ('lastUpdate' in deserializedData && deserializedData.lastUpdate) {
+      try { lastUpdate = new Date(deserializedData.lastUpdate); } catch (e) {
+        lastUpdate = new Date(); // Fallback
+      }
+    } else {
+      lastUpdate = new Date(); // Fallback
+    }
+
+    // Wywołaj istniejącą metodę Ingredient.create, przekazując wszystkie dane
+    const newIngredient = await (Ingredient.create as any)(
+      database,
+      recipeId!, // Dodajemy '!' bo wiemy, że deserialize rzuciłoby błąd, gdyby było undefined
+      name,
+      amount,
+      unit,
+      order,
+      originalStr,
+      type,
+      // Przekaż pola synchronizacji jawnie
+      syncId,
+      syncStatus,
+      lastUpdate,
+      isDeleted
+    );
+
+    return newIngredient as unknown as T;
+  }
 
   // Override prepareForPush to properly handle relations
   serialize(): Record<string, any> {
