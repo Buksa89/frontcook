@@ -151,7 +151,7 @@ export default function DebugScreen() {
           .map(([key, value]) => (
           <View key={key} style={styles.fieldContainer}>
             <Text style={styles.fieldKey}>{key}:</Text>
-            <Text style={styles.fieldValue} selectable>{JSON.stringify(value, null, 2)}</Text>
+            <Text style={styles.fieldValue} selectable>{String(JSON.stringify(value, null, 2))}</Text>
           </View>
         ))}
       </View>
