@@ -1,115 +1,80 @@
+// app/(auth)/login.tsx
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert // Użyjemy Alert do pokazywania błędów na razie
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert
 } from 'react-native';
-import { Link, router } from 'expo-router';
-import { useAuth } from '../../src/contexts/AuthContext'; // Import useAuth z src
-import { MaterialIcons } from '@expo/vector-icons'; // Dla ikon
+import { Link, router, Href } from 'expo-router';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { MaterialIcons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
-  const [loginValue, setLoginValue] = useState(''); // Może być email lub username
+  // ZMIANA: Zmieniono nazwę stanu z loginValue na username
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth(); // Pobierz funkcję login z kontekstu
+  const { login } = useAuth();
 
   const handleLogin = async () => {
-    if (!loginValue || !password) {
-      Alert.alert('Błąd', 'Wprowadź nazwę użytkownika/email i hasło.');
+    // ZMIANA: Sprawdzamy stan username
+    if (!username || !password) {
+      Alert.alert('Błąd', 'Wprowadź nazwę użytkownika i hasło.');
       return;
     }
     setIsLoading(true);
     try {
-      await login(loginValue, password);
-      // Logowanie udane - AuthContext pokazał już toast
-      // Przekieruj do głównego ekranu aplikacji (zakładając, że to '/')
-      // Użyj 'replace', aby usunąć ekran logowania ze stosu nawigacji
-      router.replace('/');
+      // ZMIANA: Przekazujemy username do funkcji login
+      await login(username, password);
+      router.replace('/'); // Przekieruj po udanym logowaniu
     } catch (error: any) {
-      // Błąd został już obsłużony (pokazany toast) w AuthContext
-      // Można dodać dodatkowe logowanie lub specyficzną obsługę UI tutaj
       console.error('[LoginScreen] Login failed:', error);
-      // Alert.alert('Błąd logowania', error?.message || 'Nie udało się zalogować.'); // Toast jest już w AuthContext
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={styles.title}>Zaloguj się</Text>
 
-        {/* Pole Login (Email/Username) */}
+        {/* Pole Username */}
         <View style={styles.inputContainer}>
           <MaterialIcons name="person-outline" size={24} color="#888" style={styles.icon} />
           <TextInput
             style={styles.input}
-            placeholder="Nazwa użytkownika lub email"
+            placeholder="Nazwa użytkownika" // Zmieniono placeholder
             placeholderTextColor="#aaa"
-            value={loginValue}
-            onChangeText={setLoginValue}
+            value={username} // ZMIANA: powiązane z username
+            onChangeText={setUsername} // ZMIANA: ustawia username
             autoCapitalize="none"
-            keyboardType="email-address" // Dobry kompromis
+            // Usunięto keyboardType="email-address", bo to teraz username
             editable={!isLoading}
           />
         </View>
 
-        {/* Pole Hasło */}
+        {/* Pole Hasło (bez zmian) */}
         <View style={styles.inputContainer}>
            <MaterialIcons name="lock-outline" size={24} color="#888" style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Hasło"
-            placeholderTextColor="#aaa"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            editable={!isLoading}
-          />
-           <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
-               <MaterialIcons name={showPassword ? "visibility" : "visibility-off"} size={24} color="#888" />
-           </TouchableOpacity>
+          <TextInput style={styles.input} placeholder="Hasło" placeholderTextColor="#aaa" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!isLoading} />
+           <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}><MaterialIcons name={showPassword ? "visibility" : "visibility-off"} size={24} color="#888" /></TouchableOpacity>
         </View>
 
-        {/* Przycisk Logowania */}
-        <TouchableOpacity
-          style={[styles.button, styles.loginButton, isLoading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Zaloguj się</Text>
-          )}
+        {/* Przycisk Logowania (bez zmian) */}
+        <TouchableOpacity style={[styles.button, styles.loginButton, isLoading && styles.buttonDisabled]} onPress={handleLogin} disabled={isLoading}>
+          {isLoading ? (<ActivityIndicator color="#fff" />) : (<Text style={styles.buttonText}>Zaloguj się</Text>)}
         </TouchableOpacity>
 
-        {/* Link do Rejestracji */}
+        {/* Link do Rejestracji (bez zmian) */}
         <View style={styles.linkContainer}>
            <Text style={styles.linkText}>Nie masz konta? </Text>
-           <Link href="/register" style={styles.link}>
-             Zarejestruj się
-           </Link>
+           <Link href="/register" style={styles.link}>Zarejestruj się</Link>
         </View>
 
-         {/* Link do Resetu Hasła (TODO) */}
+         {/* Link do Resetu Hasła (bez zmian) */}
          <View style={styles.linkContainer}>
-            <Link href="/forgot-password" style={styles.link}>
-                 Zapomniałeś hasła?
-            </Link>
+            <Link href={"/forgot-password" as Href} style={styles.link}>Zapomniałeś hasła?</Link>
          </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -123,7 +88,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     scrollContainer: {
-       flexGrow: 1,
+      flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 30,
@@ -156,7 +121,7 @@ const styles = StyleSheet.create({
         color: '#333',
     },
     eyeIcon: {
-         padding: 5,
+        padding: 5,
     },
     button: {
         width: '100%',
@@ -188,6 +153,6 @@ const styles = StyleSheet.create({
     link: {
         color: '#5c7ba9',
         fontWeight: 'bold',
-         fontSize: 14,
+        fontSize: 14,
     },
 });

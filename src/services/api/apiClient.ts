@@ -99,6 +99,19 @@ class ApiClient {
 
     if (DEBUG) console.log(`🚀 API REQ: ${config.method || 'GET'} ${endpoint}`);
 
+    if (config.body) {
+      if (config.body instanceof FormData) {
+        console.log('  Payload: [FormData]');
+        // Opcjonalnie: Możesz dodać iterację po FormData, jeśli potrzebujesz szczegółów
+        // config.body.forEach((value, key) => console.log(`    ${key}:`, value));
+      } else {
+        // Zakładamy, że body to string (np. JSON.stringify)
+        // Ograniczamy długość, aby nie zaśmiecać konsoli
+        const bodyString = String(config.body);
+        console.log(`  Payload: ${bodyString.substring(0, 500)}${bodyString.length > 500 ? '...' : ''}`);
+      }
+    }
+
     try {
       let response = await fetch(url, config);
 
