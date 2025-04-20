@@ -1,60 +1,58 @@
+// src/api/userSettings.ts
 import api from './api';
 
-// Interface for user settings from API
-export interface UserSettingsApiResponse {
-  auto_translate_recipes: boolean;
-}
-
-// Interface for updating user settings
-export interface UserSettingsUpdateRequest {
-  auto_translate_recipes?: boolean;
-}
+// Interfejsy (bez zmian)
+export interface ClientUserSettingsApiResponse { auto_translate_recipes: boolean; /* ...inne */ }
+export interface ClientUserSettingsUpdateRequest { auto_translate_recipes?: boolean; /* ...inne */ }
 
 /**
- * API for managing user settings
+ * Obiekt singletona do zarządzania ustawieniami użytkownika przez API.
  */
-export const UserSettingsApi = {
+const clientUserSettingsApi = { // Zmieniono nazwę na camelCase
   /**
    * Fetches user settings from the API
-   * @returns User settings object
    */
-  getUserSettings: async (): Promise<UserSettingsApiResponse> => {
+  async getClientUserSettings(): Promise<ClientUserSettingsApiResponse> {
+    console.log('[UserSettings API] Pobieranie ustawień...');
     try {
-      return await api.get<UserSettingsApiResponse>('/api/users/me/settings/', true);
+      // Użyj api.get, wymaga autoryzacji
+      const response = await api.get<ClientUserSettingsApiResponse>('/api/users/me/settings/', true);
+      console.log('[UserSettings API] Pobrano ustawienia:', response);
+      return response;
     } catch (error) {
-      console.error('[UserSettingsApi] Error fetching user settings:', error);
+      console.error('[UserSettings API] Błąd pobierania ustawień:', error);
       throw error;
     }
   },
 
   /**
    * Updates user settings via API
-   * @param settings Settings to update
-   * @returns Updated user settings
    */
-  updateUserSettings: async (settings: UserSettingsUpdateRequest): Promise<UserSettingsApiResponse> => {
+  async updateClientUserSettings(settings: ClientUserSettingsUpdateRequest): Promise<ClientUserSettingsApiResponse> {
+     console.log('[UserSettings API] Aktualizacja ustawień:', settings);
     try {
-      return await api.put<UserSettingsApiResponse>('/api/users/me/settings/', settings, true);
+      // Użyj api.put lub api.patch zgodnie z Twoim API
+      const response = await api.put<ClientUserSettingsApiResponse>('/api/users/me/settings/', settings, true);
+      console.log('[UserSettings API] Zaktualizowano ustawienia:', response);
+      return response;
     } catch (error) {
-      console.error('[UserSettingsApi] Error updating user settings:', error);
+      console.error('[UserSettings API] Błąd aktualizacji ustawień:', error);
       throw error;
     }
   },
 
   /**
    * Updates a single setting
-   * @param key Setting key
-   * @param value Setting value
-   * @returns Updated user settings
    */
-  updateSetting: async <K extends keyof UserSettingsUpdateRequest>(
-    key: K, 
-    value: UserSettingsUpdateRequest[K]
-  ): Promise<UserSettingsApiResponse> => {
-    const updateData = { [key]: value } as UserSettingsUpdateRequest;
-    return UserSettingsApi.updateUserSettings(updateData);
+  async updateSetting<K extends keyof ClientUserSettingsUpdateRequest>(
+    key: K,
+    value: ClientUserSettingsUpdateRequest[K]
+  ): Promise<ClientUserSettingsApiResponse> {
+    console.log(`[UserSettings API] Aktualizacja ustawienia ${key} na ${value}`);
+    const updateData = { [key]: value } as ClientUserSettingsUpdateRequest;
+    // Wywołaj główną metodę aktualizacji z tego obiektu
+    return this.updateClientUserSettings(updateData);
   }
-}; 
+};
 
-// Add default export for Expo Router compatibility
-export default UserSettingsApi; 
+export default clientUserSettingsApi; // Eksportuj obiekt singletona

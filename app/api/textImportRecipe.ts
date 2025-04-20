@@ -1,30 +1,28 @@
+// src/api/textImportRecipe.ts
 import api from './api';
 
-/**
- * Interface for the response from the recipe text import API
- */
 export interface TextImportRecipeResponse {
   status: string;
   task_id: string;
   message: string;
 }
 
-/**
- * Text recipe import API functions
- */
-const textImportRecipeApi = {
+const textImportRecipeApi = { // Zmieniono na obiekt literalny
   /**
    * Import a recipe from plain text
-   * @param text The plain text content of the recipe to import
-   * @returns A promise that resolves to the import response
    */
-  importFromText: async (text: string): Promise<TextImportRecipeResponse> => {
-    return api.post<TextImportRecipeResponse>(
-      'api/recipes/from-text/',
-      { text },
-      true // authenticated request
-    );
+  async importFromText(text: string): Promise<TextImportRecipeResponse> { // Metoda asynchroniczna
+    console.log('[TextImport API] Importowanie przepisu z tekstu...');
+    try {
+      // Użyj api.post, zakładając autoryzację (true)
+      const response = await api.post<TextImportRecipeResponse>('/api/recipes/from-text/', { text }, true);
+      console.log('[TextImport API] Import z tekstu zakończony sukcesem:', response);
+      return response;
+    } catch (error) {
+      console.error('[TextImport API] Błąd importu przepisu z tekstu:', error);
+      throw error;
+    }
   },
 };
 
-export default textImportRecipeApi; 
+export default textImportRecipeApi; // Eksportuj obiekt singletona

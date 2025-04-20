@@ -58,9 +58,9 @@ export default schemaMigrations({
     {
       toVersion: 4,
       steps: [
-        // Create user_settings table
+        // Create client_user_settings table
         createTable({
-          name: 'user_settings',
+          name: 'client_user_settings',
           columns: [
             { name: 'language', type: 'string' }
           ]
@@ -118,7 +118,7 @@ export default schemaMigrations({
           ]
         }),
         addColumns({
-          table: 'user_settings',
+          table: 'client_user_settings',
           columns: [
             { name: 'sync_status', type: 'string' },
             { name: 'last_update', type: 'number' },
@@ -163,7 +163,7 @@ export default schemaMigrations({
           ]
         }),
         addColumns({
-          table: 'user_settings',
+          table: 'client_user_settings',
           columns: [
             { name: 'is_deleted', type: 'boolean' }
           ]
@@ -206,9 +206,9 @@ export default schemaMigrations({
     {
       toVersion: 9,
       steps: [
-        // Create app_data table with correct sync fields
+        // Create user_profile table with correct sync fields
         createTable({
-          name: 'app_data',
+          name: 'user_profile',
           columns: [
             { name: 'last_sync', type: 'number', isOptional: true },
             { name: 'subscription_end', type: 'number', isOptional: true },

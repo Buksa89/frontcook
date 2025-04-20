@@ -3,7 +3,7 @@ import database from '../../../database';
 import { Q } from '@nozbe/watermelondb';
 
 class LocalSyncService {
-  private readonly tables = ['recipes', 'ingredients', 'tags', 'shopping_items', 'user_settings'];
+  private readonly tables = ['recipes', 'ingredients', 'tags', 'shopping_items', 'client_user_settings'];
 
   /**
    * Sprawdza czy istnieją lokalne dane bez właściciela

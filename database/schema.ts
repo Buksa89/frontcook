@@ -1,71 +1,83 @@
-import { appSchema, tableSchema } from '@nozbe/watermelondb'
-import { TableSchema, ColumnSchema, AppSchema } from '@nozbe/watermelondb'
+// database/schema.ts
+import { appSchema, tableSchema } from '@nozbe/watermelondb';
+import type { TableSchema, ColumnSchema, AppSchema } from '@nozbe/watermelondb';
 
-// Wspólne kolumny synchronizacji
-const syncColumns: ColumnSchema[] = [
-  { name: 'sync_id', type: 'string' as const },
-  { name: 'sync_status', type: 'string' as const },
-  { name: 'last_update', type: 'number' as const, isOptional: true },
-  { name: 'is_local', type: 'boolean' as const, isOptional: true },
-  { name: 'owner', type: 'string' as const, isOptional: true },
-  { name: 'is_deleted', type: 'boolean' as const, isOptional: false }
-]
+// --- NOWY SCHEMAT Z KOLUMNAMI DLA WDB SYNC ---
+
+// Kolumny wspólne dla wszystkich synchronizowanych tabel (poza ID)
+const baseSyncColumns: ColumnSchema[] = [
+  // Klucz obcy do użytkownika
+  { name: 'user_id', type: 'string', isIndexed: true }, // Zwykle wymagane dla danych użytkownika
+  // Kluczowy dla mechanizmu PULL
+  { name: 'last_modified', type: 'number', isIndexed: true },
+  // Wymagane przez WDB (lub silnie zalecane), nie opcjonalne
+  { name: 'created_at', type: 'number' }, // *** POPRAWKA: Usunięto isOptional: true ***
+];
+
+// Kolumny dla tagów systemowych/użytkownika
+const tagSyncColumns: ColumnSchema[] = [
+  // userId jest opcjonalne dla tagów systemowych (null)
+  { name: 'user_id', type: 'string', isIndexed: true, isOptional: true }, // *** POPRAWKA: isOptional: true ***
+  { name: 'last_modified', type: 'number', isIndexed: true },
+  { name: 'created_at', type: 'number' },
+];
+
+
+// --- Definicje Tabel ---
 
 const tagsSchema: TableSchema = tableSchema({
-  name: 'tags',
+  name: 'recipe_tags', // Nazwa tabeli dla Tagów
   columns: [
-    // Note: local_id is automatically handled by WatermelonDB as 'id'
-    { name: 'order', type: 'number' }, // For integers we use number type
-    { name: 'name', type: 'string' }, // WatermelonDB doesn't have max length constraints at schema level
-    ...syncColumns
+    { name: 'name', type: 'string', isIndexed: true },
+    { name: 'order', type: 'number' },
+    ...tagSyncColumns, // Używamy specjalnych kolumn dla tagów
   ]
-})
+});
 
 const recipesSchema: TableSchema = tableSchema({
   name: 'recipes',
   columns: [
-    // Note: local_id is automatically handled by WatermelonDB as 'id'
-    { name: 'name', type: 'string' },
+    { name: 'name', type: 'string', isIndexed: true },
     { name: 'description', type: 'string', isOptional: true },
-    { name: 'image', type: 'string', isOptional: true }, // We'll store the image path/url
-    { name: 'rating', type: 'number' },
-    { name: 'is_approved', type: 'boolean' },
-    { name: 'prep_time', type: 'number' },
-    { name: 'total_time', type: 'number' },
-    { name: 'servings', type: 'number' },
+    { name: 'rating', type: 'number', isOptional: true },
+    { name: 'is_approved', type: 'boolean', isOptional: true },
+    { name: 'prep_time', type: 'number', isOptional: true },
+    { name: 'total_time', type: 'number', isOptional: true },
+    { name: 'servings', type: 'number', isOptional: true },
     { name: 'instructions', type: 'string', isOptional: true },
     { name: 'notes', type: 'string', isOptional: true },
     { name: 'nutrition', type: 'string', isOptional: true },
-    { name: 'video', type: 'string', isOptional: true }, // For URLField
-    { name: 'source', type: 'string', isOptional: true },
-    ...syncColumns
+    { name: 'video_url', type: 'string', isOptional: true },
+    { name: 'source_url', type: 'string', isOptional: true },
+    // Usunięto source_obj_id, bo nie ma modelu Source
+    ...baseSyncColumns,
   ]
-})
+});
 
-const recipeTagsSchema: TableSchema = tableSchema({
-  name: 'recipe_tags',
+// Tabela pośrednicząca Recipe-Tag
+const recipeTagsThroughSchema: TableSchema = tableSchema({
+  name: 'recipe_tags_through',
   columns: [
-    { name: 'recipe_id', type: 'string' }, // References the recipe.id
-    { name: 'tag_id', type: 'string' }, // References the tag.id
-    ...syncColumns
+    { name: 'recipe_id', type: 'string', isIndexed: true },
+    { name: 'tag_id', type: 'string', isIndexed: true },
+    ...baseSyncColumns, // Powiązanie też należy do użytkownika
   ]
-})
+});
 
 const ingredientsSchema: TableSchema = tableSchema({
   name: 'ingredients',
   columns: [
+    { name: 'recipe_id', type: 'string', isIndexed: true },
     { name: 'amount', type: 'number', isOptional: true },
     { name: 'unit', type: 'string', isOptional: true },
     { name: 'name', type: 'string' },
     { name: 'type', type: 'string', isOptional: true },
-    { name: 'recipe_id', type: 'string' },
     { name: 'order', type: 'number' },
-    { name: 'original_str', type: 'string' },
-    ...syncColumns
+    { name: 'original_str', type: 'string', isOptional: true },
+    ...baseSyncColumns,
   ]
-})
+});
 
-// Nowy schemat dla przedmiotów do kupienia
 const shoppingItemsSchema: TableSchema = tableSchema({
   name: 'shopping_items',
   columns: [
@@ -74,67 +86,72 @@ const shoppingItemsSchema: TableSchema = tableSchema({
     { name: 'name', type: 'string', isIndexed: true },
     { name: 'type', type: 'string', isOptional: true },
     { name: 'order', type: 'number', isIndexed: true },
-    { name: 'is_checked', type: 'boolean', isOptional: false, isIndexed: true },
-    ...syncColumns
+    { name: 'is_checked', type: 'boolean', isIndexed: true },
+    ...baseSyncColumns,
   ]
-})
+});
 
-// Schema for user settings
-const localUserSettingsSchema: TableSchema = tableSchema({
-  name: 'user_settings',
+const clientUserSettingsSchema: TableSchema = tableSchema({
+  name: 'client_user_settings',
   columns: [
     { name: 'language', type: 'string' },
-    ...syncColumns
+    ...baseSyncColumns, // Ustawienia też należą do użytkownika
   ]
-})
+});
 
-// Schema for notifications
 const notificationsSchema: TableSchema = tableSchema({
   name: 'notifications',
   columns: [
     { name: 'content', type: 'string' },
-    { name: 'type', type: 'string' }, // 'warn' or 'info'
+    { name: 'type', type: 'string' },
     { name: 'link', type: 'string', isOptional: true },
-    { name: 'is_readed', type: 'boolean', isIndexed: true },
+    { name: 'is_read', type: 'boolean', isIndexed: true }, // Poprawiona nazwa
     { name: 'order', type: 'number', isIndexed: true },
-    ...syncColumns
+    ...baseSyncColumns,
   ]
-})
+});
 
-// Schema forapp data (including last sync per user)
-const AppDataSchema: TableSchema = tableSchema({
-  name: 'app_data',
+const userProfileSchema: TableSchema = tableSchema({
+  name: 'user_profile',
   columns: [
-    { name: 'last_sync', type: 'number' as const, isOptional: true },
-    { name: 'subscription_end', type: 'number' as const, isOptional: true },
-    { name: 'csv_lock', type: 'string', isOptional: true },
-    ...syncColumns
+    { name: 'subscription_end', type: 'number' }, // Wymagane?
+    { name: 'csv_lock', type: 'number' }, // Wymagane?
+    ...baseSyncColumns,
   ]
-})
+});
 
-// Zdefiniuj schemat RecipeImage
-export const RecipeImageSchema = tableSchema({
+const recipeImagesSchema: TableSchema = tableSchema({
   name: 'recipe_images',
   columns: [
-    { name: 'image', type: 'string', isOptional: true },
-    { name: 'thumbnail', type: 'string', isOptional: true },
-    ...syncColumns
+    { name: 'recipe_id', type: 'string', isIndexed: true },
+    { name: 'image_url', type: 'string', isOptional: true },
+    // { name: 'thumbnail_url', type: 'string', isOptional: true }, // Opcjonalna miniaturka
+    { name: 'order', type: 'number' },
+    ...baseSyncColumns,
   ]
-})
+});
 
+// Usunięto sourcesSchema
+
+
+// --- Główny Schemat Aplikacji ---
 const schema: AppSchema = appSchema({
-  version: 12,
+  // Zwiększ wersję, jeśli wprowadzasz zmiany w schemacie!
+  // Jeśli wprowadziłeś zmiany w baseSyncColumns i tagSyncColumns,
+  // a poprzednia wersja to 13, teraz powinno być 14.
+  version: 14, // *** ZAKTUALIZUJ WERSJĘ ***
   tables: [
-    tagsSchema,
-    recipesSchema,
-    recipeTagsSchema,
-    ingredientsSchema,
-    shoppingItemsSchema,
-    localUserSettingsSchema,
-    notificationsSchema,
-    AppDataSchema,
-    RecipeImageSchema
+    tagsSchema,             // 'recipe_tags'
+    recipesSchema,          // 'recipes'
+    recipeTagsThroughSchema,// 'recipe_tags_through'
+    ingredientsSchema,      // 'ingredients'
+    shoppingItemsSchema,    // 'shopping_items'
+    clientUserSettingsSchema,// 'client_user_settings'
+    notificationsSchema,    // 'notifications'
+    userProfileSchema,      // 'user_profile'
+    recipeImagesSchema,     // 'recipe_images'
+    // Usunięto sourcesSchema
   ]
-})
+});
 
-export default schema 
+export default schema;

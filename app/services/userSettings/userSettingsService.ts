@@ -1,28 +1,34 @@
-import api from '../../api/api';
+// src/services/userSettings/userSettingsService.ts
+
+import api from '../../api/api'; // Upewnij się, że ścieżka jest poprawna
 
 // Interface for user settings from API
-export interface UserSettingsApiResponse {
+export interface ClientUserSettingsApiResponse {
   auto_translate_recipes: boolean;
+  // Dodaj inne pola, jeśli API je zwraca/przyjmuje
 }
 
 // Interface for updating user settings
-export interface UserSettingsUpdateRequest {
+export interface ClientUserSettingsUpdateRequest {
   auto_translate_recipes?: boolean;
+  // Dodaj inne pola
 }
 
 /**
- * Service for managing user settings via API
+ * Klasa obsługująca ustawienia użytkownika pobierane/wysyłane do API
  */
-class UserSettingsService {
+class ClientUserSettingsService { // Nazwa klasy (PascalCase)
   /**
    * Fetches user settings from the API
    * @returns User settings object
    */
-  async getUserSettings(): Promise<UserSettingsApiResponse> {
+  async getClientUserSettings(): Promise<ClientUserSettingsApiResponse> {
     try {
-      return await api.get<UserSettingsApiResponse>('/api/users/me/settings/', true);
+      // Zakładamy, że endpoint '/api/users/me/settings/' jest poprawny
+      return await api.get<ClientUserSettingsApiResponse>('/api/users/me/settings/', true);
     } catch (error) {
-      console.error('[UserSettingsService] Error fetching user settings:', error);
+      console.error('[ClientUserSettingsService] Błąd podczas pobierania ustawień użytkownika z API:', error);
+      // Rzuć błąd dalej, aby można było go obsłużyć wyżej
       throw error;
     }
   }
@@ -32,11 +38,15 @@ class UserSettingsService {
    * @param settings Settings to update
    * @returns Updated user settings
    */
-  async updateUserSettings(settings: UserSettingsUpdateRequest): Promise<UserSettingsApiResponse> {
+  async updateClientUserSettings(settings: ClientUserSettingsUpdateRequest): Promise<ClientUserSettingsApiResponse> {
     try {
-      return await api.put<UserSettingsApiResponse>('/api/users/me/settings/', settings, true);
+      // Używamy PUT lub PATCH - dostosuj metodę do swojego API
+      // Jeśli API używa PATCH do częściowej aktualizacji:
+      // return await api.patch<ClientUserSettingsApiResponse>('/api/users/me/settings/', settings, true);
+      // Jeśli API używa PUT do pełnej aktualizacji (nadpisania):
+      return await api.put<ClientUserSettingsApiResponse>('/api/users/me/settings/', settings, true);
     } catch (error) {
-      console.error('[UserSettingsService] Error updating user settings:', error);
+      console.error('[ClientUserSettingsService] Błąd podczas aktualizacji ustawień użytkownika w API:', error);
       throw error;
     }
   }
@@ -47,15 +57,22 @@ class UserSettingsService {
    * @param value Setting value
    * @returns Updated user settings
    */
-  async updateSetting<K extends keyof UserSettingsUpdateRequest>(
-    key: K, 
-    value: UserSettingsUpdateRequest[K]
-  ): Promise<UserSettingsApiResponse> {
-    const updateData = { [key]: value } as UserSettingsUpdateRequest;
-    return this.updateUserSettings(updateData);
+  async updateSetting<K extends keyof ClientUserSettingsUpdateRequest>(
+    key: K,
+    value: ClientUserSettingsUpdateRequest[K]
+  ): Promise<ClientUserSettingsApiResponse> {
+    // Tworzy obiekt z tylko jedną parą klucz-wartość
+    const updateData = { [key]: value } as ClientUserSettingsUpdateRequest;
+    // Wywołuje główną metodę aktualizacji
+    return this.updateClientUserSettings(updateData);
   }
 }
 
-// Export a singleton instance
-const userSettingsService = new UserSettingsService();
-export default userSettingsService; 
+// --- POPRAWKA ---
+// Eksportuj instancję singletona z inną nazwą (camelCase)
+const clientUserSettingsService = new ClientUserSettingsService(); // Użyj camelCase dla instancji
+export default clientUserSettingsService; // Eksportuj instancję
+// --- KONIEC POPRAWKI ---
+
+// Opcjonalnie, jeśli potrzebujesz też wyeksportować samą klasę (np. do testów):
+// export { ClientUserSettingsService as ClientUserSettingsServiceClass };

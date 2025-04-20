@@ -1,69 +1,60 @@
+// src/api/recipeImage.ts
 import api from './api';
-import authService from '../services/auth';
-import { API_URL } from '../constants/env';
+import authService from '../services/auth/authService'; // Potrzebny do pobrania tokenu dla fetch
+import { API_URL } from '../constants/env'; // Potrzebny do pełnego URL dla fetch
 
-/**
- * Interface for the response from the recipe image retrieve API
- */
-export interface RecipeImageRetrieveResponse {
-  image?: string;
-  thumbnail?: string;
-  status: string;
-  message?: string;
-}
+// Usunięto interfejs, bo metoda zwraca Blob
 
-/**
- * Recipe Image API functions
- */
-const recipeImageApi = {
+const recipeImageApi = { // Zmieniono na obiekt literalny
   /**
-   * Retrieve image for a recipe by sync_id
-   * @param syncId The sync_id of the recipe image to retrieve
+   * Retrieve image for a recipe by recipe ID (zmieniono z syncId na recipeId)
+   * @param recipeId The ID of the recipe whose image to retrieve
    * @returns A promise that resolves to the image blob
    */
-  retrieveImage: async (syncId: string): Promise<Blob> => {
+  async retrieveImage(recipeId: string): Promise<Blob> { // Zmieniono argument na recipeId
+    console.log(`[RecipeImage API] Pobieranie obrazka dla przepisu ID: ${recipeId}`);
     try {
-      console.log(`[recipeImageApi.retrieveImage] Wywołanie dla syncId: ${syncId}`);
-      
-      // Define the correct API endpoint
-      const endpoint = 'api/recipes/images/retrieve/';
-      
-      // Tworzymy pełny URL do API
-      const baseUrl = API_URL;
-      const url = `${baseUrl}${endpoint}`;
-      
-      // Pobieramy token dostępu z authService
-      const { accessToken } = await authService.getAuthData();
-      
+      // Endpoint powinien prawdopodobnie przyjmować ID przepisu
+      const endpoint = `/api/recipes/${recipeId}/image/retrieve/`; // Przykładowy endpoint - DOSTOSUJ
+      const url = `${API_URL.endsWith('/') ? API_URL : API_URL + '/'}${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}`; // Zbuduj pełny URL
+
+      const accessToken = await authService.getAccessToken();
       if (!accessToken) {
-        throw new Error('No access token available');
+        throw new Error('Brak tokenu dostępu do pobrania obrazka.');
       }
-      
-      // Wykonujemy bezpośrednie zapytanie fetch aby otrzymać plik
+
+      // Używamy fetch bezpośrednio, bo api.post może oczekiwać JSON
+      // Metoda GET jest bardziej odpowiednia do pobierania zasobu
       const response = await fetch(url, {
-        method: 'POST',
+        method: 'GET', // Użyj GET do pobrania obrazka
         headers: {
-          'Content-Type': 'application/json',
+          // 'Accept': 'image/*', // Opcjonalnie, jeśli serwer to respektuje
           'Authorization': `Bearer ${accessToken}`
         },
-        body: JSON.stringify({ sync_id: syncId })
+        // Usunięto body - GET nie ma ciała
       });
-      
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+         const errorText = await response.text().catch(() => 'Nie można odczytać błędu.');
+         console.error(`[RecipeImage API] Błąd HTTP pobierania obrazka (${response.status}): ${errorText}`);
+        throw new Error(`Błąd HTTP ${response.status} podczas pobierania obrazka.`);
       }
-      
-      // Pobranie pliku jako blob
+
       const blob = await response.blob();
-      console.log(`[recipeImageApi.retrieveImage] Otrzymano plik obrazu dla syncId: ${syncId}, rozmiar: ${blob.size} bajtów`);
-      
+      if (!blob || blob.size === 0) {
+           console.warn(`[RecipeImage API] Otrzymano pusty blob dla przepisu ID: ${recipeId}`);
+           throw new Error('Otrzymano pustą odpowiedź obrazka z serwera.');
+      }
+
+      console.log(`[RecipeImage API] Otrzymano blob obrazka dla przepisu ID: ${recipeId}, rozmiar: ${blob.size}`);
       return blob;
+
     } catch (error) {
-      console.error('[recipeImageApi.retrieveImage] Error:', error);
-      throw error; // Rzucamy błąd dalej, aby obsłużyć go w RecipeImage
+      console.error(`[RecipeImage API] Błąd podczas pobierania obrazka dla przepisu ID ${recipeId}:`, error);
+      throw error;
     }
   }
 };
 
-export default recipeImageApi;
-export { recipeImageApi }; 
+export default recipeImageApi; // Eksportuj obiekt singletona
+// Usunięto podwójny eksport

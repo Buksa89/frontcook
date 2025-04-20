@@ -5,7 +5,7 @@ import AuthStorage from '../services/auth/authStorage';
 import api from '../api';
 import LocalSyncService from '../services/sync/LocalSyncService';
 import { Alert } from 'react-native';
-import syncService from '../services/sync/syncService';
+import { getSyncService } from '../services';
 import Toast, { showToast } from '../components/Toast';
 
 interface AuthContextType {
@@ -41,8 +41,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Start sync if we have both token and user
     if (accessToken && activeUser) {
-      // Update to match the implementation without parameters
-      syncService.startBackgroundSync();
+      // Update to use the new SyncService approach
+      try {
+        getSyncService().start();
+        console.log('[AuthContext] Background sync started with credentials');
+      } catch (error) {
+        console.error('[AuthContext] Failed to start SyncService:', error);
+      }
     }
   }, [accessToken, activeUser]);
 
@@ -73,6 +78,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Zapisanie danych w kontekście
       setAccessToken(response.access);
       setActiveUser(response.username);
+
+      // Start SyncService after login
+      try {
+        getSyncService().start();
+        console.log('[AuthContext] Background sync started after login');
+      } catch (error) {
+        console.error('[AuthContext] Failed to start SyncService after login:', error);
+      }
 
       // Sprawdzenie, czy istnieją lokalne dane do synchronizacji
       const hasLocalData = await LocalSyncService.isLocalDataToSync();
@@ -152,8 +165,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
-      // Stop background sync before logout
-      syncService.stopBackgroundSync();
+      // Stop SyncService before logout
+      try {
+        getSyncService().stop();
+        console.log('[AuthContext] Background sync stopped before logout');
+      } catch (error) {
+        console.error('[AuthContext] Failed to stop SyncService during logout:', error);
+      }
       
       // Pobierz tokeny przed wyczyszczeniem
       const refreshToken = await AuthStorage.retrieveRefreshToken();

@@ -1,56 +1,34 @@
-import { Platform } from 'react-native'
-import { Database } from '@nozbe/watermelondb'
-import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs'
-import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
-import { Q } from '@nozbe/watermelondb'
-import { DEBUG } from '../app/constants/env'
-import AuthService from '../app/services/auth/authService'
+// database/index.ts
+import { Platform } from 'react-native';
+import { Database } from '@nozbe/watermelondb';
+import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 
-import schema from './schema'
-import migrations from './migrations'
-import Tag from './models/Tag'
-import Recipe from './models/Recipe'
-import RecipeTag from './models/RecipeTag'
-import Ingredient from './models/Ingredient'
-import ShoppingItem from './models/ShoppingItem'
-import LocalUserSettings from './models/UserSettings'
-import Notification from './models/Notification'
-import AppData from './models/AppData'
-import RecipeImage from './models/RecipeImage'
-import { v4 as uuidv4 } from 'uuid'
+import schema from './schema';
+import migrations from './migrations'; // BARDZO WAŻNE: Muszą być aktualne do schema.version!
 
-interface DefaultTag {
-  name: string
-  order: number
-}
+// Importuj NOWE definicje modeli
+import { Tag } from './models/Tag';
+import { Recipe } from './models/Recipe';
+import { RecipeTag } from './models/RecipeTag';
+import { Ingredient } from './models/Ingredient';
+import { ShoppingItem } from './models/ShoppingItem';
+import { ClientUserSettings } from './models/ClientUserSettings'; // Poprawiono import - default export
+import { Notification } from './models/Notification';
+import { UserProfile } from './models/UserProfile'; // Poprawiono import - default export
+import { RecipeImage } from './models/RecipeImage';
+// Usunięto import Source
 
-const getLokiAdapter = () => new LokiJSAdapter({
+// --- Konfiguracja Adaptera ---
+const adapter = new SQLiteAdapter({
   schema,
-  migrations,
-  useWebWorker: false, // We can enable this if we want better performance
-  useIncrementalIndexedDB: true, // This makes it faster
-  onQuotaExceededError: (error: Error) => {
-    // Handle storage quota exceeded
-    console.error('Storage quota exceeded', error)
-  },
+  migrations, // Przekaż migracje
+  jsi: Platform.OS === 'ios' || Platform.OS === 'android', // Włącz JSI dla natywnych platform
   onSetUpError: (error: Error) => {
-    // Handle setup error
-    console.error('Database failed to load', error)
+    console.error('!!!!!!!!!!!! WATERMELONDB SETUP ERROR !!!!!!!!!!!!!', error);
   },
-})
+});
 
-const getSQLiteAdapter = () => new SQLiteAdapter({
-  schema,
-  migrations,
-  onSetUpError: (error: Error) => {
-    console.error('Database failed to load', error)
-  },
-})
-
-// Choose adapter based on DEBUG flag
-const adapter = DEBUG ? getLokiAdapter() : getSQLiteAdapter()
-
-// Create the database
+// --- Tworzenie Instancji Bazy Danych ---
 const database = new Database({
   adapter,
   modelClasses: [
@@ -59,75 +37,90 @@ const database = new Database({
     RecipeTag,
     Ingredient,
     ShoppingItem,
-    LocalUserSettings,
+    ClientUserSettings,
     Notification,
-    AppData,
-    RecipeImage
+    UserProfile,
+    RecipeImage,
+    // Usunięto Source
   ],
-})
+});
 
-// Default tags to populate
+// --- Logika Tworzenia Domyślnych Tagów (Dostosowana) ---
+
+interface DefaultTag {
+  name: string;
+  order: number;
+}
+
 const defaultTags: DefaultTag[] = [
-  { name: 'Śniadanie', order: 1 },
-  { name: 'Obiad', order: 2 },
-  { name: 'Kolacja', order: 3 },
-  { name: 'Deser', order: 4 },
-  { name: 'Napoje', order: 5 },
-  { name: 'Wege', order: 6 },
-  { name: 'Wegan', order: 7 },
-  { name: 'LowCarb', order: 8 },
-  { name: 'Keto', order: 9 },
-  { name: 'Bez glutenu', order: 10 },
-  { name: 'Bez laktozy', order: 11 }
-]
+    { name: 'Śniadanie', order: 1 }, { name: 'Obiad', order: 2 }, { name: 'Kolacja', order: 3 },
+    { name: 'Deser', order: 4 }, { name: 'Napoje', order: 5 }, { name: 'Wege', order: 6 },
+    { name: 'Wegan', order: 7 }, { name: 'LowCarb', order: 8 }, { name: 'Keto', order: 9 },
+    { name: 'Bez glutenu', order: 10 }, { name: 'Bez laktozy', order: 11 }
+];
 
-// Function to populate default tags
 async function populateDefaultTags(): Promise<void> {
   try {
-    const activeUser = await AuthService.getActiveUser();
+    const tagsCollection = database.get<Tag>(Tag.table);
 
-    if (activeUser) {
-      // console.log('Active user exists, skipping default tags creation');
-      return;
-    }
+    // Sprawdź, czy istnieją już tagi systemowe (z userId=null)
+    const existingSystemTags = await tagsCollection.query(
+        // @ts-ignore - Pozwalamy na Q.where('user_id', null), jeśli schemat na to pozwala
+        Q.where('user_id', null)
+    ).fetchCount(); // Sprawdź tylko liczbę
 
-    const tagsCollection = database.get<Tag>('tags');
-    const existingTags = await tagsCollection
-      .query(Q.where('owner', null))
-      .fetch();
-    
-    if (existingTags.length === 0) {
+    if (existingSystemTags === 0) {
+      console.log('[DB Index] Tworzenie domyślnych tagów systemowych...');
       await database.write(async () => {
-        const promises = defaultTags.map(tag => 
-          tagsCollection.create(record => {
-            record.name = tag.name
-            record.order = tag.order
-            record.owner = null
-            record.syncStatusField = 'pending'
-            record.syncId = uuidv4()
-            record.lastUpdate = new Date()
-          })
-        )
-        await Promise.all(promises)
-      })
-      console.log('Default system tags created successfully')
+        for (const tagData of defaultTags) {
+          // Sprawdź dodatkowo nazwę, aby uniknąć duplikatów, jeśli logika sprawdzania się zmieni
+          const exists = await tagsCollection.query(
+              Q.where('name', tagData.name),
+              // @ts-ignore
+              Q.where('user_id', null)
+          ).fetchCount() > 0;
+
+          if (!exists) {
+              await tagsCollection.create(tag => {
+                tag.name = tagData.name;
+                tag.order = tagData.order;
+                // @ts-ignore - Przypisujemy null do userId (zakładając isOptional: true w schemacie)
+                tag.userId = null;
+                // Nie ustawiamy lastModified ani createdAt ręcznie
+              });
+          }
+        }
+      });
+      console.log('[DB Index] Domyślne tagi systemowe utworzone pomyślnie.');
     } else {
-      console.log('System tags already exist, skipping creation')
+      console.log('[DB Index] Tagi systemowe już istnieją, pomijanie tworzenia.');
     }
   } catch (error) {
-    console.error('Error populating default tags:', error instanceof Error ? error.message : 'Unknown error')
+    console.error('[DB Index] Błąd podczas tworzenia domyślnych tagów:', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
-// Initialize database with default data
-populateDefaultTags().catch(error => {
-  console.error('Error populating default tags:', error)
-})
+// --- Inicjalizacja Bazy Danych z Domyślnymi Danymi ---
+// Wywołaj tworzenie tagów po inicjalizacji bazy
+// Użyj .then() dla pewności, że baza jest gotowa, lub umieść w innym miejscu logiki startowej
+database.adapter.underlyingAdapter // Poczekaj na gotowość adaptera (trochę hack, ale często działa)
+  // @ts-ignore
+  .then(() => populateDefaultTags())
+  .catch(err => console.error("Błąd podczas inicjalizacji tagów po gotowości adaptera:", err));
 
-export {
-  LocalUserSettings,
-  Notification,
-  RecipeImage
-}
 
-export default database 
+// --- Eksporty ---
+export default database;
+
+export type {
+    Tag,
+    Recipe,
+    RecipeTag,
+    Ingredient,
+    ShoppingItem,
+    ClientUserSettings,
+    Notification,
+    UserProfile,
+    RecipeImage,
+    // Usunięto Source
+};

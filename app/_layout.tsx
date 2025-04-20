@@ -11,7 +11,7 @@ import { DEBUG } from './constants/env';
 import Notification from '../database/models/Notification';
 import database from '../database';
 import { ToastComponent } from './components/Toast';
-import UserSettings from '../database/models/UserSettings';
+import ClientUserSettings from '../database/models/ClientUserSettings';
 import AuthService from './services/auth/authService';
 import { Q } from '@nozbe/watermelondb';
 
@@ -59,17 +59,17 @@ export default function RootLayout() {
   const [searchText, setSearchText] = useState('');
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
-  // Initialize UserSettings when the app starts
+  // Initialize ClientUserSettings when the app starts
   useEffect(() => {
-    const initUserSettings = async () => {
+    const initClientUserSettings = async () => {
       try {
         // Check if user is logged in
         const activeUser = await AuthService.getActiveUser();
         if (activeUser) {
-          // console.log(`[App] Checking UserSettings for user: ${activeUser}`);
+          // console.log(`[App] Checking ClientUserSettings for user: ${activeUser}`);
           
           // Check if settings already exist
-          const settings = await database.get<UserSettings>('user_settings')
+          const settings = await database.get<ClientUserSettings>('client_user_settings')
             .query(
               Q.and(
                 Q.where('owner', activeUser),
@@ -80,8 +80,8 @@ export default function RootLayout() {
             
           if (settings.length === 0) {
             // Create new settings with oldest possible last update (Unix epoch)
-            // console.log(`[App] Creating new UserSettings`);
-            await UserSettings.create(
+            // console.log(`[App] Creating new ClientUserSettings`);
+            await ClientUserSettings.create(
               database,
               'pl', // default language
               undefined, // syncId
@@ -89,17 +89,17 @@ export default function RootLayout() {
               new Date(0), // lastUpdate - Unix epoch (January 1, 1970)
               false // isDeleted
             );
-            console.log(`[App] UserSettings created successfully`);
+            console.log(`[App] ClientUserSettings created successfully`);
           } else {
-            // console.log(`[App] UserSettings already exist for user: ${activeUser}`);
+            // console.log(`[App] ClientUserSettings already exist for user: ${activeUser}`);
           }
         }
       } catch (error) {
-        console.error(`[App] Error initializing UserSettings:`, error);
+        console.error(`[App] Error initializing ClientUserSettings:`, error);
       }
     };
     
-    initUserSettings();
+    initClientUserSettings();
   }, []);
 
   // Add useEffect for monitoring unread notifications

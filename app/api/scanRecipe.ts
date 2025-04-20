@@ -1,72 +1,44 @@
+// src/api/scanRecipe.ts
 import api from './api';
-import authService from '../services/auth';
+import authService from '../services/auth/authService'; // Potrzebny do pobrania tokenu dla fetch
+import { API_URL } from '../constants/env'; // Potrzebny do pełnego URL dla fetch
 
-/**
- * Interface for the response from the recipe scan API
- */
 export interface ScanRecipeResponse {
   status: string;
   task_id: string;
   message: string;
 }
 
-/**
- * Recipe scanning API functions
- */
-const scanRecipeApi = {
+const scanRecipeApi = { // Zmieniono na obiekt literalny
   /**
    * Scan a recipe from a screenshot
-   * @param imageUri The URI of the screenshot to scan
-   * @returns A promise that resolves to the scan response
    */
-  scanFromImage: async (imageUri: string): Promise<ScanRecipeResponse> => {
+  async scanFromImage(imageUri: string): Promise<ScanRecipeResponse> { // Metoda asynchroniczna
+    console.log('[ScanRecipe API] Skanowanie obrazka z URI:', imageUri);
     try {
-      // Create a FormData object to send the image
       const formData = new FormData();
-      
-      // Get the filename from the URI
       const filename = imageUri.split('/').pop() || 'screenshot.jpg';
-      
-      // Append the image to the FormData with the correct format for React Native
       formData.append('screenshot', {
         uri: imageUri,
-        type: 'image/jpeg',
+        type: 'image/jpeg', // Załóżmy JPEG, dostosuj w razie potrzeby
         name: filename,
       } as any);
-      
-      // Get the auth token
-      const { accessToken } = await authService.getAuthData();
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-      
-      // Make a direct fetch request
-      const url = 'https://smartcook.addev.pl/api/recipes/from-screenshot/';
-      console.log('Sending request to:', url);
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          // Do NOT set Content-Type header for FormData
-        },
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server error:', response.status, errorText);
-        throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+
+      // Endpoint API (użyj ścieżki, ApiClient doda bazę)
+      const endpoint = '/api/recipes/from-screenshot/'; // Poprawiona ścieżka
+      console.log('[ScanRecipe API] Wysyłanie żądania do:', endpoint);
+
+      // Użyj api.post, które samo obsłuży FormData i autoryzację
+      const data = await api.post<ScanRecipeResponse>(endpoint, formData, true);
+
+      console.log('[ScanRecipe API] Skanowanie zakończone sukcesem:', data);
       return data;
     } catch (error) {
-      console.error('Scan recipe error:', error);
+      console.error('[ScanRecipe API] Błąd skanowania przepisu:', error);
       throw error;
     }
   },
 };
 
-export default scanRecipeApi;
-export { scanRecipeApi }; 
+export default scanRecipeApi; // Eksportuj obiekt singletona
+// Usunięto podwójny eksport

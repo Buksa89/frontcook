@@ -1,60 +1,40 @@
+// src/api/pdfUpload.ts
 import api from './api';
-import authService from '../services/auth';
+// Usunięto import authService - api samo zarządza tokenem
 
-/**
- * Interface for the response from the PDF upload API
- */
 export interface PDFUploadResponse {
   status: string;
   task_id: string;
   message: string;
 }
 
-/**
- * PDF upload API functions
- */
-const pdfUploadApi = {
+const pdfUploadApi = { // Zmieniono na obiekt literalny
   /**
    * Upload a PDF file containing recipes
-   * @param pdfUri The URI of the PDF file to upload
-   * @param fileName The name of the PDF file
-   * @returns A promise that resolves to the upload response
    */
-  uploadPDF: async (pdfUri: string, fileName: string): Promise<PDFUploadResponse> => {
+  async uploadPDF(pdfUri: string, fileName: string): Promise<PDFUploadResponse> { // Metoda asynchroniczna
+    console.log('[PDF Upload API] Uploading PDF:', fileName, 'URI:', pdfUri);
     try {
-      // Create a FormData object to send the PDF
       const formData = new FormData();
-      
-      // Log the PDF URI for debugging
-      console.log('PDF URI:', pdfUri);
-      
-      // Append the PDF to the FormData with the correct format for React Native
       formData.append('pdf_file', {
         uri: pdfUri,
         name: fileName,
-        filename: fileName,
         type: 'application/pdf',
       } as any);
-      
-      // Define the correct API endpoint
-      const endpoint = 'api/recipes/from-pdf/';
-      console.log('Sending PDF to endpoint:', endpoint);
-      
-      // Send the PDF using the API module
-      const response = await api.post<PDFUploadResponse>(
-        endpoint,
-        formData,
-        true // authenticated
-      );
-      
-      console.log('PDF upload response:', response);
+
+      const endpoint = '/api/recipes/from-pdf/'; // Poprawiono ścieżkę
+      console.log('[PDF Upload API] Sending PDF to endpoint:', endpoint);
+
+      // Użyj api.post, zakładając autoryzację (true)
+      const response = await api.post<PDFUploadResponse>(endpoint, formData, true);
+      console.log('[PDF Upload API] PDF upload successful response:', response);
       return response;
     } catch (error) {
-      console.error('PDF upload error:', error);
+      console.error('[PDF Upload API] PDF upload error:', error);
       throw error;
     }
   }
 };
 
-export default pdfUploadApi;
-export { pdfUploadApi }; 
+export default pdfUploadApi; // Eksportuj obiekt singletona
+// Usunięto podwójny eksport

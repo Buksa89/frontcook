@@ -1,30 +1,28 @@
+// src/api/webImportRecipe.ts
 import api from './api';
 
-/**
- * Interface for the response from the recipe web import API
- */
 export interface WebImportRecipeResponse {
   status: string;
   task_id: string;
   message: string;
 }
 
-/**
- * Web recipe import API functions
- */
-const webImportRecipeApi = {
+const webImportRecipeApi = { // Zmieniono na obiekt literalny
   /**
    * Import a recipe from a URL
-   * @param url The URL of the recipe to import
-   * @returns A promise that resolves to the import response
    */
-  importFromUrl: async (url: string): Promise<WebImportRecipeResponse> => {
-    return api.post<WebImportRecipeResponse>(
-      'api/recipes/from-url/',
-      { url },
-      true // authenticated request
-    );
+  async importFromUrl(url: string): Promise<WebImportRecipeResponse> { // Metoda asynchroniczna
+    console.log('[WebImport API] Importowanie przepisu z URL:', url);
+    try {
+      // Użyj api.post, zakładając autoryzację (true)
+      const response = await api.post<WebImportRecipeResponse>('/api/recipes/from-url/', { url }, true);
+      console.log('[WebImport API] Import z URL zakończony sukcesem:', response);
+      return response;
+    } catch (error) {
+      console.error('[WebImport API] Błąd importu przepisu z URL:', error);
+      throw error;
+    }
   },
 };
 
-export default webImportRecipeApi; 
+export default webImportRecipeApi; // Eksportuj obiekt singletona

@@ -1,105 +1,89 @@
+// src/api/auth.ts
 import api from './api';
+// Importuj authService do logiki logout
+import authService from '../services/auth/authService';
 
-// Interfejsy dla danych uwierzytelniania
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
+// Interfejsy (bez zmian)
+export interface LoginRequest { username: string; password: string; }
+export interface LoginResponse { access: string; refresh: string; userId: string; /* Zmieniono username na userId */ }
+export interface RegisterRequest { username: string; email: string; password: string; password2: string; }
+export interface RegisterResponse { username: string; email: string; /* Co zwraca API? */ }
+export interface ResetPasswordRequest { email: string; }
+export interface ResetPasswordResponse { detail: string; }
+// RefreshTokenRequest/Response nie są tu potrzebne, obsługuje je authService/ApiClient
+// LogoutRequest nie jest potrzebny, jeśli endpoint go nie wymaga
+export interface LogoutResponse { detail?: string; }
 
-export interface LoginResponse {
-  access: string;
-  refresh: string;
-  username: string;
-}
-
-export interface RegisterRequest {
-  username: string;
-  email: string;
-  password: string;
-  password2: string;
-}
-
-export interface RegisterResponse {
-  username: string;
-  email: string;
-}
-
-export interface ResetPasswordRequest {
-  email: string;
-}
-
-export interface ResetPasswordResponse {
-  detail: string;
-}
-
-export interface RefreshTokenRequest {
-  refresh: string;
-}
-
-export interface RefreshTokenResponse {
-  access: string;
-  refresh: string;
-}
-
-export interface LogoutRequest {
-  refresh_token: string;
-}
-
-export interface LogoutResponse {
-  detail?: string;
-}
-
-export class AuthApi {
+/**
+ * Obiekt singletona zawierający metody API do autoryzacji.
+ */
+const authApi = {
   /**
-   * Loguje użytkownika
-   * @param credentials Dane logowania (username/email i hasło)
-   * @returns Tokeny dostępu i odświeżania
+   * Loguje użytkownika.
+   * @param credentials Dane logowania.
+   * @returns Obiekt z tokenami i ID użytkownika.
    */
-  static async login(credentials: LoginRequest): Promise<LoginResponse> {
-    return api.post<LoginResponse>('/api/auth/login/', credentials);
-  }
+  async login(credentials: LoginRequest): Promise<LoginResponse> {
+    try {
+      // Login nie wymaga uwierzytelnienia (authenticated = false)
+      const response = await api.post<LoginResponse>('/api/auth/login/', credentials, false);
+      // Zapisz tokeny i userId zaraz po zalogowaniu
+      if (response.access && response.refresh && response.userId) {
+         await authService.login(response.access, response.refresh, response.userId);
+      } else {
+          console.error("[AuthApi] Niekompletna odpowiedź logowania:", response);
+          throw new Error("Otrzymano niekompletne dane logowania z serwera.");
+      }
+      return response;
+    } catch (error) {
+      console.error('[AuthApi] Błąd logowania:', error);
+      throw error; // Rzuć błąd dalej
+    }
+  },
 
   /**
-   * Rejestruje nowego użytkownika
-   * @param userData Dane użytkownika (username, email, hasło, potwierdzenie hasła)
-   * @returns Dane utworzonego użytkownika
+   * Rejestruje nowego użytkownika.
    */
-  static async register(userData: RegisterRequest): Promise<RegisterResponse> {
-    return api.post<RegisterResponse>('/api/auth/register/', userData);
-  }
+  async register(userData: RegisterRequest): Promise<RegisterResponse> {
+    try {
+      // Rejestracja nie wymaga uwierzytelnienia
+      return await api.post<RegisterResponse>('/api/auth/register/', userData, false);
+    } catch (error) {
+      console.error('[AuthApi] Błąd rejestracji:', error);
+      throw error;
+    }
+  },
 
   /**
-   * Wysyła link do resetowania hasła
-   * @param data Dane do resetowania hasła (email)
-   * @returns Informacja o wysłaniu linku
+   * Wysyła żądanie resetowania hasła.
    */
-  static async resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
-    return api.post<ResetPasswordResponse>('/api/auth/forgot-password/', data);
-  }
+  async resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+    try {
+      // Resetowanie hasła nie wymaga uwierzytelnienia
+      return await api.post<ResetPasswordResponse>('/api/auth/forgot-password/', data, false);
+    } catch (error) {
+      console.error('[AuthApi] Błąd resetowania hasła:', error);
+      throw error;
+    }
+  },
 
   /**
-   * Wylogowuje użytkownika
-   * @param refreshToken Token odświeżania do unieważnienia
-   * @param accessToken Token dostępu do autoryzacji żądania
-   * @returns Informacja o wylogowaniu
+   * Wylogowuje użytkownika (wywołuje metodę z authService).
+   * Teraz nie potrzebuje tokenów jako argumentów.
    */
-  static async logout(refreshToken: string, accessToken: string): Promise<LogoutResponse> {
-    const data: LogoutRequest = { refresh_token: refreshToken };
-    const headers = {
-      Authorization: `Bearer ${accessToken}`
-    };
-    return api.post<LogoutResponse>('/api/auth/logout/', data, false, headers);
-  }
+  async logout(): Promise<LogoutResponse | void> { // Zmieniono typ zwracany
+    try {
+      // Wywołaj logikę logout z authService, która obsługuje API i czyszczenie lokalne
+      await authService.logout();
+      // Zwróć pustą odpowiedź lub sukces, jeśli potrzeba
+      return { detail: "Wylogowano pomyślnie." };
+    } catch (error) {
+      console.error('[AuthApi] Błąd wylogowania:', error);
+      throw error;
+    }
+  },
 
-  /**
-   * Odświeża token dostępu
-   * @param refreshToken Token odświeżania
-   * @returns Nowy token dostępu
-   */
-  static async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
-    const data: RefreshTokenRequest = { refresh: refreshToken };
-    return api.post<RefreshTokenResponse>('/api/auth/refresh-token/', data);
-  }
-}
+  // Metoda refreshToken została usunięta, jest teraz w authService i używana przez ApiClient
+};
 
-export default AuthApi;
+export default authApi;
