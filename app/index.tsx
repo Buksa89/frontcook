@@ -11,7 +11,7 @@ export default function IndexScreen() {
       <Link href="/register" style={styles.link}>Przejdź do Rejestracji</Link>
       <Link href="/debug" style={styles.link}>Przejdź do Debug</Link>
        {/* Link do głównego ekranu po zalogowaniu (zakładając Tabs) */}
-       <Link href="/(tabs)/recipes" style={styles.link}>Przejdź do Przepisów (Tabs)</Link>
+       <Link href="/(tabs)/shoppingList" style={styles.link}>Przejdź do Listy Zakupów (Tabs)</Link>
     </View>
   );
 }

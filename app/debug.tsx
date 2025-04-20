@@ -188,7 +188,6 @@ export default function DebugScreen() {
           <Text>Zalogowany: {isAuthenticated ? 'Tak' : 'Nie'}</Text>
           <Text selectable>User ID: {userId ?? 'Brak'}</Text>
           <Text selectable>Access Token: {accessToken ? '*** (obecny)' : 'Brak'}</Text>
-          {/* Można dodać wyświetlanie refresh tokena (w DEBUG) */}
         </View>
       )}
 
@@ -208,7 +207,7 @@ export default function DebugScreen() {
                 styles.tableButtonText,
                 selectedTable === tableName && styles.tableButtonTextSelected
             ]}>
-                {tableName} ({dbData[tableName]?.length ?? '...'})
+              {tableName} ({dbData[tableName]?.length ?? '...'})
             </Text>
           </TouchableOpacity>
         ))}
@@ -217,7 +216,7 @@ export default function DebugScreen() {
       {/* Render the pre-calculated tableContent directly */}
       {tableContent}
 
-      <View style={{ height: 50 }} /> {/* Dodatkowy margines na dole */}
+      <View style={{ height: 50 }} />{/* Dodatkowy margines na dole */}
     </ScrollView>
   );
 }
