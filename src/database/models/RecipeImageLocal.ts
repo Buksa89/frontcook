@@ -6,7 +6,6 @@ import type Recipe from './Recipe';
 export default class RecipeImageLocal extends Model {
   static table = 'recipe_images_local';
 
-  // Zdefiniuj relację do Recipe, aby łatwiej pobierać
   static associations: Associations = {
     recipes: { type: 'belongs_to', key: 'recipe_id' },
   };
@@ -19,5 +18,5 @@ export default class RecipeImageLocal extends Model {
 
   @immutableRelation('recipes', 'recipe_id') recipe!: Relation<Recipe>;
 
-  // Ten model nie potrzebuje metod @writer ani pól sync
+  // Brak metod @writer i pól sync
 }

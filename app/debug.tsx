@@ -158,6 +158,22 @@ export default function DebugScreen() {
     );
   };
 
+  // Determine what content to render for the table data section
+  let tableContent = null;
+  if (isLoadingDb && !refreshing) {
+    tableContent = <ActivityIndicator style={{ marginTop: 20 }} />;
+  } else if (selectedTable) {
+    const records = dbData[selectedTable];
+    if (records?.length > 0) {
+      // Build the array of elements beforehand
+      const recordElements = records.map(renderRecordDetails);
+      tableContent = <View>{recordElements}</View>; // Render the array variable
+    } else {
+      tableContent = <Text style={styles.noRecordsText}>Brak rekordów w tabeli '{selectedTable}'.</Text>;
+    }
+  } else {
+    tableContent = <Text style={styles.noRecordsText}>Wybierz tabelę, aby zobaczyć dane.</Text>;
+  }
 
   return (
     <ScrollView
@@ -198,21 +214,8 @@ export default function DebugScreen() {
         ))}
       </View>
 
-      {/* Wrap the conditional data display section in a View */}
-      <View>
-        {isLoadingDb && !refreshing ? (
-          <ActivityIndicator style={{ marginTop: 20 }} />
-        ) : selectedTable ? (
-          dbData[selectedTable]?.length > 0 ? (
-            // Wrap the mapped result in a View
-            <View>{dbData[selectedTable].map(renderRecordDetails)}</View>
-          ) : (
-              <Text style={styles.noRecordsText}>Brak rekordów w tabeli '{selectedTable}'.</Text>
-          )
-        ) : (
-          <Text style={styles.noRecordsText}>Wybierz tabelę, aby zobaczyć dane.</Text>
-        )}
-      </View>
+      {/* Render the pre-calculated tableContent directly */}
+      {tableContent}
 
       <View style={{ height: 50 }} /> {/* Dodatkowy margines na dole */}
     </ScrollView>
