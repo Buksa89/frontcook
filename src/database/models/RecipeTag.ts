@@ -6,17 +6,17 @@ import {
   immutableRelation,
   writer
 } from '@nozbe/watermelondb/decorators';
-import type { Relation, Associations, Database } from '@nozbe/watermelondb'; // Dodano Database
+import type { Relation, associations, Database } from '@nozbe/watermelondb'; // Dodano Database, Zmieniono Associations na associations
 import type Recipe from './Recipe';
 import type Tag from './Tag';
 import { Q } from '@nozbe/watermelondb'; // Dodano Q
 
 export default class RecipeTag extends Model {
   static table = 'recipe_tags'; // Używamy nazwy tabeli pośredniczącej
-  static associations: Associations = {
+  static associations = {
     recipes: { type: 'belongs_to', key: 'recipe_id' },
     tags: { type: 'belongs_to', key: 'tag_id' },
-  };
+  } as const;
 
   // --- Pola ---
   @field('user_id') userId!: string;
@@ -48,19 +48,16 @@ export default class RecipeTag extends Model {
         }
 
         // Utwórz nowe powiązanie
-        let newLink: RecipeTag | null = null;
-        await database.write(async () => {
-            newLink = await collection.create(link => {
+        return database.write(async () => {
+            const newLink = await collection.create(link => {
                 link.userId = userId;
                 link.recipeId = recipeId;
                 link.tagId = tagId;
             });
+
+            console.log(`[DB RecipeTag] Utworzono nowe powiązanie lokalnie: ${newLink.id} (Recipe: ${recipeId}, Tag: ${tagId}, User: ${userId})`);
+            return newLink;
         });
-
-        if (!newLink) throw new Error("Nie udało się utworzyć powiązania RecipeTag.");
-
-        console.log(`[DB RecipeTag] Utworzono nowe powiązanie lokalnie: ${newLink.id} (Recipe: ${recipeId}, Tag: ${tagId}, User: ${userId})`);
-        return newLink;
 
     } catch (error) {
          console.error(`[DB RecipeTag] Błąd podczas tworzenia powiązania dla Recipe ${recipeId}, Tag ${tagId}, User ${userId}:`, error);

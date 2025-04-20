@@ -7,16 +7,16 @@ import {
   date,
   writer
 } from '@nozbe/watermelondb/decorators';
-import type { Relation, Associations, Database, Collection } from '@nozbe/watermelondb'; // Dodano Database, Collection
+import type { Relation, associations, Database, Collection } from '@nozbe/watermelondb'; // Dodano Database, Collection, Poprawiono Associations -> associations
 import type Recipe from './Recipe';
 import { Observable } from 'rxjs';
-import { parseIngredient } from '../../utils/ingredientParser'; // Poprawiono ścieżkę
+import { parseIngredient } from '../../utils/ingredientParser'; // Przywrócono poprawną ścieżkę
 
 export default class Ingredient extends Model {
   static table = 'ingredients';
-  static associations: Associations = {
+  static associations = {
     recipes: { type: 'belongs_to', key: 'recipe_id' },
-  };
+  } as const;
 
   // --- Pola ---
   @field('user_id') userId!: string;
@@ -94,13 +94,13 @@ export default class Ingredient extends Model {
       }
 
       // Wykonaj wszystkie operacje tworzenia w jednej transakcji batch
-      let createdIngredients: Ingredient[] = [];
+      let createdIngredients: Ingredient[] = newIngredientsBatch; // Przypisz przygotowane modele
       await database.write(async () => {
-        createdIngredients = await database.batch(...newIngredientsBatch) as Ingredient[];
+        await database.batch(...newIngredientsBatch); // Wykonaj batch, który nie zwraca modeli
       });
 
       console.log(`[DB Ingredient] Pomyślnie utworzono lokalnie ${createdIngredients.length} składników dla przepisu ${recipeId}`);
-      return createdIngredients;
+      return createdIngredients; // Zwróć przygotowane modele
 
     } catch (error) {
       console.error(`[DB Ingredient] Błąd podczas lokalnego tworzenia składników z tekstu:`, error);

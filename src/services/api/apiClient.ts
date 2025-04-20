@@ -1,5 +1,8 @@
+// src/services/api/apiClient.ts
 import { API_URL, DEBUG } from '../../config/env';
-import AuthStorage from '../auth/authStorage'; // Importujemy AuthStorage do pobierania tokenu
+import AuthStorage from '../auth/authStorage';
+// Importuj instancję authService - teraz bezpieczne
+import authService from '../auth/authService';
 
 // Niestandardowy błąd API
 export class ApiError extends Error {
@@ -15,66 +18,65 @@ export class ApiError extends Error {
   }
 }
 
+// Kolejka oczekujących żądań podczas odświeżania
+type PendingRequestCallback = (token: string | null) => void;
+let isRefreshing = false;
+let failedQueue: PendingRequestCallback[] = [];
+
+const processQueue = (error: Error | null, token: string | null = null) => {
+  failedQueue.forEach(callback => callback(token));
+  failedQueue = [];
+};
+
 /**
- * Podstawowy klient API z obsługą tokenu Bearer.
- * Odświeżanie tokenu zostanie dodane później.
+ * Klient API z automatycznym odświeżaniem tokenu.
  */
 class ApiClient {
   private baseUrl: string;
+  // Nie potrzebujemy już refreshTokenFunction
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
   }
 
+  // setRefreshTokenFunction zostało usunięte
+
   private normalizeUrl(endpoint: string): string {
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-    // Zwracamy pełny URL
     return `${this.baseUrl}${normalizedEndpoint}`;
   }
 
+  private isRefreshTokenEndpoint(endpoint: string): boolean {
+    return endpoint.includes('/api/auth/refresh-token/');
+  }
+
+   private isLoginEndpoint(endpoint: string): boolean {
+     return endpoint.includes('/api/auth/login/');
+   }
+
   private async parseErrorResponse(response: Response): Promise<ApiError> {
+    // Logika bez zmian
     let errorMessage = `Błąd API: ${response.status} ${response.statusText || 'Unknown Status'}`;
     let errorData: any = null;
     try {
-      const data = await response.json();
-      errorData = data;
+      const data = await response.json(); errorData = data;
       if (typeof data === 'string') errorMessage = data;
       else if (data?.detail) errorMessage = data.detail;
       else if (data?.message) errorMessage = data.message;
       else if (data?.error) errorMessage = data.error;
       else if (data?.non_field_errors) errorMessage = data.non_field_errors.join(', ');
-      else {
-        const fieldErrors = Object.entries(data || {})
-          .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
-          .join('; ');
-        if (fieldErrors) errorMessage = fieldErrors;
-      }
-    } catch (e) {
-      console.warn(`[API] Nie udało się sparsować odpowiedzi błędu jako JSON dla statusu ${response.status}.`);
-      // Spróbuj odczytać jako tekst, jeśli JSON zawiedzie
-      try {
-          const textData = await response.text();
-          if (textData) {
-              errorMessage = textData.substring(0, 200); // Pokaż fragment tekstu błędu
-              errorData = { rawError: textData };
-          }
-      } catch (textError) {
-          // Ignoruj błąd odczytu tekstu
-      }
-    }
+      else { const fieldErrors = Object.entries(data || {}).map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`).join('; '); if (fieldErrors) errorMessage = fieldErrors; }
+    } catch (e) { console.warn(`[API] Nie udało się sparsować odpowiedzi błędu jako JSON dla statusu ${response.status}.`); try { const textData = await response.text(); if (textData) { errorMessage = textData.substring(0, 200); errorData = { rawError: textData }; } } catch (textError) {} }
     return new ApiError(errorMessage, response.status, errorData);
   }
 
-  /**
-   * Główna metoda wykonująca zapytania fetch.
-   */
   async request<T>(
     endpoint: string,
     options: RequestInit = {},
     authenticated: boolean = true
   ): Promise<T> {
     const url = this.normalizeUrl(endpoint);
-    const headers = { ...options.headers } as Record<string, string>;
+    let headers = { ...options.headers } as Record<string, string>;
 
     // Domyślne nagłówki
     headers['Accept'] = 'application/json';
@@ -82,120 +84,129 @@ class ApiClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    // Dołącz token, jeśli zapytanie jest uwierzytelnione
+    // Dołącz token
     if (authenticated) {
       const token = await AuthStorage.retrieveAccessToken();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
-      } else {
-        // Na razie tylko ostrzeżenie, obsługa 401 będzie później
-        console.warn(`[API] Wykonanie uwierzytelnionego zapytania (${endpoint}) bez tokenu.`);
-        // Rzucamy błąd od razu, aby uniknąć niepotrzebnego wywołania API
-        throw new ApiError('Brak tokenu dostępu do uwierzytelnionego zapytania.', 401);
+      } else if (!this.isRefreshTokenEndpoint(endpoint)) {
+        console.warn(`[API] Wykonanie uwierzytelnionego zapytania (${endpoint}) bez zapisanego tokenu.`);
+        delete headers['Authorization'];
       }
     }
 
-    const config: RequestInit = { ...options, headers };
+    let config: RequestInit = { ...options, headers };
 
     if (DEBUG) console.log(`🚀 API REQ: ${config.method || 'GET'} ${endpoint}`);
 
     try {
-      const response = await fetch(url, config);
+      let response = await fetch(url, config);
 
-      // --- Obsługa błędów HTTP ---
-      if (!response.ok) {
-         // Tutaj później dodamy logikę odświeżania tokenu dla 401
-         if (response.status === 401 && authenticated) {
-             console.error(`[API] Otrzymano 401 dla ${endpoint}. Odświeżanie tokenu nie zostało jeszcze zaimplementowane.`);
-             // Rzuć błąd, który może spowodować wylogowanie
-             throw await this.parseErrorResponse(response); // Rzuć błąd API
-         }
-         // Dla innych błędów po prostu rzuć ApiError
-         throw await this.parseErrorResponse(response);
-      }
+      // --- Obsługa Błędu 401 ---
+      if (response.status === 401 && authenticated && !this.isRefreshTokenEndpoint(endpoint) && !this.isLoginEndpoint(endpoint)) {
+        console.log(`[API] Otrzymano 401 dla ${endpoint}. Próba odświeżenia tokenu...`);
 
-      // --- Obsługa pomyślnej odpowiedzi ---
-      if (response.status === 204 || response.headers.get('content-length') === '0') {
-        // if (DEBUG) console.log(`✅ API RES: ${response.status} (No Content) dla ${endpoint}`);
-        return {} as T; // Zwróć pusty obiekt dla 204 No Content
-      }
+        if (!isRefreshing) {
+          isRefreshing = true;
+          try {
+            // Wywołaj metodę bezpośrednio z zaimportowanego authService
+            const newAccessToken = await authService.refreshAccessToken();
+            if (newAccessToken) {
+              console.log('[API] Token pomyślnie odświeżony przez authService.refreshAccessToken.');
+              processQueue(null, newAccessToken);
+              headers['Authorization'] = `Bearer ${newAccessToken}`;
+              config = { ...options, headers };
+              response = await fetch(url, config);
 
-      const contentType = response.headers.get('Content-Type') || '';
-      if (contentType.includes('application/json')) {
-        try {
-            const data = await response.json();
-            // if (DEBUG) console.log(`✅ API RES: ${response.status} dla ${endpoint}`, data);
-            return data as T;
-        } catch (jsonError) {
-             console.error(`[API] Błąd parsowania JSON dla ${endpoint}:`, jsonError);
-             throw new ApiError('Nieprawidłowa odpowiedź JSON z serwera.', response.status);
+              if (!response.ok) {
+                 console.error(`[API] Ponowione zapytanie dla ${endpoint} również zwróciło błąd ${response.status}.`);
+                 throw await this.parseErrorResponse(response);
+              }
+            } else {
+              console.error('[API] Odświeżanie tokenu nie powiodło się (authService zwrócił null).');
+               const refreshError = new ApiError('Sesja wygasła lub błąd odświeżania tokenu.', 401);
+              processQueue(refreshError, null);
+              throw refreshError;
+            }
+          } catch (refreshError: any) {
+             console.error('[API] Krytyczny błąd podczas wywoływania authService.refreshAccessToken:', refreshError);
+             processQueue(refreshError, null);
+             throw new ApiError(refreshError.message || 'Błąd odświeżania tokenu.', refreshError.status || 401);
+          } finally {
+            isRefreshing = false;
+          }
+        } else {
+          // Dodaj do kolejki
+          console.log(`[API] Odświeżanie w toku, dodawanie ${endpoint} do kolejki.`);
+          return new Promise<T>((resolve, reject) => {
+            failedQueue.push(async (newAccessToken: string | null) => {
+               if (!newAccessToken) {
+                   console.log(`[API Queue] Odświeżanie nie powiodło się, odrzucanie zapytania dla ${endpoint}.`);
+                   reject(new ApiError('Odświeżanie tokenu nie powiodło się.', 401));
+                   return;
+               }
+              try {
+                  headers['Authorization'] = `Bearer ${newAccessToken}`;
+                  const retryConfig = { ...options, headers };
+                  const retryResponse = await fetch(url, retryConfig);
+                  if (!retryResponse.ok) { throw await this.parseErrorResponse(retryResponse); }
+                  const data = await this.handleResponse<T>(retryResponse);
+                  resolve(data);
+              } catch (retryError) { reject(retryError); }
+            });
+          });
         }
-      } else {
-        // Dla innych typów odpowiedzi (np. pliki), zwróć obiekt Response
-        // console.log(`✅ API RES: ${response.status} (Non-JSON: ${contentType}) dla ${endpoint}`);
-        return response as unknown as T;
-      }
+      } // Koniec obsługi 401
+
+      // --- Obsługa Innych Odpowiedzi ---
+      if (!response.ok) { throw await this.parseErrorResponse(response); }
+      return await this.handleResponse<T>(response);
 
     } catch (error) {
-      if (error instanceof ApiError) {
-        console.error(`[API] Błąd ${error.status} dla ${config.method || 'GET'} ${endpoint}: ${error.message}`, error.data);
-        throw error; // Rzuć dalej ApiError
-      } else if (error instanceof Error) {
-         // Błędy sieciowe (TypeError: Network request failed) lub inne błędy fetch
-         console.error(`[API] Błąd sieciowy lub fetch dla ${config.method || 'GET'} ${endpoint}: ${error.message}`, error);
-         throw new ApiError(error.message || 'Błąd połączenia sieciowego', 0); // Status 0 dla błędów sieciowych
-      } else {
-         console.error(`[API] Nieznany typ błędu dla ${config.method || 'GET'} ${endpoint}:`, error);
-         throw new ApiError('Wystąpił nieznany błąd', 0);
-      }
+      // Obsługa błędów (bez zmian)
+      if (error instanceof ApiError) { console.error(`[API] Błąd ${error.status} dla ${config.method || 'GET'} ${endpoint}: ${error.message}`, error.data ? JSON.stringify(error.data).substring(0, 300) : ''); throw error; }
+      else if (error instanceof Error) { console.error(`[API] Błąd sieciowy lub fetch dla ${config.method || 'GET'} ${endpoint}: ${error.message}`, error); throw new ApiError(error.message || 'Błąd połączenia sieciowego', 0); }
+      else { console.error(`[API] Nieznany typ błędu dla ${config.method || 'GET'} ${endpoint}:`, error); throw new ApiError('Wystąpił nieznany błąd', 0); }
     }
   }
 
-  // --- Metody Pomocnicze ---
-  async get<T>(endpoint: string, authenticated: boolean = true): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' }, authenticated);
+  /** Przetwarza pomyślną odpowiedź fetch. */
+  private async handleResponse<T>(response: Response): Promise<T> {
+    // Logika bez zmian
+    if (response.status === 204 || response.headers.get('content-length') === '0') { return {} as T; }
+    const contentType = response.headers.get('Content-Type') || '';
+    if (contentType.includes('application/json')) { try { const data = await response.json(); return data as T; } catch (jsonError) { console.error(`[API] Błąd parsowania JSON dla ${response.url}:`, jsonError); throw new ApiError('Nieprawidłowa odpowiedź JSON z serwera.', response.status); } }
+    else { console.log(`[API] Otrzymano odpowiedź inną niż JSON (${contentType}) dla ${response.url}`); return response as unknown as T; }
   }
 
+  // --- Metody Pomocnicze (bez zmian) ---
+  async get<T>(endpoint: string, authenticated: boolean = true): Promise<T> { return this.request<T>(endpoint, { method: 'GET' }, authenticated); }
   async post<T>(endpoint: string, data?: any, authenticated: boolean = true, headers?: Record<string, string>): Promise<T> {
-    const options: RequestInit = {
-      method: 'POST',
-      headers: headers,
-    };
+    // Zmiana: Tworzymy nowy obiekt nagłówków zamiast modyfikować istniejący
+    let finalHeaders: Record<string, string> = { ...(headers || {}) };
+    const options: RequestInit = { method: 'POST' };
+
     if (data instanceof FormData) {
       options.body = data;
-      // Usuń Content-Type, fetch sam go ustawi dla FormData
-      if (options.headers) delete options.headers['Content-Type'];
+      // Usuwamy Content-Type z naszego nowego obiektu
+      delete finalHeaders['Content-Type'];
     } else if (data !== undefined && data !== null) {
       options.body = JSON.stringify(data);
-      options.headers = { 'Content-Type': 'application/json', ...options.headers };
+      // Dodajemy Content-Type do naszego nowego obiektu, jeśli go nie ma
+      if (!finalHeaders['Content-Type']) {
+          finalHeaders['Content-Type'] = 'application/json';
+      }
     }
+
+    // Przypisujemy finalny obiekt nagłówków do opcji
+    options.headers = finalHeaders;
+
     return this.request<T>(endpoint, options, authenticated);
   }
-
-  // Dodaj metody PUT, PATCH, DELETE w razie potrzeby (analogicznie do POST)
-  async put<T>(endpoint: string, data: any, authenticated: boolean = true, headers?: Record<string, string>): Promise<T> {
-    const options: RequestInit = {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify(data),
-    };
-    return this.request<T>(endpoint, options, authenticated);
-  }
-
-  async patch<T>(endpoint: string, data: any, authenticated: boolean = true, headers?: Record<string, string>): Promise<T> {
-     const options: RequestInit = {
-       method: 'PATCH',
-       headers: { 'Content-Type': 'application/json', ...headers },
-       body: JSON.stringify(data),
-     };
-     return this.request<T>(endpoint, options, authenticated);
-   }
-
-  async delete<T>(endpoint: string, authenticated: boolean = true, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE', headers: headers }, authenticated);
-  }
+  async put<T>(endpoint: string, data: any, authenticated: boolean = true, headers?: Record<string, string>): Promise<T> { /* ... jak poprzednio ... */ const options: RequestInit = { method: 'PUT', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(data), }; return this.request<T>(endpoint, options, authenticated); }
+  async patch<T>(endpoint: string, data: any, authenticated: boolean = true, headers?: Record<string, string>): Promise<T> { /* ... jak poprzednio ... */ const options: RequestInit = { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(data), }; return this.request<T>(endpoint, options, authenticated); }
+  async delete<T>(endpoint: string, authenticated: boolean = true, headers?: Record<string, string>): Promise<T> { /* ... jak poprzednio ... */ return this.request<T>(endpoint, { method: 'DELETE', headers: headers }, authenticated); }
 }
 
-// Eksportuj instancję singletona
 const apiClient = new ApiClient(API_URL);
 export default apiClient;

@@ -1,14 +1,14 @@
 import { Model } from '@nozbe/watermelondb';
 import { field, text, immutableRelation } from '@nozbe/watermelondb/decorators';
-import type { Relation, Associations } from '@nozbe/watermelondb';
+import type { Relation, associations } from '@nozbe/watermelondb';
 import type Recipe from './Recipe';
 
 export default class RecipeImageLocal extends Model {
   static table = 'recipe_images_local';
 
-  static associations: Associations = {
+  static associations = {
     recipes: { type: 'belongs_to', key: 'recipe_id' },
-  };
+  } as const;
 
   @field('recipe_id') recipeId!: string;
   @text('local_path') localPath?: string | null;
