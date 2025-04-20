@@ -164,6 +164,19 @@ src/
     *   **Rozwiązanie:** `RecipeListScreen` pobiera dwie listy przepisów (oczekujące i zatwierdzone) lub jedną i filtruje. Wyświetla je w osobnych sekcjach (np. używając `SectionList` lub dodając nagłówek/separator), używając odpowiednich komponentów (`PendingRecipeCard` dla oczekujących, `RecipeCard` dla zatwierdzonych). Ekran detali/edycji może również dostosowywać swoje UI na podstawie flagi `is_approved`.
     *   **Uzasadnienie:** Zapewnia jasny przepływ pracy dla użytkownika z przepisami zaimportowanymi/wygenerowanymi, które wymagają weryfikacji.
 
+*   **UI - Zmiana Kolejności (TODO):**
+    *   **Wymaganie:** Umożliwienie zmiany kolejności Tagów i ShoppingItem przez Drag & Drop.
+    *   **Plan:** Modele `Tag` i `ShoppingItem` posiadają pole `order`. Implementacja UI (np. z `react-native-gesture-handler` i `react-native-reanimated` lub dedykowaną biblioteką D&D) będzie musiała po zakończeniu przeciągania wywołać operację `@writer` w WDB, która zaktualizuje pola `order` (i **koniecznie** `last_modified`) dla zmienionych elementów w odpowiedniej kolejności, zapewniając synchronizację zmian.
+
+**8. Przyszłe Rozważania / TODO**
+
+*   Implementacja funkcjonalności Znajomych (online-only, przez API).
+*   Implementacja interfejsu Drag & Drop do zmiany kolejności tagów i listy zakupów.
+*   Obsługa błędów API w sposób bardziej przyjazny dla użytkownika (dedykowane komunikaty).
+*   Optymalizacja pobierania i cache'owania obrazków (np. ograniczenie liczby równoczesnych pobrań).
+*   Potencjalne wprowadzenie bardziej zaawansowanego zarządzania stanem (np. Zustand, Redux Toolkit), jeśli zarządzanie przez Context API stanie się zbyt skomplikowane.
+*   Testy jednostkowe i integracyjne dla serwisów i logiki biznesowej.
+
 **9. Wnioski**
 
 Proponowana architektura zapewnia solidne podstawy dla aplikacji SmartCook. Kładzie nacisk na modularność, separację odpowiedzialności i obsługę kluczowych wymagań, takich jak praca offline z synchronizacją WatermelonDB, adaptacja do środowiska DEBUG oraz specyficzne mechanizmy obsługi danych offline i obrazków. Architektura jest zaprojektowana z myślą o przyszłej rozbudowie i łatwości utrzymania.

@@ -1,7 +1,16 @@
 import os
 import sys
+import pathspec
 
-def list_files_with_content(root_path, output_file, indent=0):
+def load_gitignore_spec(root_path):
+    gitignore_path = os.path.join(root_path, ".gitignore")
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        return pathspec.PathSpec.from_lines("gitwildmatch", lines)
+    return pathspec.PathSpec.from_lines("gitwildmatch", [])
+
+def list_files_with_content(root_path, output_file, spec, indent=0, rel_path=""):
     try:
         entries = sorted(os.listdir(root_path))
     except PermissionError:
@@ -10,9 +19,14 @@ def list_files_with_content(root_path, output_file, indent=0):
 
     for entry in entries:
         full_path = os.path.join(root_path, entry)
+        relative_path = os.path.join(rel_path, entry)
+
+        if spec.match_file(relative_path):
+            continue
+
         if os.path.isdir(full_path):
             output_file.write("  " * indent + f"[📁] {entry}/\n")
-            list_files_with_content(full_path, output_file, indent + 1)
+            list_files_with_content(full_path, output_file, spec, indent + 1, relative_path)
         else:
             output_file.write("  " * indent + f"- {entry}\n")
             try:
@@ -28,17 +42,26 @@ def list_files_with_content(root_path, output_file, indent=0):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Użycie: python drzewo.py <ścieżka_do_folderu> [plik_wyjściowy]")
+        print("Użycie: python drzewo.py <ścieżka1> [ścieżka2 ...] [plik_wyjściowy.txt]")
         sys.exit(1)
 
-    folder_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else "output.txt"
+    *paths, maybe_output = sys.argv[1:]
 
-    if not os.path.exists(folder_path):
-        print(f"Ścieżka '{folder_path}' nie istnieje.")
-        sys.exit(1)
+    if maybe_output.endswith(".txt"):
+        output_path = maybe_output
+        folder_paths = paths
+    else:
+        output_path = "output.txt"
+        folder_paths = paths + [maybe_output]
 
     with open(output_path, "w", encoding='utf-8') as f:
-        list_files_with_content(folder_path, f)
+        for folder_path in folder_paths:
+            if not os.path.exists(folder_path):
+                f.write(f"[⚠️] Ścieżka '{folder_path}' nie istnieje.\n\n")
+                continue
+
+            f.write(f"\n### 📂 ZAWARTOŚĆ: {folder_path} ###\n\n")
+            gitignore_spec = load_gitignore_spec(folder_path)
+            list_files_with_content(folder_path, f, gitignore_spec)
 
     print(f"Zapisano do pliku: {output_path}")
