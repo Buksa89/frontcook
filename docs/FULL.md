@@ -16,6 +16,7 @@ Niniejszy dokument opisuje architekturę frontendową aplikacji mobilnej OmNomNo
 *   **Zarządzanie Danymi Offline Użytkownika:** Bezpieczne i logiczne obsłużenie danych utworzonych przez użytkownika przed pierwszym zalogowaniem.
 *   **Efektywne Zarządzanie Obrazkami:** Lokalna obsługa obrazków przepisów użytkownika w celu zapewnienia dostępności offline i optymalizacji wydajności.
 *   **Stylistyka "Monochrome":** Implementacja minimalistycznego, czytelnego i spójnego interfejsu użytkownika, który nie przytłacza i skupia się na funkcjonalności.
+*   **Spójny Feedback dla Użytkownika:** Użycie komponentu `Toast` do informowania o sukcesach, ostrzeżeniach i błędach (w tym błędach walidacji formularzy), zamiast natywnych `Alert`. `Alert` zarezerwowany dla akcji wymagających jawnego potwierdzenia (np. usuwanie).
 
 **3. Stos Technologiczny**
 
@@ -32,7 +33,10 @@ Niniejszy dokument opisuje architekturę frontendową aplikacji mobilnej OmNomNo
 *   **Obsługa Plików Lokalnych:** `expo-file-system`, `expo-image-manipulator`
 *   **Interakcje Drag & Drop:** `react-native-draggable-flatlist` (dla listy zakupów)
 *   **Komponenty UI:** Standardowe komponenty React Native, `@expo/vector-icons`.
-*   **Narzędzia Dodatkowe:** `react-native-toast-message` (dla powiadomień), `eventemitter3` (dla `SyncService`).
+*   **Narzędzia Dodatkowe:**
+    *   `react-native-toast-message` (dla powiadomień typu Toast)
+    *   `eventemitter3` (dla `SyncService`)
+    *   `@react-native-community/netinfo` (do sprawdzania stanu sieci)
 
 **4. Stylistyka "Monochrome" i Założenia UX/UI**
 
@@ -44,18 +48,18 @@ Niniejszy dokument opisuje architekturę frontendową aplikacji mobilnej OmNomNo
     *   **Zasada:** Unikanie gradientów, mocnych cieni, wielu jaskrawych kolorów. Nacisk na kontrast i dostępność.
 *   **Typografia:**
     *   **Czcionka:** Systemowa (San Francisco/Roboto).
-    *   **Hierarchia:** Uzyskiwana przez rozmiar (np. Tytuł ekranu 20pt, Tytuł sekcji 16pt, Tekst główny 15pt, Tekst pomocniczy 13pt) i wagę (np. Bold/Semibold dla tytułów, Regular dla reszty).
+    *   **Hierarchia:** Uzyskiwana przez rozmiar (np. Tytuł ekranu 18-20pt, Tytuł sekcji 16pt, Tekst główny 15-16pt, Tekst pomocniczy 13-14pt) i wagę (np. Bold/Semibold dla tytułów, Regular dla reszty).
     *   **Interlinia:** Dostosowana do komfortu czytania (ok. 1.4-1.5).
 *   **Styl Komponentów:**
-    *   **Przyciski:** Proste, z lekkim zaokrągleniem (`borderRadius: 6-8`), wypełnione (kolor akcentu lub szary dla nieaktywnych) lub zarysowane (dla drugorzędnych akcji). Spójna wysokość (np. 44-48px). Reużywalny komponent `Button` (`src/components/Button.tsx`).
-    *   **Inputy:** Jasne tło (`#f1f5f9`), delikatna ramka (`#e2e8f0`), zaokrąglenie (`borderRadius: 6-8`), czytelny tekst.
+    *   **Przyciski:** Proste, z lekkim zaokrągleniem (`borderRadius: 6-10`), wypełnione (kolor akcentu `active` lub szary/inny dla `secondary`) lub ikonowe (`iconOnly`). Spójna wysokość (np. 44-50px). Reużywalny komponent `Button` (`src/components/Button.tsx`) obsługuje warianty, stany `disabled` i `isLoading`.
+    *   **Inputy:** Jasne tło (`#f7f7f7` lub `#f1f5f9`), delikatna ramka (`#eee` lub `#e2e8f0`), zaokrąglenie (`borderRadius: 10`), czytelny tekst, ikony wewnątrz (`MaterialIcons`).
     *   **Karty:** Białe tło, lekkie zaokrąglenie, subtelny cień lub ramka. Przejrzysty układ.
     *   **Checkboxy:** Kwadratowe ikony (`MaterialIcons` `check-box`/`check-box-outline-blank`), zmiana koloru wskazująca stan.
-    *   **Modale/Menu:** Czysty wygląd, tło overlay, zaokrąglone rogi, spójne przyciski.
+    *   **Modale/Menu:** Czysty wygląd, tło overlay (`rgba(0,0,0,0.4)`), zaokrąglone górne rogi dla menu wysuwanych od dołu (`MainMenu`), spójne przyciski.
 *   **UX i Interakcje:**
-    *   **Intuicyjność:** Proste i przewidywalne przepływy.
-    *   **Feedback:** Wyraźny (Toast dla informacji, Alert dla potwierdzeń krytycznych, wskaźniki ładowania).
-    *   **Animacje:** Minimalne, subtelne (np. `LayoutAnimation.Presets.easeInEaseOut` dla rozwijania/zwijania, fade dla modali, max 150-200ms).
+    *   **Nawigacja:** Użycie Expo Router z layoutami grupowymi (`(auth)`, `(tabs)`) i Stackiem. Zaimplementowano niestandardowy nagłówek dla `(tabs)` z wyszukiwarką i `MainMenu`. Dla `(auth)` zaimplementowano nagłówek ze stałym przyciskiem "Wstecz" nawigującym do listy przepisów.
+    *   **Feedback:** Spójne użycie `Toast` (`react-native-toast-message` z `src/components/Toast.tsx`) do informowania o sukcesach (np. logowanie, wysłanie linku resetującego), ostrzeżeniach (np. walidacja formularzy) i błędach (w tym błędach API z przetłumaczonymi komunikatami). `Alert` używany tylko do krytycznych potwierdzeń (np. usuwanie). Wskaźniki ładowania (`ActivityIndicator`) w przyciskach i globalnie podczas inicjalizacji.
+    *   **Animacje:** Minimalne, subtelne (`LayoutAnimation.Presets.easeInEaseOut`, fade dla modali, animacja wyszukiwarki).
     *   **Responsywność:** Układ dostosowany do ekranów mobilnych.
 
 **5. Struktura Katalogów**
@@ -63,81 +67,105 @@ Niniejszy dokument opisuje architekturę frontendową aplikacji mobilnej OmNomNo
 ```
 src/
 |-- app/                   # (Expo Router) Definicje ekranów/nawigacji
-|-- assets/                # Statyczne zasoby
-|-- components/            # Globalne, reużywalne komponenty UI (np. Button, HeaderDeleteButton, Toast)
-|-- config/                # Konfiguracja (env, theme)
-|-- contexts/              # Globalne konteksty React (AuthContext, SyncStatusContext)
-|-- database/              # Logika WatermelonDB (index, schema, models, migrations)
-|-- features/              # Główne moduły/funkcjonalności aplikacji
-|   |-- auth/              # Logowanie, Rejestracja
-|   |-- recipes/           # Przepisy Użytkownika (Offline-first)
-|   |   |-- components/    # (np. RecipeCard, AddRecipeMenu, FilterMenu, SortMenu)
-|   |   |-- hooks/         #
-|   |   |-- screens/       # (np. RecipeListScreen - w app/)
-|   |   |-- types.ts       #
-|   |-- shoppingList/      # Lista Zakupów (Offline-first)
-|   |   |-- components/    #
-|   |   |-- hooks/         #
-|   |   |-- screens/       # (np. ShoppingListScreen - w app/)
-|   |   |-- types.ts       #
-|   |-- notifications/     # Powiadomienia (Offline-first)
-|   |-- settings/          # Ustawienia
-|   |-- friends/           # Zarządzanie Znajomymi i Przeglądanie Ich Przepisów (Online-only)
-|   |   |-- components/    # Komponenty specyficzne dla znajomych/stalkingu
-|   |   |-- hooks/         # Hooki do pobierania danych znajomych/przepisów z API
-|   |   |-- screens/       # Ekrany FriendsListScreen, FriendRecipesScreen (Stalking)
-|   |   |-- types.ts       # Typy dla danych znajomych i ich przepisów (z API)
-|   |-- import/            # (Opcjonalnie) Komponenty związane z importem
+|   |-- (auth)/            # Grupa ekranów autoryzacji
+|   |   |-- _layout.tsx      # Layout Stack dla grupy (auth) z niestandardowym headerLeft
+|   |   |-- index.tsx        # Komponent przekierowujący (Redirect) na podstawie stanu auth
+|   |   |-- login.tsx        # Ekran logowania
+|   |   |-- register.tsx     # Ekran rejestracji
+|   |   |-- forgot-password.tsx # Ekran resetowania hasła
+|   |-- (tabs)/            # Grupa ekranów z zakładkami (główna część aplikacji)
+|   |   |-- _layout.tsx      # Layout Stack dla grupy (tabs) z niestandardowym nagłówkiem i MainMenu
+|   |   |-- recipes.tsx      # Ekran listy przepisów (kontener)
+|   |   |-- shoppingList.tsx # Ekran listy zakupów (kontener)
+|   |   |-- settings.tsx     # Ekran ustawień (TODO)
+|   |-- (screens)/         # Grupa dla ekranów bez zakładek (np. detale, edycja)
+|   |   |-- RecipeDetailScreen/ (TODO)
+|   |   |-- RecipeManagementScreen/ (TODO)
+|   |-- _layout.tsx          # Główny layout aplikacji (renderuje AppRoot)
+|   |-- debug.tsx          # Ekran debugowania
+|   |-- index.tsx            # Przekierowanie na startowy ekran (np. do grupy (auth))
+|-- assets/                # Statyczne zasoby (obrazy, czcionki)
+|-- components/            # Globalne, reużywalne komponenty UI
+|   |-- Button.tsx         # Przycisk z wariantami i stanami ładowania/wyłączenia
+|   |-- HeaderDeleteButton.tsx # Przycisk usuwania do nagłówka
+|   |-- MainMenu.tsx       # Wysuwane menu główne aplikacji
+|   |-- Toast.tsx          # Konfiguracja i wrapper dla react-native-toast-message
+|-- config/                # Konfiguracja
+|   |-- env.ts             # Zmienne środowiskowe (API_URL, DEBUG)
+|   |-- theme.ts           # Paleta kolorów, typografia, style komponentów (np. ButtonStyles)
+|-- contexts/              # Globalne konteksty React
+|   |-- AuthContext.tsx    # Zarządzanie stanem autentykacji, funkcje login/logout/register/reset
+|   |-- SyncStatusContext.tsx # Śledzenie statusu synchronizacji WDB
+|-- database/              # Logika WatermelonDB
+|   |-- index.ts           # Inicjalizacja bazy, wybór adaptera
+|   |-- schema.ts          # Definicja schematu bazy danych (wersja 2)
+|   |-- models/            # Modele WDB (Recipe, Tag, Ingredient, ShoppingItem, etc.)
+|   |-- migrations.ts      # Migracje schematu
+|-- features/              # Główne moduły/funkcjonalności (komponenty specyficzne dla modułu)
+|   |-- recipes/
+|   |   |-- components/    # RecipeCard, PendingRecipeCard, AddRecipeMenu, FilterMenu, SortMenu, TagList
+|   |   |-- types.ts       # FilterState, SortOption
+|   |-- shoppingList/
+|   |   |-- components/    # (Jeśli potrzebne specyficzne komponenty)
+|   |-- (inne moduły jak friends, settings, notifications...)
 |-- hooks/                 # Globalne, reużywalne hooki
 |-- services/              # Logika biznesowa, API, synchronizacja
-|   |-- api/               # Moduły komunikacji z API backendu (apiClient, authApi, syncApi, ...)
+|   |-- api/               # Moduły komunikacji z API (apiClient, authApi, syncApi, ...)
 |   |-- auth/              # Serwis i storage autentykacji (authService, authStorage, authUserIdProvider)
 |   |-- sync/              # Serwis synchronizacji WatermelonDB (syncService)
 |   |-- image/             # Serwis zarządzania lokalnymi obrazkami (imageService)
-|   |-- friends/           # (Nowy/TODO) Serwis do interakcji z API znajomych i przepisów znajomych
+|   |-- friends/           # (TODO) Serwis dla znajomych
 |-- types/                 # Globalne typy TypeScript
-|-- utils/                 # Globalne funkcje pomocnicze (np. imageProcessor, ingredientParser, timeFormat)
-|-- App.tsx                # Główny komponent aplikacji
+|-- utils/                 # Globalne funkcje pomocnicze (imageProcessor, ingredientParser, shoppingItemParser, timeFormat)
+|-- App.tsx                # Główny komponent aplikacji (inicjalizacja, providery)
 ```
-
-**Uzasadnienie:** Struktura pozostaje modularna. Funkcjonalność związana ze znajomymi i przeglądaniem ich przepisów ("Stalking") jest zgrupowana w dedykowanym module `features/friends/`. Ten moduł będzie zawierał komponenty, hooki i ekrany operujące głównie na danych pobieranych bezpośrednio z API, a nie z WatermelonDB.
 
 **6. Kluczowe Komponenty Architektury**
 
 *   **Warstwa Bazy Danych (`src/database`)**
     *   **Cel:** Dostęp do danych *użytkownika* offline, synchronizacja.
     *   **Kluczowe Elementy:**
-        *   **`index.ts`:** Wybór adaptera (SQLite/LokiJS) na podstawie `DEBUG`, inicjalizacja `Database`, obsługa JSI. Przekazuje `migrations` do adapterów.
-        *   **`schema.ts`:** Wersja 2. Definiuje wszystkie tabele użytkownika (synchronizowane) **z `user_id` jako opcjonalnym (`isOptional: true`)** oraz lokalną tabelę `recipe_images_local`.
-        *   **`models/`:** Implementacje modeli WDB. Zawierają logikę biznesową (np. `ShoppingItem.addItemFromText` z mergowaniem, `ShoppingItem.bulkUpdateOrder` do D&D, `Recipe.markAsDeletedCascade`), metody `@writer` i metody obserwacji (`observe...`). Modele używają `getCurrentUserId` (z `authUserIdProvider`) zamiast bezpośrednio `AuthService`.
-        *   **`migrations.ts`:** Zawiera definicję migracji z wersji 1 do 2 (pusty krok `steps`).
+        *   **`index.ts`:** Wybór adaptera (SQLite/LokiJS), inicjalizacja `Database`.
+        *   **`schema.ts`:** Wersja 2. Definiuje tabele z opcjonalnym `user_id`.
+        *   **`models/`:** Modele WDB z logiką (`ShoppingItem.addItemFromText`, `Recipe.markAsDeletedCascade`, `Tag.observeAll(db, userId)`, etc.). Użycie `getCurrentUserId` z `authUserIdProvider`.
+        *   **`migrations.ts`:** Definicja migracji (obecnie do v2).
 
 *   **Warstwa Komunikacji API (`src/services/api`)**
     *   **Cel:** Komunikacja z backendem REST API.
     *   **Kluczowe Elementy:**
-        *   **`apiClient.ts`:** Centralny klient HTTP z automatycznym dołączaniem tokenu Bearer i **zaimplementowaną logiką odświeżania tokenu** przy błędzie 401 (używając `authService.refreshAccessToken`). Odpowiednio formatuje dane dla `POST`, obsługuje `FormData`. Zgodny z dokumentacją API (np. pole `login` zamiast `username`).
-        *   **Moduły API:** `authApi.ts`, `syncApi.ts`, `recipesApi.ts` (do importu/uploadu/delete obrazków), `ninjaApi.ts` (TODO), `userApi.ts` (TODO), `friendsApi.ts` (TODO). Definiują interfejsy Request/Response zgodne z backendem.
+        *   **`apiClient.ts`:** Centralny klient HTTP. Automatyczne dodawanie tokenu Bearer. **Zaimplementowana logika odświeżania tokenu** przy błędzie 401 (wywołuje `authApi.refreshToken`). Obsługa `FormData`. Tłumaczenie błędów w `parseErrorResponse`.
+        *   **`authApi.ts`:** Funkcje dla endpointów `/login/`, `/register/`, `/logout/`, `/forgot-password/`. Zawiera teraz dedykowaną funkcję **`refreshToken`** do obsługi API odświeżania, która zapisuje nowe tokeny przez `AuthStorage`.
+        *   **Inne Moduły API:** `syncApi.ts`, `recipesApi.ts`, etc.
 
 *   **Serwisy (`src/services`)**
     *   **Cel:** Logika biznesowa, zarządzanie stanem zewnętrznym.
     *   **Kluczowe Serwisy:**
-        *   **`AuthService` (`src/services/auth/authService.ts`):** Zarządza logowaniem/wylogowaniem, tokenami (`AuthStorage`). Implementuje logikę **przypisywania danych offline (`userId=null`)** po otrzymaniu flagi `is_first_ever_login` z API `/login/`. Dostarcza metodę `refreshAccessToken` używaną przez `apiClient`. Używa `authUserIdProvider` do dostarczania ID użytkownika dla innych części systemu.
-        *   **`SyncService` (`src/services/sync/syncService.ts`):** Zarządza cyklem synchronizacji WDB danych użytkownika (start, stop, status, cykliczne wywołania, obsługa offline/błędów, ponowienia). Używa `syncApi`. Przekazuje `migrationsEnabledAtVersion` do `synchronize`. Emituje zdarzenia (`statusChanged`).
-        *   **`ImageService` (`src/services/image/imageService.ts`):** Zarządza lokalnymi obrazkami przepisów użytkownika. Nasłuchuje na zmiany `Recipe.imageUrl`, pobiera, przetwarza (`utils/imageProcessor.ts`), zapisuje pliki i aktualizuje lokalny model `RecipeImageLocal` w WDB. Obsługuje usuwanie. Używa RxJS (z `bufferTime` i `mergeMap`) do zarządzania kolejką przetwarzania i unikania problemów z wydajnością.
-        *   **`FriendsService` (TODO):** Do obsługi logiki związanej ze znajomymi (API).
+        *   **`AuthService` (`src/services/auth/authService.ts`):** Zarządza procesem logowania/wylogowania. Wywołuje `authApi` i zapisuje/czyści dane w `AuthStorage`. Implementuje logikę **przypisywania danych offline** po otrzymaniu flagi `is_first_ever_login`. **Nie zawiera już** metody `refreshAccessToken`.
+        *   **`authUserIdProvider.ts`:** Dostarcza asynchroniczną funkcję `getCurrentUserId` do bezpiecznego pobierania ID użytkownika w modelach WDB.
+        *   **`SyncService` (`src/services/sync/syncService.ts`):** Zarządza cyklem synchronizacji WDB (start, stop, status, logi, interwały, obsługa offline/błędów, ponowienia). Używa `syncApi`.
+        *   **`ImageService` (`src/services/image/imageService.ts`):** Zarządza lokalnymi obrazkami przepisów użytkownika (pobieranie, przetwarzanie, zapis, usuwanie, aktualizacja `RecipeImageLocal`). Używa RxJS do kolejkowania.
+        *   **`FriendsService` (TODO):** Logika znajomych.
 
 *   **Konteksty (`src/contexts`)**
     *   **Cel:** Globalny stan.
     *   **Kluczowe Konteksty:**
-        *   **`AuthContext.tsx`:** Stan `isAuthenticated`, `userId`, `isLoading`. Metody `login`, `logout`, `register`, `resetPassword`. Inicjalizuje stan autentykacji przy starcie aplikacji.
-        *   **`SyncStatusContext.tsx`:** Stan `syncStatus`, `lastSyncError`, `logs`. Metoda `triggerSync`. Subskrybuje do zdarzeń `SyncService`.
+        *   **`AuthContext.tsx`:** Stan `isAuthenticated`, `userId`, `accessToken`, **`isAuthCheckLoading`** (tylko dla inicjalizacji). Metody `login`, `logout`, `register`, `resetPassword`. Wywołuje odpowiednie funkcje z `authService` lub `authApi`. **Tłumaczy błędy API** na polskie komunikaty przed pokazaniem `Toast`.
+        *   **`SyncStatusContext.tsx`:** Stan synchronizacji (`status`, `lastError`, `logs`), metoda `triggerSync`.
 
 *   **Interfejs Użytkownika (UI)**
     *   **Cel:** Prezentacja, interakcja.
-    *   **Komponenty Reużywalne (`src/components`):** Zaimplementowano `Button.tsx` (z wariantami `active`, `secondary`, `iconOnly`, obsługą `disabled`, `isLoading`), `HeaderDeleteButton.tsx`, `Toast.tsx`.
-    *   **Ekrany (`app/` lub `src/features/.../screens`):**
-        *   **`RecipeListScreen` (`app/(tabs)/recipes.tsx`):** Główny ekran. Wyświetla przepisy oczekujące (`PendingRecipeCard`) i zatwierdzone (`RecipeCard`) z WDB w osobnych sekcjach (używając `SectionList`). Integruje filtrowanie (`EnhancedFilterMenu`), sortowanie (`SortMenu`), wyszukiwanie (w nagłówku `app/(tabs)/_layout.tsx`) i dodawanie (`AddRecipeMenu`). Używa `withObservables` do reaktywnego pobierania danych.
-        *   **`ShoppingListScreen` (`app/(tabs)/shoppingList.tsx`):** Wyświetla listę zakupów (niekupione/kupione) z WDB. Implementuje dodawanie (z mergowaniem), edycję, usuwanie, oznaczanie, czyszczenie listy. Używa `withObservables`. Zaimplementowano **Drag & Drop do zmiany kolejności** niekupionych elementów za pomocą `react-native-draggable-flatlist`. Przyciski "Dodaj" i "Wyczyść listę" używają reużywalnych komponentów `Button` i `HeaderDeleteButton`.
+    *   **Nawigacja:** Expo Router z grupami `(auth)`, `(tabs)`, `(screens)`.
+        *   Layout `(auth)` ma **niestandardowy przycisk "Wstecz"**, który zawsze nawiguje do `/recipes`.
+        *   Layout `(tabs)` ma **niestandardowy nagłówek** z animowaną wyszukiwarką i przyciskiem otwierającym `MainMenu`.
+    *   **Komponenty Reużywalne (`src/components`):**
+        *   `Button.tsx`: Używany w ekranach logowania, rejestracji, resetowania hasła.
+        *   `MainMenu.tsx`: Wysuwane menu z opcjami zależnymi od stanu logowania, obsługuje akcje (nawigacja, wylogowanie).
+        *   `Toast.tsx`: Zapewnia globalny system powiadomień Toast.
+    *   **Ekrany:**
+        *   Ekrany autoryzacji (`login`, `register`, `forgot-password`) używają komponentu `Button` i `showToast` do walidacji.
+        *   `RecipeListScreen` używa `SectionList`, `EnhancedRecipeCard`, `EnhancedPendingRecipeCard`, `EnhancedFilterMenu`, `SortMenu`, `AddRecipeMenu`.
+        *   `ShoppingListScreen` używa `DraggableFlatList` i metod z modelu `ShoppingItem`.
+**Drag & Drop do zmiany kolejności** niekupionych elementów za pomocą `react-native-draggable-flatlist`. Przyciski "Dodaj" i "Wyczyść listę" używają reużywalnych komponentów `Button` i `HeaderDeleteButton`.
         *   **`RecipeDetailScreen` (`app/(screens)/RecipeDetailScreen/RecipeDetailScreen.tsx` - TODO):** Wyświetlanie szczegółów przepisu (dane z WDB), skalowanie składników, wyświetlanie lokalnego obrazka.
         *   **`RecipeManagementScreen` (`app/(screens)/RecipeManagementScreen/RecipeManagementScreen.tsx` - TODO):** Formularz dodawania/edycji przepisu.
         *   **`LoginScreen`, `RegisterScreen` (`app/(auth)/...`):** Podstawowe ekrany logowania/rejestracji. `LoginScreen` wysyła dane w formacie `{"login": ..., "password": ...}`.
@@ -175,8 +203,17 @@ src/
 
 **9. Przyszłe Rozważania / TODO**
 
-(Sekcja bez zmian w stosunku do poprzedniej wersji - zawiera implementację znajomych, D&D dla tagów, obsługę błędów API, optymalizacje, potencjalne biblioteki stanu, testy).
+*   **Implementacja Funkcjonalności Znajomych:**
+    *   Stworzenie `friendsApi.ts` i `FriendsService.ts`.
+    *   Stworzenie ekranów i komponentów w `features/friends/` do zarządzania znajomościami (wysyłanie/akceptacja zaproszeń - online-only).
+    *   **Implementacja Przeglądania Przepisów Znajomych (Stalking):**
+        *   Stworzenie ekranu `FriendRecipesScreen`.
+        *   Implementacja hooka `useFriendRecipes` do pobierania danych z API (z paginacją, obsługą ładowania/błędów).
+        *   Adaptacja `RecipeCard` do wyświetlania danych z API (w tym obrazków z URL).
+*   Implementacja interfejsu Drag & Drop do zmiany kolejności tagów i listy zakupów.
+*   Obsługa błędów API w sposób bardziej przyjazny dla użytkownika.
+*   Optymalizacja pobierania i cache'owania obrazków.
+*   Potencjalne wprowadzenie biblioteki do zarządzania stanem zapytań API (React Query/SWR) dla funkcji online-only.
+*   Testy jednostkowe i integracyjne.
 
 **10. Wnioski**
-
-Architektura aplikacji OmNomNom jest zaprojektowana z myślą o trybie offline-first, wykorzystując WatermelonDB do zarządzania danymi użytkownika i ich synchronizacji. Przewiduje również obsługę funkcji online-only (jak przepisy znajomych) poprzez bezpośrednią komunikację z API. Zaimplementowano kluczowe mechanizmy, takie jak bezpieczne przypisywanie danych offline, lokalne zarządzanie obrazkami i zmiana kolejności elementów przez Drag & Drop. Zastosowanie architektury modularnej, separacji odpowiedzialności i zdefiniowanej stylistyki "Monochrome" ma na celu stworzenie stabilnej, łatwej w utrzymaniu i przyjaznej dla użytkownika aplikacji.
