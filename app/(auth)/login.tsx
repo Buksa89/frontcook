@@ -4,12 +4,12 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert
 } from 'react-native';
-import { Link, router, Href } from 'expo-router';
+// ZMIANA: Usunięto import router, bo nie jest już używany
+import { Link, Href } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { MaterialIcons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
-  // ZMIANA: Zmieniono nazwę stanu z loginValue na username
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -17,18 +17,21 @@ export default function LoginScreen() {
   const { login } = useAuth();
 
   const handleLogin = async () => {
-    // ZMIANA: Sprawdzamy stan username
     if (!username || !password) {
       Alert.alert('Błąd', 'Wprowadź nazwę użytkownika i hasło.');
       return;
     }
     setIsLoading(true);
     try {
-      // ZMIANA: Przekazujemy username do funkcji login
       await login(username, password);
-      router.replace('/'); // Przekieruj po udanym logowaniu
+      // --- USUNIĘTO NAWIGACJĘ IMPERATYWNĄ ---
+      // router.replace('/'); // <--- Ta linia została usunięta
+      // --- KONIEC USUNIĘCIA ---
+      // Nawigacja zostanie obsłużona przez app/(auth)/index.tsx po zmianie stanu isAuthenticated
     } catch (error: any) {
-      console.error('[LoginScreen] Login failed:', error);
+      // Błąd jest już logowany w AuthContext i pokazywany Toastem
+      console.error('[LoginScreen] Login failed (error already handled in context):', error.message);
+      // Nie pokazuj dodatkowego alertu, AuthContext już to robi Toastem
     } finally {
       setIsLoading(false);
     }
@@ -44,44 +47,44 @@ export default function LoginScreen() {
           <MaterialIcons name="person-outline" size={24} color="#888" style={styles.icon} />
           <TextInput
             style={styles.input}
-            placeholder="Nazwa użytkownika" // Zmieniono placeholder
+            placeholder="Nazwa użytkownika"
             placeholderTextColor="#aaa"
-            value={username} // ZMIANA: powiązane z username
-            onChangeText={setUsername} // ZMIANA: ustawia username
+            value={username}
+            onChangeText={setUsername}
             autoCapitalize="none"
-            // Usunięto keyboardType="email-address", bo to teraz username
             editable={!isLoading}
           />
         </View>
 
-        {/* Pole Hasło (bez zmian) */}
+        {/* Pole Hasło */}
         <View style={styles.inputContainer}>
            <MaterialIcons name="lock-outline" size={24} color="#888" style={styles.icon} />
           <TextInput style={styles.input} placeholder="Hasło" placeholderTextColor="#aaa" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!isLoading} />
            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}><MaterialIcons name={showPassword ? "visibility" : "visibility-off"} size={24} color="#888" /></TouchableOpacity>
         </View>
 
-        {/* Przycisk Logowania (bez zmian) */}
+        {/* Przycisk Logowania */}
         <TouchableOpacity style={[styles.button, styles.loginButton, isLoading && styles.buttonDisabled]} onPress={handleLogin} disabled={isLoading}>
           {isLoading ? (<ActivityIndicator color="#fff" />) : (<Text style={styles.buttonText}>Zaloguj się</Text>)}
         </TouchableOpacity>
 
-        {/* Link do Rejestracji (bez zmian) */}
+        {/* Link do Rejestracji */}
         <View style={styles.linkContainer}>
            <Text style={styles.linkText}>Nie masz konta? </Text>
            <Link href="/register" style={styles.link}>Zarejestruj się</Link>
         </View>
 
-         {/* Link do Resetu Hasła (bez zmian) */}
+         {/* Link do Resetu Hasła */}
          <View style={styles.linkContainer}>
-            <Link href={"/forgot-password" as Href} style={styles.link}>Zapomniałeś hasła?</Link>
+            {/* Poprawiono: użycie `href` jako string */}
+            <Link href={"/forgot-password"} style={styles.link}>Zapomniałeś hasła?</Link>
          </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// Style (proste, można je później przenieść i ulepszyć)
+// Style (bez zmian)
 const styles = StyleSheet.create({
     container: {
         flex: 1,

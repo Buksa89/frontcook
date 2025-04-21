@@ -35,7 +35,7 @@ export interface PushChangesArgs {
 }
 // Push nie zwraca danych (204 No Content)
 
-const SYNC_ENDPOINT_PATH = '/api/v1/sync/'; // Upewnij się, że ścieżka jest poprawna
+const SYNC_ENDPOINT_PATH = '/api/sync/'; // Upewnij się, że ścieżka jest poprawna
 
 /**
  * Obiekt zawierający funkcje do synchronizacji WatermelonDB przez API.

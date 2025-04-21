@@ -121,7 +121,7 @@ src/
 
 *   **Dane Użytkownika (Przepisy Własne, Lista Zakupów itp.):**
     *   Źródło Prawdy Offline: WatermelonDB.
-    *   Synchronizacja: Zarządzana przez `SyncService` (Pull/Push z `/api/v1/sync/`).
+    *   Synchronizacja: Zarządzana przez `SyncService` (Pull/Push z `/api/sync/`).
     *   Obrazki: URL synchronizowany w `Recipe`, pliki zarządzane lokalnie przez `ImageService` i `RecipeImageLocal`.
 *   **Dane Znajomych i Ich Przepisy ("Stalking"):**
     *   Źródło Prawdy: **Wyłącznie Backend API**.

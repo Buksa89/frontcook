@@ -3,24 +3,12 @@ import { View, TouchableOpacity, Animated, TextInput, StyleSheet, Platform, Moda
 import { Stack, useNavigation, useRouter, useSegments } from 'expo-router';
 import { MaterialIcons, AntDesign, Entypo, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// Zakładamy, że MainMenu i obsługa powiadomień będą potrzebne
-// import { MainMenu } from '../../src/components/MainMenu'; // Dostosuj ścieżkę
+// ZMIANA: Importuj MainMenu z nowej lokalizacji
+import { MainMenu } from '../../src/components/MainMenu'; // Dostosuj ścieżkę, jeśli `app` jest w `src`
+// Zakładamy, że `app` jest na tym samym poziomie co `src`, więc ścieżka jest poprawna
 // import useUnreadNotifications from '../../src/hooks/useUnreadNotifications'; // Przykładowy hook
 
-// Prosty placeholder dla MainMenu
-const MainMenu = ({ visible, onClose }: { visible: boolean, onClose: () => void }) => {
-  if (!visible) return null;
-  return (
-    <Modal transparent visible={visible} onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={onClose}>
-        <View style={{ position: 'absolute', top: 60, right: 10, backgroundColor: 'white', padding: 10, borderRadius: 5 }}>
-          <Text>Menu Placeholder</Text>
-          {/* TODO: Dodać opcje menu (Ustawienia, Wyloguj itp.) */}
-        </View>
-      </Pressable>
-    </Modal>
-  );
-};
+// USUNIĘTO: Placeholder dla MainMenu, bo importujemy prawdziwy komponent
 
 export default function StackLayout() {
   const navigation = useNavigation();
@@ -29,12 +17,12 @@ export default function StackLayout() {
   const insets = useSafeAreaInsets(); // Pobierz bezpieczne obszary
 
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [isMenuVisible, setIsMenuVisible] = useState(false); // Stan do kontrolowania widoczności MainMenu
   const searchWidth = useRef(new Animated.Value(0)).current; // Animacja szerokości
   const [searchText, setSearchText] = useState('');
   // const { hasUnreadNotifications } = useUnreadNotifications(); // TODO: Podłączyć hook powiadomień
 
-  // --- Logika Wyszukiwania ---
+  // --- Logika Wyszukiwania (bez zmian) ---
   const toggleSearch = useCallback(() => {
     const toValue = isSearchVisible ? 0 : 1;
     Animated.timing(searchWidth, {
@@ -57,8 +45,6 @@ export default function StackLayout() {
     // (np. przez context lub event)
   };
 
-  // Sprawdź, czy bieżący ekran to główny ekran listy przepisów
-  // Zakładamy, że ścieżka to '/(tabs)/recipes' lub samo 'recipes' wewnątrz tabs
   const isRecipeListScreen = segments.length > 0 && segments[segments.length - 1] === 'recipes';
 
   return (
@@ -120,20 +106,19 @@ export default function StackLayout() {
                  </TouchableOpacity>
               )} */}
               {/* Ikona menu kropek - zawsze widoczna */}
+              {/* ZMIANA: Otwieranie MainMenu */}
               <TouchableOpacity onPress={() => setIsMenuVisible(true)} style={styles.headerButtonRight}>
                 <Entypo name="dots-three-vertical" size={20} color="#4a5568" />
               </TouchableOpacity>
             </View>
           ),
-          // --- Dynamiczny Tytuł lub Wyszukiwarka ---
+          // --- Dynamiczny Tytuł lub Wyszukiwarka (bez zmian) ---
           headerTitle: () => {
-            // Jeśli wyszukiwanie jest aktywne, pokaż TextInput
             if (isSearchVisible && route.name === 'recipes') {
               return (
                 <Animated.View style={[styles.searchContainer, {
                   width: searchWidth.interpolate({
                     inputRange: [0, 1],
-                    // Dostosuj szerokość do ekranu, zostawiając miejsce na przyciski
                     outputRange: [0, Platform.OS === 'web' ? 300 : '80%'] as any
                   })
                 }]}>
@@ -152,40 +137,24 @@ export default function StackLayout() {
                 </Animated.View>
               );
             }
-            // W przeciwnym razie, użyj tytułu z opcji ekranu
-            return null; // React Navigation użyje domyślnego tytułu z `options`
+            return null;
           },
         })}
       >
-        {/* Definicje Ekranów */}
-        <Stack.Screen
-          name="recipes" // Nazwa pliku -> recipes.tsx
-          options={{
-            title: 'Przepisy',
-          }}
-        />
-        <Stack.Screen
-          name="shoppingList" // Nazwa pliku -> shoppingList.tsx
-          options={{
-            title: 'Lista Zakupów',
-          }}
-        />
-        <Stack.Screen
-          name="settings" // Nazwa pliku -> settings.tsx
-          options={{
-            title: 'Ustawienia',
-          }}
-        />
+        {/* Definicje Ekranów (bez zmian) */}
+        <Stack.Screen name="recipes" options={{ title: 'Przepisy' }} />
+        <Stack.Screen name="shoppingList" options={{ title: 'Lista Zakupów' }} />
+        <Stack.Screen name="settings" options={{ title: 'Ustawienia' }} />
         {/* Dodaj inne ekrany tutaj */}
       </Stack>
 
-      {/* Placeholder dla MainMenu */}
-       <MainMenu visible={isMenuVisible} onClose={() => setIsMenuVisible(false)} />
+      {/* ZMIANA: Użycie zaimportowanego MainMenu */}
+      <MainMenu visible={isMenuVisible} onClose={() => setIsMenuVisible(false)} />
     </>
   );
 }
 
-// --- Style dla Nagłówka ---
+// --- Style dla Nagłówka (bez zmian) ---
 const styles = StyleSheet.create({
     headerButtonLeft: {
         marginLeft: 15, // Odstęp od lewej krawędzi

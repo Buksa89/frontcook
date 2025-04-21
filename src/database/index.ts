@@ -1,10 +1,13 @@
+// src/database/index.ts
 import { Platform, NativeModules } from 'react-native';
 import { Database } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
 
-import schema from './schema'; // Importuj nowy schemat
-// import migrations from './migrations'; // Zaimportuj migracje, jeśli je masz
+import schema from './schema';
+// --- NOWY IMPORT ---
+import migrations from './migrations'; // Zaimportuj migracje
+// ------------------
 
 // Importuj wszystkie nowe definicje modeli
 import Tag from './models/Tag';
@@ -15,11 +18,11 @@ import ShoppingItem from './models/ShoppingItem';
 import ClientUserSettings from './models/ClientUserSettings';
 import Notification from './models/Notification';
 import UserProfile from './models/UserProfile';
-import RecipeImageLocal from './models/RecipeImageLocal'; // Importuj nowy lokalny model
+import RecipeImageLocal from './models/RecipeImageLocal';
 
-import { DEBUG } from '../config/env'; // Import flagi DEBUG
+import { DEBUG } from '../config/env';
 
-// Funkcja pomocnicza do sprawdzania dostępności modułów natywnych
+// Funkcja pomocnicza do sprawdzania dostępności modułów natywnych (bez zmian)
 const isWatermelonDBNativeAvailable = (): boolean => {
   try {
     return (
@@ -36,34 +39,34 @@ const isWatermelonDBNativeAvailable = (): boolean => {
 
 // --- Konfiguracja Adaptera ---
 let adapter;
-const dbName = "OmNomNomDB"; // Nazwa pliku bazy danych
+const dbName = "OmNomNomDB";
 
 if (DEBUG) {
   console.log('[DB] Tryb DEBUG: Używam adaptera LokiJS (in-memory)');
   adapter = new LokiJSAdapter({
     schema,
-    // migrations, // Odkomentuj, jeśli masz migracje
+    // --- ZMIANA: Przekaż migracje ---
+    migrations,
+    // -----------------------------
     useWebWorker: false,
-    useIncrementalIndexedDB: false, // Dla debugowania może być lepiej wyłączyć
-    dbName: dbName, // Opcjonalnie, dla LokiJS może pomóc w niektórych przypadkach
-    // Opcje dla LokiJS (jeśli potrzebne):
-    // adapter: new LokiMemoryAdapter(), // Zawsze in-memory w tym trybie
-    // autosave: false, // Wyłącz autosave dla czystego startu w debug
+    useIncrementalIndexedDB: false,
+    dbName: dbName,
   });
 } else {
   console.log('[DB] Tryb PRODUKCYJNY: Używam adaptera SQLite (natywny)');
   const nativeModulesAvailable = isWatermelonDBNativeAvailable();
-  const useJsi = nativeModulesAvailable; // JSI tylko gdy natywne moduły są ok
+  const useJsi = nativeModulesAvailable;
   console.log(`[DB] Moduły natywne dostępne: ${nativeModulesAvailable}. Użycie JSI (Turbo Sync): ${useJsi}`);
 
   adapter = new SQLiteAdapter({
     schema,
-    // migrations, // Odkomentuj, jeśli masz migracje
+    // --- ZMIANA: Przekaż migracje ---
+    migrations,
+    // -----------------------------
     dbName: dbName,
     jsi: useJsi,
     onSetUpError: (error: Error) => {
       console.error('[DB] KRYTYCZNY BŁĄD podczas konfiguracji adaptera SQLite:', error);
-      // Tutaj można dodać logikę fallback lub powiadomienie użytkownika
     },
   });
 }
@@ -80,8 +83,12 @@ const database = new Database({
     ClientUserSettings,
     Notification,
     UserProfile,
-    RecipeImageLocal, // Dodaj nowy lokalny model
+    RecipeImageLocal,
   ],
+  // --- ZMIANA: Przekaż migracje również tutaj ---
+  // Chociaż dokumentacja nie zawsze tego wymaga, dobra praktyka
+  // migrations, // Nie jest wymagane bezpośrednio w Database, ale nie zaszkodzi
+  // ---------------------------------------------
 });
 
 console.log(`[DB] Instancja WatermelonDB utworzona (Adapter: ${DEBUG ? 'LokiJS' : 'SQLite'})`);
@@ -89,14 +96,10 @@ console.log(`[DB] Instancja WatermelonDB utworzona (Adapter: ${DEBUG ? 'LokiJS' 
 // --- Eksport ---
 export default database;
 
-// Opcjonalna funkcja inicjalizująca (może być wywołana w App.tsx)
+// Opcjonalna funkcja inicjalizująca (bez zmian)
 export const initializeDatabase = async (): Promise<void> => {
   try {
-    // Można tu dodać logikę, która musi się wykonać po inicjalizacji,
-    // np. sprawdzenie statusu migracji, ale podstawowa inicjalizacja
-    // odbywa się synchronicznie przy tworzeniu instancji Database.
     console.log('[DB] Inicjalizacja bazy danych zakończona.');
-    // Można tu np. uruchomić `populateDefaultTags` jeśli potrzeba
   } catch (error) {
     console.error('[DB] Błąd podczas dodatkowej inicjalizacji bazy danych:', error);
   }
