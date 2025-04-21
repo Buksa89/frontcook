@@ -2,12 +2,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
+  // Usunięto Alert
 } from 'react-native';
-// ZMIANA: Usunięto import router, bo nie jest już używany
 import { Link, Href } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { MaterialIcons } from '@expo/vector-icons';
+// ZMIANA: Importuj showToast
+import { showToast } from '../../src/components/Toast'; // Upewnij się, że ścieżka jest poprawna
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -16,26 +18,54 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
 
+  // --- ZMIANA: Użycie showToast zamiast Alert.alert ---
+  const validateForm = () => {
+      if (!username.trim()) {
+          showToast({
+              type: 'warning', // Lub 'error', jeśli wolisz
+              text1: 'Brak nazwy użytkownika',
+              text2: 'Wprowadź nazwę użytkownika lub email.',
+          });
+          return false;
+      }
+      if (!password) {
+           showToast({
+              type: 'warning',
+              text1: 'Brak hasła',
+              text2: 'Wprowadź hasło.',
+          });
+          return false;
+      }
+       // Opcjonalnie: Możesz dodać walidację długości hasła, jeśli chcesz
+      // if (password.length < 6) {
+      //   showToast({
+      //       type: 'warning',
+      //       text1: 'Zbyt krótkie hasło',
+      //       text2: 'Hasło musi mieć co najmniej 6 znaków.',
+      //   });
+      //   return false;
+      // }
+      return true;
+  };
+
   const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert('Błąd', 'Wprowadź nazwę użytkownika i hasło.');
-      return;
+    // Wywołaj walidację, która teraz używa Toast
+    if (!validateForm()) {
+      return; // Przerwij, jeśli walidacja nie przeszła (Toast już się pokazał)
     }
+
     setIsLoading(true);
     try {
       await login(username, password);
-      // --- USUNIĘTO NAWIGACJĘ IMPERATYWNĄ ---
-      // router.replace('/'); // <--- Ta linia została usunięta
-      // --- KONIEC USUNIĘCIA ---
-      // Nawigacja zostanie obsłużona przez app/(auth)/index.tsx po zmianie stanu isAuthenticated
+      // Nawigacja obsłużona deklaratywnie przez app/(auth)/index.tsx
     } catch (error: any) {
-      // Błąd jest już logowany w AuthContext i pokazywany Toastem
       console.error('[LoginScreen] Login failed (error already handled in context):', error.message);
-      // Nie pokazuj dodatkowego alertu, AuthContext już to robi Toastem
+      // Toast błędu API jest już pokazywany przez AuthContext
     } finally {
       setIsLoading(false);
     }
   };
+  // --- KONIEC ZMIANY ---
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -76,7 +106,6 @@ export default function LoginScreen() {
 
          {/* Link do Resetu Hasła */}
          <View style={styles.linkContainer}>
-            {/* Poprawiono: użycie `href` jako string */}
             <Link href={"/forgot-password"} style={styles.link}>Zapomniałeś hasła?</Link>
          </View>
       </ScrollView>
@@ -86,76 +115,18 @@ export default function LoginScreen() {
 
 // Style (bez zmian)
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    scrollContainer: {
-      flexGrow: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 30,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 40,
-        textAlign: 'center',
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        width: '100%',
-        backgroundColor: '#f7f7f7',
-        borderRadius: 10,
-        marginBottom: 15,
-        paddingHorizontal: 15,
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
-    icon: {
-        marginRight: 10,
-    },
-    input: {
-        flex: 1,
-        height: 50,
-        fontSize: 16,
-        color: '#333',
-    },
-    eyeIcon: {
-        padding: 5,
-    },
-    button: {
-        width: '100%',
-        paddingVertical: 15,
-        borderRadius: 10,
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    loginButton: {
-        backgroundColor: '#5c7ba9',
-    },
-    buttonDisabled: {
-        backgroundColor: '#a0b8d8',
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    linkContainer: {
-        marginTop: 25,
-        flexDirection: 'row',
-        justifyContent: 'center',
-    },
-    linkText: {
-        color: '#666',
-        fontSize: 14,
-    },
-    link: {
-        color: '#5c7ba9',
-        fontWeight: 'bold',
-        fontSize: 14,
-    },
+    container: { flex: 1, backgroundColor: '#fff', },
+    scrollContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 30, },
+    title: { fontSize: 28, fontWeight: 'bold', color: '#333', marginBottom: 40, textAlign: 'center', },
+    inputContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: '#f7f7f7', borderRadius: 10, marginBottom: 15, paddingHorizontal: 15, borderWidth: 1, borderColor: '#eee', },
+    icon: { marginRight: 10, },
+    input: { flex: 1, height: 50, fontSize: 16, color: '#333', },
+    eyeIcon: { padding: 5, },
+    button: { width: '100%', paddingVertical: 15, borderRadius: 10, alignItems: 'center', marginTop: 10, },
+    loginButton: { backgroundColor: '#5c7ba9', },
+    buttonDisabled: { backgroundColor: '#a0b8d8', },
+    buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold', },
+    linkContainer: { marginTop: 25, flexDirection: 'row', justifyContent: 'center', },
+    linkText: { color: '#666', fontSize: 14, },
+    link: { color: '#5c7ba9', fontWeight: 'bold', fontSize: 14, },
 });
