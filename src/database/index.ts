@@ -36,7 +36,7 @@ const isWatermelonDBNativeAvailable = (): boolean => {
 
 // --- Konfiguracja Adaptera ---
 let adapter;
-const dbName = "SmartCookDB"; // Nazwa pliku bazy danych
+const dbName = "OmNomNomDB"; // Nazwa pliku bazy danych
 
 if (DEBUG) {
   console.log('[DB] Tryb DEBUG: Używam adaptera LokiJS (in-memory)');

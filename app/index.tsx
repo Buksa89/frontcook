@@ -6,7 +6,7 @@ import { Link } from 'expo-router';
 export default function IndexScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SmartCook App - Test Index</Text>
+      <Text style={styles.title}>OmNomNom App - Test Index</Text>
       <Link href="/login" style={styles.link}>Przejdź do Logowania</Link>
       <Link href="/register" style={styles.link}>Przejdź do Rejestracji</Link>
       <Link href="/debug" style={styles.link}>Przejdź do Debug</Link>

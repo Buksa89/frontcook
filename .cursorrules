@@ -1,8 +1,8 @@
-**Dokumentacja Architektury Frontendowej - Aplikacja SmartCook (React Native / Expo)**
+**Dokumentacja Architektury Frontendowej - Aplikacja OmNomNom (React Native / Expo)**
 
 **1. Wprowadzenie**
 
-Niniejszy dokument opisuje proponowaną architekturę frontendową dla aplikacji mobilnej SmartCook, tworzonej w React Native z wykorzystaniem Expo. Celem jest stworzenie aplikacji do zarządzania przepisami kulinarnymi, umożliwiającej pracę offline oraz synchronizację danych z backendem Django przy użyciu WatermelonDB. Dokumentacja ta stanowi podstawę do implementacji, kładąc nacisk na przyjęte rozwiązania, ich uzasadnienie oraz logikę biznesową.
+Niniejszy dokument opisuje proponowaną architekturę frontendową dla aplikacji mobilnej OmNomNom, tworzonej w React Native z wykorzystaniem Expo. Celem jest stworzenie aplikacji do zarządzania przepisami kulinarnymi, umożliwiającej pracę offline oraz synchronizację danych z backendem Django przy użyciu WatermelonDB. Dokumentacja ta stanowi podstawę do implementacji, kładąc nacisk na przyjęte rozwiązania, ich uzasadnienie oraz logikę biznesową.
 
 **2. Główne Założenia i Cele Architektury**
 
@@ -166,4 +166,4 @@ src/
 
 **9. Wnioski**
 
-Proponowana architektura zapewnia solidne podstawy dla aplikacji SmartCook. Kładzie nacisk na modularność, separację odpowiedzialności i obsługę kluczowych wymagań, takich jak praca offline z synchronizacją WatermelonDB, adaptacja do środowiska DEBUG oraz specyficzne mechanizmy obsługi danych offline i obrazków. Architektura jest zaprojektowana z myślą o przyszłej rozbudowie i łatwości utrzymania.
+Proponowana architektura zapewnia solidne podstawy dla aplikacji OmNomNom. Kładzie nacisk na modularność, separację odpowiedzialności i obsługę kluczowych wymagań, takich jak praca offline z synchronizacją WatermelonDB, adaptacja do środowiska DEBUG oraz specyficzne mechanizmy obsługi danych offline i obrazków. Architektura jest zaprojektowana z myślą o przyszłej rozbudowie i łatwości utrzymania.
