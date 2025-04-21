@@ -11,6 +11,8 @@ def load_gitignore_spec(root_path):
     return pathspec.PathSpec.from_lines("gitwildmatch", [])
 
 def list_files_with_content(root_path, output_file, spec, indent=0, rel_path=""):
+    ignored_names = {".git", "package-lock.json"}
+
     try:
         entries = sorted(os.listdir(root_path))
     except PermissionError:
@@ -18,6 +20,9 @@ def list_files_with_content(root_path, output_file, spec, indent=0, rel_path="")
         return
 
     for entry in entries:
+        if entry in ignored_names:
+            continue
+
         full_path = os.path.join(root_path, entry)
         relative_path = os.path.join(rel_path, entry)
 

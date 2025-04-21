@@ -10,6 +10,7 @@ import { initializeDatabase } from './database';
 import { initializeSyncService, getSyncService } from './services/sync/syncService';
 import { initializeImageService, getImageService } from './services/image/imageService'; // Import ImageService
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons'; // Import MaterialIcons
 import type SyncService from './services/sync/syncService'; // Importuj typy
 import type ImageService from './services/image/imageService';
 
