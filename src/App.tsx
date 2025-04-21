@@ -1,5 +1,5 @@
 // src/App.tsx
-import 'react-native-get-random-values'; // <-- Polyfill dla crypto.getRandomValues
+import 'react-native-get-random-values';
 import React, { useEffect, useState, ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,11 +14,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type SyncService from './services/sync/syncService';
 import type ImageService from './services/image/imageService';
 
-// Hook do inicjalizacji bazy danych
+// Hook inicjalizacji bazy (bez zmian)
 const useInitialization = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-
   useEffect(() => {
     let isMounted = true;
     const init = async () => {
@@ -26,10 +25,9 @@ const useInitialization = () => {
         console.log("[useInitialization] Initializing database...");
         await initializeDatabase();
         console.log("[useInitialization] Database initialized.");
-        const imageServiceInstance = initializeImageService();
-        await imageServiceInstance.cleanupOrphanedImageFiles();
+        initializeImageService();
         initializeSyncService();
-
+        await getImageService().cleanupOrphanedImageFiles();
         if (isMounted) setIsInitialized(true);
       } catch (err: any) {
         console.error("[useInitialization] Critical initialization error:", err);
@@ -39,16 +37,15 @@ const useInitialization = () => {
     init();
     return () => { isMounted = false; };
   }, []);
-
   return { isInitialized, error };
 };
 
 interface AppRootProps { children: ReactNode; }
 
-// Komponent do zarządzania serwisami zależnymi od stanu autoryzacji i sesji
 const AppServicesController: React.FC<{ children: ReactNode }> = ({ children }) => {
-   // Dodano sessionExpired do zależności
-   const { isAuthenticated, isAuthCheckLoading, userId, sessionExpired } = useAuth();
+   // --- POPRAWKA: Dodano isLoggedIn do destrukturyzacji ---
+   const { isAuthenticated, isLoggedIn, isAuthCheckLoading, sessionExpired } = useAuth();
+   // -----------------------------------------------------
 
    useEffect(() => {
       if (isAuthCheckLoading) return;
@@ -60,45 +57,54 @@ const AppServicesController: React.FC<{ children: ReactNode }> = ({ children }) 
         syncService = getSyncService();
         imageService = getImageService();
 
-        // Uruchamiaj serwisy tylko gdy użytkownik jest zalogowany ORAZ sesja NIE wygasła
-        if (isAuthenticated && userId && !sessionExpired) {
-            console.log("[AppServicesController] Starting services...");
+        // Aktualizuj stan sesji w SyncService
+        syncService.updateSessionStatus(sessionExpired);
+
+        // --- POPRAWKA: Warunek używa teraz poprawnie pobranego isLoggedIn ---
+        const shouldServicesBeActive = isLoggedIn && !sessionExpired;
+        // ------------------------------------------------------------------
+
+        if (shouldServicesBeActive) {
+            console.log("[AppServicesController] Warunki spełnione (zalogowany, sesja ważna). Startowanie serwisów...");
             const currentSyncStatus = syncService.getStatus();
-            if (currentSyncStatus === SyncStatus.Idle || currentSyncStatus === SyncStatus.Stopped || currentSyncStatus === SyncStatus.Error || currentSyncStatus === SyncStatus.Offline) {
+             if (![SyncStatus.Syncing, SyncStatus.Checking, SyncStatus.Waiting].includes(currentSyncStatus)) {
                 syncService.start();
-            } else {
-                 console.log(`[AppServicesController] SyncService already active (status: ${currentSyncStatus}), not starting again.`);
-            }
-             imageService.startObservingRecipes();
+             } else {
+                 console.log(`[AppServicesController] SyncService już aktywny (status: ${currentSyncStatus}), nie startuję ponownie.`);
+             }
+            imageService.startObservingRecipes();
 
         } else {
-            // Zatrzymuj serwisy, gdy użytkownik nie jest zalogowany LUB sesja wygasła
             if (sessionExpired) {
-                 console.log("[AppServicesController] Session expired, stopping services...");
-            } else if (!isAuthenticated || !userId) {
-                 console.log("[AppServicesController] User not authenticated, stopping services...");
+                 console.log("[AppServicesController] Sesja wygasła, zatrzymywanie serwisów...");
+            } else if (!isLoggedIn) {
+                 console.log("[AppServicesController] Użytkownik niezalogowany, zatrzymywanie serwisów...");
+            } else {
+                 console.log("[AppServicesController] Nieznany powód niespełnienia warunków, zatrzymywanie serwisów...");
             }
-            if (syncService) syncService.stop();
-            if (imageService) imageService.stopObservingRecipes();
+            if (syncService.getStatus() !== SyncStatus.Stopped) {
+                 syncService.stop();
+            }
+            imageService.stopObservingRecipes();
         }
       } catch (error) {
-          console.error("[AppServicesController] Error managing services:", error);
+          console.error("[AppServicesController] Błąd zarządzania serwisami:", error);
       }
 
-   // Dodano sessionExpired jako zależność useEffect
-   }, [isAuthenticated, userId, isAuthCheckLoading, sessionExpired]);
+   // --- POPRAWKA: Dodano isLoggedIn do zależności ---
+   }, [isLoggedIn, isAuthenticated, sessionExpired, isAuthCheckLoading]);
+   // ---------------------------------------------
 
    return <SyncStatusProvider>{children}</SyncStatusProvider>;
 }
 
-// --- Główny Komponent Aplikacji ---
+// Główny komponent AppRoot (bez zmian)
 export default function AppRoot({ children }: AppRootProps) {
   const { isInitialized, error: initError } = useInitialization();
 
   if (initError) {
     return <ErrorIndicator text={`Błąd krytyczny inicjalizacji: ${initError.message}`} />;
   }
-
   if (!isInitialized) {
     return <LoadingIndicator text="Inicjalizacja aplikacji..." />;
   }
@@ -117,23 +123,7 @@ export default function AppRoot({ children }: AppRootProps) {
   );
 }
 
-// --- Komponenty Pomocnicze ---
-const LoadingIndicator = ({ text }: { text: string }) => (
-  <View style={styles.containerCenter}>
-    <ActivityIndicator size="large" color="#5c7ba9" />
-    <Text style={styles.textCenter}>{text}</Text>
-  </View>
-);
-const ErrorIndicator = ({ text }: { text: string }) => (
-   <View style={styles.containerCenter}>
-      <MaterialIcons name="error-outline" size={48} color="red" />
-      <Text style={[styles.textCenter, styles.errorText]}>{text}</Text>
-   </View>
-);
-
-// --- Style ---
-const styles = StyleSheet.create({
-    containerCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', padding: 20, },
-    textCenter: { marginTop: 15, color: '#666', fontSize: 16, textAlign: 'center', },
-    errorText: { color: 'red', fontSize: 16, textAlign: 'center', fontWeight: 'bold', marginTop: 15, }
-});
+// Komponenty pomocnicze (bez zmian)
+const LoadingIndicator = ({ text }: { text: string }) => ( <View style={styles.containerCenter}><ActivityIndicator size="large" color="#5c7ba9" /><Text style={styles.textCenter}>{text}</Text></View> );
+const ErrorIndicator = ({ text }: { text: string }) => ( <View style={styles.containerCenter}><MaterialIcons name="error-outline" size={48} color="red" /><Text style={[styles.textCenter, styles.errorText]}>{text}</Text></View> );
+const styles = StyleSheet.create({ containerCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', padding: 20, }, textCenter: { marginTop: 15, color: '#666', fontSize: 16, textAlign: 'center', }, errorText: { color: 'red', fontSize: 16, textAlign: 'center', fontWeight: 'bold', marginTop: 15, } });
