@@ -337,4 +337,4 @@ export const getSyncService = (): SyncService => {
 };
 
 // Opcjonalnie, można wyeksportować samą klasę, jeśli potrzebna
-// export { SyncService as SyncServiceClass };
+export { SyncService };

@@ -1,51 +1,58 @@
 // src/components/Toast.tsx
 import React from 'react';
 import Toast, { BaseToast, ErrorToast, InfoToast, ToastConfig } from 'react-native-toast-message';
-import { ViewStyle, TextStyle } from 'react-native'; // Dodano importy stylów
-import { StyleSheet } from 'react-native';
+import { ViewStyle, TextStyle, StyleSheet } from 'react-native';
 
-// --- Definicja konfiguracji Toastów (można dostosować style) ---
+// --- Definicja konfiguracji Toastów ---
 const toastConfig: ToastConfig = {
   success: (props) => (
     <BaseToast
       {...props}
-      style={styles.toastBaseStyle} // Wspólny styl bazowy
+      style={styles.toastBaseStyle}
       contentContainerStyle={styles.toastContentContainer}
-      text1Style={styles.text1Success} // Styl dla sukcesu
+      text1Style={styles.text1Success}
       text2Style={styles.text2Style}
+      // Można dodać text1NumberOfLines i text2NumberOfLines, jeśli potrzeba
+      // text1NumberOfLines={2}
+      // text2NumberOfLines={4}
     />
   ),
   error: (props) => (
     <ErrorToast
       {...props}
-      style={styles.toastErrorStyle} // Styl dla błędu
+      style={styles.toastErrorStyle}
       contentContainerStyle={styles.toastContentContainer}
-      text1Style={styles.text1Style}
+      text1Style={styles.text1Style} // Użyj standardowego dla error
       text2Style={styles.text2Style}
+      // text1NumberOfLines={2}
+      // text2NumberOfLines={4}
     />
   ),
   info: (props) => (
-    <InfoToast // Można użyć InfoToast dla odróżnienia
+    <InfoToast
       {...props}
-      style={styles.toastInfoStyle} // Styl dla info
+      style={styles.toastInfoStyle}
       contentContainerStyle={styles.toastContentContainer}
       text1Style={styles.text1Style}
       text2Style={styles.text2Style}
+      // text1NumberOfLines={2}
+      // text2NumberOfLines={4}
     />
   ),
-  warning: (props) => ( // Dodajmy typ 'warning' jeśli go używasz
+  warning: (props) => (
       <BaseToast
           {...props}
-          style={styles.toastWarningStyle} // Styl dla ostrzeżenia
+          style={styles.toastWarningStyle}
           contentContainerStyle={styles.toastContentContainer}
           text1Style={styles.text1Style}
           text2Style={styles.text2Style}
+          // text1NumberOfLines={2}
+          // text2NumberOfLines={4}
        />
    ),
 };
 
 // --- Style dla Toastów ---
-// Użyj StyleSheet do definicji stylów
 const styles = StyleSheet.create({
   toastBaseStyle: {
     borderLeftColor: '#5c7ba9', // Kolor akcentujący
@@ -81,13 +88,14 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   toastContentContainer: {
     paddingHorizontal: 15,
+    paddingVertical: 10, // Dodaj pionowy padding
   } as ViewStyle,
   text1Style: {
     fontSize: 15,
     fontWeight: '600',
     color: '#343a40', // Ciemny tekst
   } as TextStyle,
-  text1Success: { // Można dostosować styl dla sukcesu
+  text1Success: {
     fontSize: 15,
     fontWeight: '600',
     color: '#0056b3', // Ciemniejszy niebieski
@@ -95,19 +103,19 @@ const styles = StyleSheet.create({
   text2Style: {
     fontSize: 14,
     color: '#6c757d', // Szary tekst
+    marginTop: 4, // Mały odstęp od tytułu
   } as TextStyle,
 });
 
 
 // --- Komponent Toast ---
-// Teraz renderuje faktyczny komponent Toast z konfiguracją
 const ToastComponent = () => {
-  return <Toast config={toastConfig} />;
+  // Ustaw domyślne propsy globalnie
+  return <Toast config={toastConfig} bottomOffset={40} />;
 };
 
-// --- Funkcja showToast ---
-// Teraz faktycznie wywołuje Toast.show
-export type ToastType = 'success' | 'error' | 'info' | 'warning'; // Dodano 'warning'
+// --- Interfejs ToastMessage ---
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
 export interface ToastMessage {
   type: ToastType;
   text1?: string;
@@ -117,9 +125,13 @@ export interface ToastMessage {
   autoHide?: boolean;
   topOffset?: number;
   bottomOffset?: number;
-  // Możesz dodać inne propsy z react-native-toast-message
+  // ZMIANA: Dodano opcjonalną właściwość onHide
+  onHide?: () => void; // Funkcja wywoływana po ukryciu toasta
+  onShow?: () => void; // Opcjonalnie: funkcja po pokazaniu
+  onPress?: () => void; // Opcjonalnie: funkcja po kliknięciu
 }
 
+// --- Funkcja showToast ---
 export const showToast = (options: ToastMessage) => {
   // console.log('Show Toast (Actual):', options); // Możesz zostawić log dla debugowania
   Toast.show({
@@ -129,4 +141,4 @@ export const showToast = (options: ToastMessage) => {
   });
 };
 
-export default ToastComponent; // Eksportuj domyślnie komponent
+export default ToastComponent;

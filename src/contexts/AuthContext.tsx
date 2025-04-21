@@ -1,32 +1,63 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native'; // Dodano ActivityIndicator
-import authService from '../services/auth/authService'; // Poprawny import serwisu
-import authApi from '../services/api/authApi'; // Potrzebny tylko do register/resetPassword
-import { showToast } from '../components/Toast'; // Upewnij się, że ścieżka jest poprawna
-import { ApiError } from '../services/api/apiClient'; // Importuj ApiError, aby go użyć
+import { View, Text, ActivityIndicator } from 'react-native';
+import authService from '../services/auth/authService';
+import authApi from '../services/api/authApi';
+import { showToast, ToastMessage } from '../components/Toast'; // Importuj również typ ToastMessage
+import { ApiError } from '../services/api/apiClient'; // Importuj ApiError
 
-// Mapowanie znanych błędów API na polskie komunikaty
-const apiErrorTranslations: Record<string, string> = {
+// Mapowanie *specyficznych* komunikatów błędów na polski
+const specificApiErrorTranslations: Record<string, string> = {
   'No active account found with the given credentials': 'Nieprawidłowa nazwa użytkownika lub hasło.',
   'Unable to log in with provided credentials.': 'Nie można zalogować używając podanych danych.',
-  // Dodaj więcej tłumaczeń dla innych możliwych błędów z Twojego API
+  'No user found with this email address.': 'Nie znaleziono użytkownika z tym adresem email.',
+  // --- Dodaj tutaj więcej specyficznych tłumaczeń dla błędów zwracanych przez Twoje API ---
+  // np. 'User with this email already exists.': 'Użytkownik z tym adresem email już istnieje.',
+  // np. 'Password must contain at least 8 characters.': 'Hasło musi zawierać co najmniej 8 znaków.',
 };
 
-// Funkcja pomocnicza do tłumaczenia błędu
+// Funkcja pomocnicza do tłumaczenia błędu API
 const translateApiError = (error: any): string => {
-  // Sprawdź, czy błąd jest instancją ApiError i ma wiadomość
-  if (error instanceof ApiError && error.message) {
-    // Spróbuj znaleźć tłumaczenie dla wiadomości błędu
-    const translated = apiErrorTranslations[error.message];
-    if (translated) {
-      return translated;
+  // Sprawdź, czy to nasz ApiError
+  if (error instanceof ApiError) {
+    // 1. Spróbuj przetłumaczyć główną wiadomość błędu
+    if (error.message && specificApiErrorTranslations[error.message]) {
+      return specificApiErrorTranslations[error.message];
     }
-    // Jeśli nie ma tłumaczenia, zwróć oryginalną wiadomość
-    return error.message;
+
+    // 2. Sprawdź, czy błąd zawiera dane z polami (typowe dla DRF)
+    if (error.data && typeof error.data === 'object') {
+      const fieldErrors: string[] = [];
+      // Iteruj po polach błędów (np. 'email', 'password', 'non_field_errors')
+      for (const field in error.data) {
+        const messages = error.data[field];
+        if (Array.isArray(messages)) {
+          // Spróbuj przetłumaczyć każdą wiadomość dla pola
+          messages.forEach(msg => {
+            const translated = specificApiErrorTranslations[msg];
+            fieldErrors.push(translated || msg); // Dodaj przetłumaczoną lub oryginalną
+          });
+        } else if (typeof messages === 'string') {
+          // Jeśli wiadomość dla pola jest stringiem
+           const translated = specificApiErrorTranslations[messages];
+           fieldErrors.push(translated || messages);
+        }
+      }
+      // Jeśli znaleziono błędy pól, połącz je
+      if (fieldErrors.length > 0) {
+        // Usuń duplikaty, jeśli API zwraca ten sam błąd dla wielu pól
+        return [...new Set(fieldErrors)].join(' '); // Połącz spacją lub \n
+      }
+    }
+
+    // 3. Jeśli nie znaleziono tłumaczenia ani błędów pól, zwróć oryginalną wiadomość (jeśli istnieje)
+    if (error.message) {
+      return error.message;
+    }
   }
-  // Domyślny komunikat dla innych typów błędów lub braku wiadomości
-  return 'Wystąpił nieoczekiwany błąd logowania.';
+
+  // 4. Domyślny komunikat dla innych typów błędów
+  return 'Wystąpił nieoczekiwany błąd.';
 };
 
 
@@ -34,7 +65,7 @@ interface AuthContextType {
   userId: string | null;
   accessToken: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  isAuthCheckLoading: boolean; // Tylko dla początkowego sprawdzenia
   login: (loginValue: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (username: string, email: string, password: string, password2: string) => Promise<void>;
@@ -50,47 +81,43 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userId, setUserId] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthCheckLoading, setIsAuthCheckLoading] = useState(true);
 
   useEffect(() => {
-     const checkAuthState = async () => {
-        console.log('[AuthContext] Sprawdzanie stanu autentykacji...');
-        setIsLoading(true);
-        try {
-          const storedToken = await authService.getAccessToken();
-          const storedUserId = await authService.getActiveUserId();
+    const checkAuthState = async () => {
+      console.log('[AuthContext] Sprawdzanie stanu autentykacji...');
+      setIsAuthCheckLoading(true);
+      try {
+        const storedToken = await authService.getAccessToken();
+        const storedUserId = await authService.getActiveUserId();
 
-          if (storedToken && storedUserId) {
-            console.log('[AuthContext] Znaleziono dane uwierzytelniające.');
-            setAccessToken(storedToken);
-            setUserId(storedUserId);
-            // Uruchomienie SyncService lepiej przenieść do AppInitializer
-          } else {
-            console.log('[AuthContext] Brak danych uwierzytelniających.');
-            setAccessToken(null);
-            setUserId(null);
-          }
-        } catch (error) {
-          console.error('[AuthContext] Błąd podczas sprawdzania stanu uwierzytelnienia:', error);
+        if (storedToken && storedUserId) {
+          console.log('[AuthContext] Znaleziono dane uwierzytelniające.');
+          setAccessToken(storedToken);
+          setUserId(storedUserId);
+        } else {
+          console.log('[AuthContext] Brak danych uwierzytelniających.');
           setAccessToken(null);
           setUserId(null);
-        } finally {
-          setIsLoading(false);
-          console.log('[AuthContext] Sprawdzanie stanu autentykacji zakończone.');
         }
-      };
-      checkAuthState();
+      } catch (error) {
+        console.error('[AuthContext] Błąd podczas sprawdzania stanu uwierzytelnienia:', error);
+        setAccessToken(null);
+        setUserId(null);
+      } finally {
+        setIsAuthCheckLoading(false);
+        console.log('[AuthContext] Sprawdzanie stanu autentykacji zakończone.');
+      }
+    };
+    checkAuthState();
   }, []);
 
   const login = useCallback(async (loginValue: string, password: string) => {
-    // setIsLoading(true); // Można odkomentować, jeśli chcesz loader w trakcie logowania
     try {
       const response = await authService.login(loginValue, password);
       setAccessToken(response.access);
-      // Upewnij się, że user_id jest konwertowane na string, jeśli API zwraca number
-      setUserId(String(response.user_id));
+      setUserId(String(response.user_id)); // Konwersja na string
       showToast({ type: 'success', text1: 'Zalogowano pomyślnie!' });
-      // Uruchomienie SyncService lepiej przenieść do AppInitializer, który reaguje na zmianę isAuthenticated
     } catch (error: any) {
       console.error('[AuthContext] Błąd logowania:', error);
       const translatedMessage = translateApiError(error);
@@ -99,46 +126,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           text1: 'Błąd logowania',
           text2: translatedMessage,
       });
-      // Wyczyść stan w razie błędu
       setAccessToken(null);
       setUserId(null);
-      throw error; // Rzuć błąd, aby LoginScreen wiedział o niepowodzeniu
-    } finally {
-       // setIsLoading(false);
+      throw error; // Rzuć błąd, aby komponent UI wiedział o niepowodzeniu
     }
   }, []);
 
   const logout = useCallback(async () => {
-    // setIsLoading(true); // Można odkomentować
     console.log('[AuthContext] Rozpoczynanie procesu wylogowania w kontekście...');
     try {
-      // Wywołaj metodę logout z serwisu, która zajmie się wszystkim (API + Storage)
-      await authService.logout(); // <<< POPRAWIONE WYWOŁANIE
-
-      // Serwis sam wyczyścił dane w Storage, teraz wyczyść stan w kontekście
+      await authService.logout();
       setAccessToken(null);
       setUserId(null);
       console.log('[AuthContext] Wylogowano pomyślnie (stan kontekstu zresetowany).');
-      // Toast sukcesu jest już w authService/authApi (lub można go dodać w authService)
-
+      // Toast sukcesu jest teraz w authService/authApi
     } catch (error) {
       console.error('[AuthContext] Błąd podczas wywoływania authService.logout:', error);
-      // Na wszelki wypadek wyczyść stan lokalny, nawet jeśli serwis zawiódł
       setAccessToken(null);
       setUserId(null);
-      // Pokaż ogólny błąd, jeśli wystąpił w serwisie (choć serwis powinien już pokazać toast)
       showToast({ type: 'error', text1: 'Błąd', text2: 'Wystąpił błąd podczas wylogowywania.' });
-      // Nie rzucaj błędu dalej, aby nie przerywać przepływu w UI po kliknięciu wyloguj
-    } finally {
-       // setIsLoading(false);
     }
-  }, []); // Pusta tablica zależności
+  }, []);
 
   const register = useCallback(async (username: string, email: string, password: string, password2: string) => {
-    setIsLoading(true);
     try {
       if (password !== password2) throw new Error('Hasła nie są identyczne');
       await authApi.register({ username, email, password, password2 });
+      // Toast sukcesu dla rejestracji jest nadal tutaj
       showToast({
         type: 'success',
         text1: 'Rejestracja udana',
@@ -154,28 +168,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           text2: translatedMessage, // Pokaż przetłumaczony lub oryginalny błąd
           visibilityTime: 5000,
       });
-      throw error; // Rzuć błąd dalej
-    } finally {
-      setIsLoading(false);
+      throw error; // Rzuć błąd dalej, aby RegisterScreen wiedział o niepowodzeniu
     }
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
-    setIsLoading(true);
     try {
       await authApi.resetPassword({ email });
       showToast({ type: 'success', text1: 'Sprawdź email', text2: 'Link do resetowania hasła został wysłany.' });
     } catch (error: any) {
       console.error('[AuthContext] Błąd resetowania hasła:', error);
-      const translatedMessage = translateApiError(error); // Spróbuj przetłumaczyć
+      // Użyj nowej funkcji tłumaczącej
+      const translatedMessage = translateApiError(error);
       showToast({
           type: 'error',
           text1: 'Błąd resetu hasła',
-          text2: translatedMessage, // Pokaż przetłumaczony lub oryginalny błąd
+          text2: translatedMessage, // Wyświetl przetłumaczony komunikat
       });
-      throw error; // Rzuć błąd dalej
-    } finally {
-      setIsLoading(false);
+      throw error; // Rzuć błąd dalej, aby ForgotPasswordScreen wiedział o niepowodzeniu
     }
   }, []);
 
@@ -184,7 +194,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     userId,
     accessToken,
     isAuthenticated: !!accessToken && !!userId,
-    isLoading,
+    isAuthCheckLoading, // Przekaż poprawny stan
     login,
     logout,
     register,
@@ -206,3 +216,5 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
+// Usunięto komponent LoadingIndicator - jest teraz w App.tsx

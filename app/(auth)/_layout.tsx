@@ -1,48 +1,47 @@
+// app/(auth)/_layout.tsx
 import React from 'react';
 import { Stack } from 'expo-router/stack';
 import { Colors } from '../../src/config/theme'; // Importuj kolory dla spójności stylu
-// ZMIANA: Upewnij się, że importujesz StyleSheet i Platform
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native'; // Importuj Platform i StyleSheet
 
 export default function AuthLayout() {
   // Layout będzie obowiązywał dla wszystkich ekranów w grupie (auth)
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
-        // Zastosuj style nagłówka zdefiniowane poniżej
-        headerStyle: styles.headerStyle,
+        headerShown: true, // Pokaż nagłówek
+        headerStyle: styles.headerStyle, // Użyj stylów zdefiniowanych poniżej
         headerTitleStyle: {
           fontSize: 18,
           fontWeight: '600',
-          color: Colors.textPrimary,
+          color: Colors.textPrimary, // Kolor tekstu tytułu
         },
-        headerTitleAlign: 'center',
-        headerTintColor: Colors.textSecondary,
-        headerBackTitle: 'Wróć',
+        headerTitleAlign: 'center', // Wyśrodkuj tytuł
+        headerTintColor: Colors.textSecondary, // Kolor strzałki wstecz
+        headerBackTitle: 'Wróć', // Tekst przycisku wstecz (iOS) lub null/false, aby ukryć
+        // headerBackTitleVisible: false, // Alternatywnie, aby ukryć tekst przycisku wstecz
       }}
     >
+      {/* Definicje ekranów w tej grupie nawigacji */}
       <Stack.Screen
-        name="login"
+        name="login" // Odpowiada plikowi login.tsx
         options={{
-          title: 'Logowanie',
+          title: 'Logowanie', // Tytuł wyświetlany w nagłówku
         }}
       />
       <Stack.Screen
-        name="register"
+        name="register" // Odpowiada plikowi register.tsx
         options={{
-          title: 'Rejestracja',
+          title: 'Rejestracja', // Tytuł wyświetlany w nagłówku
         }}
       />
-      {/* Można tu dodać inne ekrany auth */}
-      {/* Przykład:
       <Stack.Screen
-        name="forgot-password" // Zakładając, że plik to forgot-password.tsx
+        name="forgot-password" // Odpowiada plikowi forgot-password.tsx
         options={{
-          title: 'Resetuj Hasło',
+          title: 'Resetuj Hasło', // Tytuł wyświetlany w nagłówku
         }}
       />
-       */}
+      {/* Możesz dodać tutaj kolejne ekrany należące do przepływu autoryzacji */}
     </Stack>
   );
 }
@@ -50,10 +49,10 @@ export default function AuthLayout() {
 // Definicja stylów dla nagłówka przy użyciu StyleSheet i Platform.select
 const styles = StyleSheet.create({
   headerStyle: {
-    backgroundColor: Colors.card, // Wspólne tło
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    // Warunkowe style dla cienia
+    backgroundColor: Colors.card, // Używamy koloru tła karty (zwykle biały)
+    borderBottomWidth: 1, // Delikatna linia na dole
+    borderBottomColor: Colors.border, // Używamy koloru ramki z motywu
+    // Warunkowe usunięcie cienia
     ...Platform.select({
       ios: {
         shadowOpacity: 0, // Usuń cień na iOS
