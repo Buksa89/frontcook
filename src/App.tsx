@@ -1,4 +1,5 @@
 // src/App.tsx
+import 'react-native-get-random-values'; // <-- Polyfill dla crypto.getRandomValues
 import React, { useEffect, useState, ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -6,7 +7,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SyncStatusProvider } from './contexts/SyncStatusContext';
 import ToastComponent from './components/Toast';
 import { initializeDatabase } from './database';
-import { initializeSyncService, getSyncService, SyncStatus } from './services/sync/syncService'; // Import SyncStatus
+import { initializeSyncService, getSyncService, SyncStatus } from './services/sync/syncService';
 import { initializeImageService, getImageService } from './services/image/imageService';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -25,10 +26,8 @@ const useInitialization = () => {
         console.log("[useInitialization] Initializing database...");
         await initializeDatabase();
         console.log("[useInitialization] Database initialized.");
-        // Można tu dodać inne globalne inicjalizacje, np. czyszczenie plików
-        const imageServiceInstance = initializeImageService(); // Utwórz instancję wcześnie
-        await imageServiceInstance.cleanupOrphanedImageFiles(); // Wyczyść pliki
-        // Inicjalizacja SyncService też może być tutaj, ale bez startowania
+        const imageServiceInstance = initializeImageService();
+        await imageServiceInstance.cleanupOrphanedImageFiles();
         initializeSyncService();
 
         if (isMounted) setIsInitialized(true);
@@ -46,32 +45,39 @@ const useInitialization = () => {
 
 interface AppRootProps { children: ReactNode; }
 
-// Komponent do zarządzania serwisami zależnymi od stanu autoryzacji
+// Komponent do zarządzania serwisami zależnymi od stanu autoryzacji i sesji
 const AppServicesController: React.FC<{ children: ReactNode }> = ({ children }) => {
-   const { isAuthenticated, isAuthCheckLoading, userId } = useAuth();
-   // Usunięto stan servicesReady, bo renderujemy children od razu
+   // Dodano sessionExpired do zależności
+   const { isAuthenticated, isAuthCheckLoading, userId, sessionExpired } = useAuth();
 
-   // Uruchom/zatrzymaj serwisy w zależności od stanu Auth
    useEffect(() => {
-      // Nie rób nic, dopóki sprawdzanie auth się nie zakończy
       if (isAuthCheckLoading) return;
 
       let syncService: SyncService | null = null;
       let imageService: ImageService | null = null;
 
       try {
-        // Pobierz zainicjalizowane instancje
         syncService = getSyncService();
         imageService = getImageService();
 
-        if (isAuthenticated && userId) {
+        // Uruchamiaj serwisy tylko gdy użytkownik jest zalogowany ORAZ sesja NIE wygasła
+        if (isAuthenticated && userId && !sessionExpired) {
             console.log("[AppServicesController] Starting services...");
-            if (syncService.getStatus() !== SyncStatus.Syncing) { // Unikaj wielokrotnego startu
+            const currentSyncStatus = syncService.getStatus();
+            if (currentSyncStatus === SyncStatus.Idle || currentSyncStatus === SyncStatus.Stopped || currentSyncStatus === SyncStatus.Error || currentSyncStatus === SyncStatus.Offline) {
                 syncService.start();
+            } else {
+                 console.log(`[AppServicesController] SyncService already active (status: ${currentSyncStatus}), not starting again.`);
             }
-            // ImageService powinien już obserwować od momentu inicjalizacji
+             imageService.startObservingRecipes();
+
         } else {
-            console.log("[AppServicesController] Stopping services...");
+            // Zatrzymuj serwisy, gdy użytkownik nie jest zalogowany LUB sesja wygasła
+            if (sessionExpired) {
+                 console.log("[AppServicesController] Session expired, stopping services...");
+            } else if (!isAuthenticated || !userId) {
+                 console.log("[AppServicesController] User not authenticated, stopping services...");
+            }
             if (syncService) syncService.stop();
             if (imageService) imageService.stopObservingRecipes();
         }
@@ -79,36 +85,28 @@ const AppServicesController: React.FC<{ children: ReactNode }> = ({ children }) 
           console.error("[AppServicesController] Error managing services:", error);
       }
 
-      // Cleanup nie jest już potrzebny tutaj, bo serwisy żyją dłużej
-      // return () => { ... };
+   // Dodano sessionExpired jako zależność useEffect
+   }, [isAuthenticated, userId, isAuthCheckLoading, sessionExpired]);
 
-   }, [isAuthenticated, userId, isAuthCheckLoading]); // Reaguj na zmiany stanu auth
-
-   // Renderuj dzieci od razu, ale z dostawcą statusu synchronizacji
    return <SyncStatusProvider>{children}</SyncStatusProvider>;
 }
 
 // --- Główny Komponent Aplikacji ---
 export default function AppRoot({ children }: AppRootProps) {
-  const { isInitialized, error: initError } = useInitialization(); // Użyj hooka inicjalizacji
+  const { isInitialized, error: initError } = useInitialization();
 
-  // Pokaż błąd inicjalizacji, jeśli wystąpił
   if (initError) {
     return <ErrorIndicator text={`Błąd krytyczny inicjalizacji: ${initError.message}`} />;
   }
 
-  // Pokaż loader inicjalizacji, dopóki baza nie jest gotowa
   if (!isInitialized) {
     return <LoadingIndicator text="Inicjalizacja aplikacji..." />;
   }
 
-  // Baza gotowa, renderuj resztę (AuthProvider sam zarządza swoim loaderem)
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-           {/* AuthProvider renderuje swoje dzieci, w tym AuthLoader jeśli trzeba */}
-           {/* Następnie renderujemy kontroler serwisów i resztę aplikacji */}
            <AppServicesController>
               {children}
            </AppServicesController>

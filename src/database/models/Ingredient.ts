@@ -1,3 +1,4 @@
+// src/database/models/Ingredient.ts
 import { Model, Q } from '@nozbe/watermelondb';
 import {
   field,
@@ -7,10 +8,13 @@ import {
   date,
   writer
 } from '@nozbe/watermelondb/decorators';
-import type { Relation, associations, Database, Collection } from '@nozbe/watermelondb'; // Dodano Database, Collection, Poprawiono Associations -> associations
+import type { Relation, associations, Database, Collection, Model as WDBModel } from '@nozbe/watermelondb';
 import type Recipe from './Recipe';
 import { Observable } from 'rxjs';
-import { parseIngredient } from '../../utils/ingredientParser'; // Przywrócono poprawną ścieżkę
+import { parseIngredient } from '../../utils/ingredientParser';
+// --- DODAJ IMPORT UUID ---
+import { v4 as uuidv4 } from 'uuid';
+// -----------------------
 
 export default class Ingredient extends Model {
   static table = 'ingredients';
@@ -19,11 +23,11 @@ export default class Ingredient extends Model {
   } as const;
 
   // --- Pola ---
-  @field('user_id') userId!: string;
-  @date('last_modified') lastModified!: number;
-  @date('created_at') createdAt!: number;
-  @field('recipe_id') recipeId!: string;
-  @text('amount') amount?: string | null; // Zgodnie ze schematem (string)
+  @field('user_id') userId!: string | null; // Oczekuje string | null
+  @date('last_modified') lastModified!: number; // Oczekuje number (timestamp)
+  @date('created_at') createdAt!: number;     // Oczekuje number (timestamp)
+  @field('recipe_id') recipeId!: string;     // Powiązanie z przepisem (string UUID)
+  @text('amount') amount?: string | null;
   @text('unit') unit?: string | null;
   @text('name') name!: string;
   @text('type') type?: string | null;
@@ -47,13 +51,13 @@ export default class Ingredient extends Model {
   }
 
   /**
-   * Tworzy składniki na podstawie tekstu (np. wklejonego lub z importu).
+   * Tworzy składniki na podstawie tekstu (np. wklejonego lub z importu) z UUID.
    * Każda linia tekstu jest traktowana jako osobny składnik.
    */
   static async createIngredientsFromText(
     database: Database,
     recipeId: string,
-    userId: string,
+    userId: string | null, // Akceptuje string | null
     ingredientsText: string
   ): Promise<Ingredient[]> {
     try {
@@ -61,28 +65,33 @@ export default class Ingredient extends Model {
       const ingredientLines = ingredientsText
         .split('\n')
         .map(line => line.trim())
-        .filter(line => line.length > 0); // Ignoruj puste linie
+        .filter(line => line.length > 0);
 
       if (ingredientLines.length === 0) {
           console.log(`[DB Ingredient] Brak linii składników do przetworzenia dla przepisu ${recipeId}`);
-          return []; // Zwróć pustą tablicę, jeśli nie ma linii
+          return [];
       }
 
-      console.log(`[DB Ingredient] Tworzenie ${ingredientLines.length} składników lokalnie dla przepisu ${recipeId}`);
+      console.log(`[DB Ingredient] Tworzenie ${ingredientLines.length} składników lokalnie z UUID dla przepisu ${recipeId}`);
       const ingredientsCollection = database.get<Ingredient>(this.table);
-      const newIngredientsBatch: Ingredient[] = []; // Tablica do zbierania operacji create
+      const newIngredientsBatch: Ingredient[] = []; // Tablica do zbierania przygotowanych operacji
 
       // Przygotuj operacje tworzenia dla batch
       for (let i = 0; i < ingredientLines.length; i++) {
         const line = ingredientLines[i];
-        const parsed = parseIngredient(line); // Użyj parsera
+        const parsed = parseIngredient(line);
+        // --- GENERUJ UUID ---
+        const newId = uuidv4();
+        // -------------------
 
         newIngredientsBatch.push(
           ingredientsCollection.prepareCreate(ingredient => {
+            // --- PRZYPISZ UUID ---
+            ingredient._raw.id = newId;
+            // -------------------
             ingredient.recipeId = recipeId;
-            ingredient.userId = userId;
-            // Użyj sparsowanej nazwy lub oryginalnej linii jako fallback
-            ingredient.name = parsed.name || line;
+            ingredient.userId = userId; // Przypisz string | null
+            ingredient.name = parsed.name || line; // Użyj sparsowanej nazwy lub oryginalnej linii
             // Zapisz sparsowaną ilość jako string lub null
             ingredient.amount = parsed.amount !== null && !isNaN(parsed.amount) ? String(parsed.amount) : null;
             ingredient.unit = parsed.unit ?? null;
@@ -94,17 +103,23 @@ export default class Ingredient extends Model {
       }
 
       // Wykonaj wszystkie operacje tworzenia w jednej transakcji batch
-      let createdIngredients: Ingredient[] = newIngredientsBatch; // Przypisz przygotowane modele
       await database.write(async () => {
-        await database.batch(...newIngredientsBatch); // Wykonaj batch, który nie zwraca modeli
+        await database.batch(...newIngredientsBatch); // Wykonaj batch
       });
 
-      console.log(`[DB Ingredient] Pomyślnie utworzono lokalnie ${createdIngredients.length} składników dla przepisu ${recipeId}`);
-      return createdIngredients; // Zwróć przygotowane modele
+      // WAŻNE: newIngredientsBatch zawiera tylko przygotowane operacje.
+      // Po wykonaniu batch, te obiekty nie są automatycznie "żywymi" modelami.
+      // Jeśli potrzebujesz zwrócić faktycznie utworzone modele, musisz je pobrać ponownie.
+      // W tym przypadku zwrócimy pustą tablicę, bo najczęściej nie potrzebujemy tych modeli od razu.
+      // Jeśli są potrzebne, trzeba by zrobić query po batchu.
+      const createdIds = newIngredientsBatch.map(op => op.id); // Pobierz ID z przygotowanych operacji
+      console.log(`[DB Ingredient] Pomyślnie utworzono lokalnie ${createdIds.length} składników dla przepisu ${recipeId}. IDs: ${createdIds.join(', ')}`);
+      // Zwróć pustą tablicę lub wykonaj query, jeśli modele są potrzebne
+      return []; // Zwracamy pustą tablicę dla uproszczenia
 
     } catch (error) {
       console.error(`[DB Ingredient] Błąd podczas lokalnego tworzenia składników z tekstu:`, error);
-      throw error; // Rzuć błąd dalej
+      throw error;
     }
   }
 
@@ -154,6 +169,14 @@ export default class Ingredient extends Model {
        if (updates.originalStr !== undefined) currentUpdate.originalStr = updates.originalStr;
        if (updates.type !== undefined) currentUpdate.type = updates.type;
 
+       // Sprawdź czy są jakiekolwiek zmiany
+       if (Object.keys(currentUpdate).length === 0) {
+           // Zwróć oryginalny obiekt, jeśli nie ma zmian (prepareUpdate nie zadziała bez zmian)
+           // Lub rzuć błąd/zwróć null, w zależności od oczekiwań
+           console.warn(`[DB Ingredient prepareUpdateIngredient] Brak zmian dla ${this.id}`);
+           return this; // Zwrócenie 'this' jest bezpieczne, bo batch zignoruje niezmienione
+       }
+
        return this.prepareUpdate(ingredient => {
            Object.assign(ingredient, currentUpdate);
        });
@@ -164,10 +187,59 @@ export default class Ingredient extends Model {
    }
 }
 
-// Interfejs danych do tworzenia (opcjonalny)
+// Dodajemy deklarację 'interface IngredientModelStatic' (bez zmian funkcjonalnych)
+// aby uniknąć błędów TS dotyczących rozszerzania modułu.
+// Realna implementacja jest poniżej.
+declare module './Ingredient' {
+    interface Ingredient {}
+    interface IngredientModelStatic {
+         createIngredientsFromTextPrepare(database: Database, recipeId: string, userId: string | null, ingredientsText: string): Promise<Ingredient[]>;
+    }
+}
+
+/**
+ * Przygotowuje operacje tworzenia składników dla batch (z UUID).
+ */
+Ingredient.createIngredientsFromTextPrepare = async function(
+     database: Database,
+     recipeId: string,
+     userId: string | null, // Akceptuje string | null
+     ingredientsText: string
+ ): Promise<Ingredient[]> {
+      const ingredientLines = ingredientsText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      if (ingredientLines.length === 0) return [];
+
+      const ingredientsCollection = database.get<Ingredient>(Ingredient.table);
+      const newIngredientsBatch: Ingredient[] = [];
+
+      for (let i = 0; i < ingredientLines.length; i++) {
+        const line = ingredientLines[i];
+        const parsed = parseIngredient(line);
+        // --- GENERUJ UUID ---
+        const newId = uuidv4();
+        // -------------------
+        newIngredientsBatch.push(
+          ingredientsCollection.prepareCreate(ingredient => {
+            // --- PRZYPISZ UUID ---
+            ingredient._raw.id = newId;
+            // -------------------
+            ingredient.recipeId = recipeId;
+            ingredient.userId = userId; // Przypisz string | null
+            ingredient.name = parsed.name || line;
+            ingredient.amount = parsed.amount !== null && !isNaN(parsed.amount) ? String(parsed.amount) : null;
+            ingredient.unit = parsed.unit ?? null;
+            ingredient.order = i + 1;
+            ingredient.originalStr = line;
+          })
+        );
+      }
+      return newIngredientsBatch; // Zwróć przygotowane operacje
+ };
+
+// Interfejs danych do tworzenia (bez zmian)
 export interface IngredientCreateData {
   recipeId: string;
-  userId: string;
+  userId: string | null; // Zmieniono na string | null
   name: string;
   amount?: string | null;
   unit?: string | null;

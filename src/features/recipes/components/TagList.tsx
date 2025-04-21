@@ -1,16 +1,16 @@
 // src/features/recipes/components/TagList.tsx
 import React, { useState } from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet, View, Modal, TextInput, Alert } from 'react-native';
+import { ScrollView, TouchableOpacity, Text, StyleSheet, View, Modal, TextInput, Alert, ActivityIndicator } from 'react-native'; // Dodano ActivityIndicator
 import { withObservables } from '@nozbe/watermelondb/react';
-import database from '../../../database';
+import database from '../../../database'; // Usunięto - nie potrzebujemy tu bezpośrednio
 import Tag from '../../../database/models/Tag';
 import { Observable } from 'rxjs';
-import { AntDesign, Feather, MaterialIcons } from '@expo/vector-icons'; // Dodano MaterialIcons
+import { AntDesign, Feather, MaterialIcons } from '@expo/vector-icons';
 
 interface TagListProps {
-  tags: Tag[]; // Lista dostępnych tagów z HOC
-  selectedTags: Tag[]; // Aktualnie wybrane tagi (stan z komponentu nadrzędnego)
-  onSelectTag: (tag: Tag) => void; // Funkcja zwrotna do zaznaczania/odznaczania
+  tags: Tag[];
+  selectedTags: Tag[];
+  onSelectTag: (tag: Tag) => void;
 }
 
 // Komponent wewnętrzny wyświetlający listę
@@ -21,6 +21,8 @@ const TagListComponent: React.FC<TagListProps> = ({ tags, selectedTags, onSelect
   const [newTagText, setNewTagText] = useState('');
   const [editTagText, setEditTagText] = useState('');
   const [selectedTagForMenu, setSelectedTagForMenu] = useState<Tag | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false); // Stan zapisu edycji
+  const [isDeletingTag, setIsDeletingTag] = useState(false); // Stan usuwania tagu
 
   const openAddTagModal = () => {
     setNewTagText('');
@@ -34,11 +36,10 @@ const TagListComponent: React.FC<TagListProps> = ({ tags, selectedTags, onSelect
   const handleAddNewTag = async () => {
     if (!newTagText.trim()) return;
     try {
-      // Zakładamy, że userId jest pobierany wewnątrz createTag lub przekazywany
-      // Tutaj uproszczenie - zakładamy, że createTag sobie poradzi
-      // W pełnej implementacji trzeba by pobrać ID usera z AuthContext
-      const newTag = await Tag.createTag(database, { userId: 'TODO-GET-USER-ID', name: newTagText }); // TODO: Get actual user ID
-      onSelectTag(newTag); // Opcjonalnie zaznacz nowo dodany tag
+      // TODO: Pobierz aktualne userId z AuthContext lub authUserIdProvider
+      const userId = await (async () => { try { const id = await import('../../../services/auth/authUserIdProvider').then(m => m.getCurrentUserId()); return id; } catch { return null; } })();
+      const newTag = await Tag.createTag(database, { userId: userId, name: newTagText });
+      onSelectTag(newTag);
       closeAddTagModal();
     } catch (error) {
       console.error('Błąd dodawania tagu:', error);
@@ -66,24 +67,29 @@ const TagListComponent: React.FC<TagListProps> = ({ tags, selectedTags, onSelect
    const closeEditModal = () => {
        setEditTagModalVisible(false);
        setEditTagText('');
-       setSelectedTagForMenu(null); // Wyczyść też wybrany tag
+       setSelectedTagForMenu(null);
    }
 
    const saveEdit = async () => {
-       if (!selectedTagForMenu || !editTagText.trim()) return;
+       if (!selectedTagForMenu || !editTagText.trim() || isSavingEdit) return;
+       setIsSavingEdit(true); // Ustaw stan zapisu
        try {
-           await database.write(() => selectedTagForMenu.updateTag({ name: editTagText }));
+           // --- ZMIANA: Bezpośrednie wywołanie metody @writer ---
+           await selectedTagForMenu.updateTag({ name: editTagText });
+           // --- KONIEC ZMIANY ---
            closeEditModal();
        } catch (error) {
            console.error('Błąd aktualizacji tagu:', error);
            Alert.alert('Błąd', 'Nie udało się zaktualizować tagu.');
+       } finally {
+           setIsSavingEdit(false); // Zresetuj stan zapisu
        }
    };
 
    const confirmDeleteTag = () => {
-       if (!selectedTagForMenu) return;
-       const tagToDelete = selectedTagForMenu; // Zapisz referencję
-       closeTagMenu(); // Zamknij menu przed alertem
+       if (!selectedTagForMenu || isDeletingTag) return;
+       const tagToDelete = selectedTagForMenu;
+       closeTagMenu();
 
        Alert.alert(
            'Usuń tag',
@@ -96,12 +102,19 @@ const TagListComponent: React.FC<TagListProps> = ({ tags, selectedTags, onSelect
    };
 
    const deleteTag = async (tag: Tag) => {
+       if (isDeletingTag) return;
+       setIsDeletingTag(true); // Ustaw stan usuwania
        try {
-           await database.write(() => tag.deleteTag()); // Użyj metody z modelu
+           // --- ZMIANA: Bezpośrednie wywołanie metody @writer ---
+           await tag.deleteTag();
+           // --- KONIEC ZMIANY ---
            // Opcjonalnie: Pokaż toast o sukcesie
        } catch (error) {
            console.error('Błąd usuwania tagu:', error);
            Alert.alert('Błąd', 'Nie udało się usunąć tagu.');
+       } finally {
+           setIsDeletingTag(false); // Zresetuj stan usuwania
+           // Stan selectedTagForMenu jest czyszczony w closeTagMenu, które jest wywoływane przed confirmDeleteTag
        }
    };
 
@@ -137,27 +150,27 @@ const TagListComponent: React.FC<TagListProps> = ({ tags, selectedTags, onSelect
 
       {/* Modal Dodawania Tagu */}
       <Modal visible={isAddTagModalVisible} transparent={true} animationType="fade" onRequestClose={closeAddTagModal}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeAddTagModal}>
-            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-                <Text style={styles.modalTitle}>Dodaj Nowy Tag</Text>
-                <TextInput
-                    style={styles.modalInput}
-                    placeholder="Nazwa tagu"
-                    value={newTagText}
-                    onChangeText={setNewTagText}
-                    autoFocus
-                    onSubmitEditing={handleAddNewTag}
-                />
-                <View style={styles.modalButtons}>
-                    <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={closeAddTagModal}>
-                        <Text style={styles.modalButtonText}>Anuluj</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.modalButton, styles.saveButton, !newTagText.trim() && styles.disabledButton]} onPress={handleAddNewTag} disabled={!newTagText.trim()}>
-                        <Text style={styles.modalButtonText}>Dodaj</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </TouchableOpacity>
+         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeAddTagModal}>
+             <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+                 <Text style={styles.modalTitle}>Dodaj Nowy Tag</Text>
+                 <TextInput
+                     style={styles.modalInput}
+                     placeholder="Nazwa tagu"
+                     value={newTagText}
+                     onChangeText={setNewTagText}
+                     autoFocus
+                     onSubmitEditing={handleAddNewTag}
+                 />
+                 <View style={styles.modalButtons}>
+                     <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={closeAddTagModal}>
+                         <Text style={styles.modalButtonText}>Anuluj</Text>
+                     </TouchableOpacity>
+                     <TouchableOpacity style={[styles.modalButton, styles.saveButton, !newTagText.trim() && styles.disabledButton]} onPress={handleAddNewTag} disabled={!newTagText.trim()}>
+                         <Text style={styles.modalButtonTextWhite}>Dodaj</Text>
+                     </TouchableOpacity>
+                 </View>
+             </View>
+         </TouchableOpacity>
       </Modal>
 
       {/* Modal Edycji Tagu */}
@@ -174,11 +187,11 @@ const TagListComponent: React.FC<TagListProps> = ({ tags, selectedTags, onSelect
                    onSubmitEditing={saveEdit}
                />
                <View style={styles.modalButtons}>
-                   <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={closeEditModal}>
+                   <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={closeEditModal} disabled={isSavingEdit}>
                        <Text style={styles.modalButtonText}>Anuluj</Text>
                    </TouchableOpacity>
-                   <TouchableOpacity style={[styles.modalButton, styles.saveButton, !editTagText.trim() && styles.disabledButton]} onPress={saveEdit} disabled={!editTagText.trim()}>
-                       <Text style={styles.modalButtonText}>Zapisz</Text>
+                   <TouchableOpacity style={[styles.modalButton, styles.saveButton, (!editTagText.trim() || isSavingEdit) && styles.disabledButton]} onPress={saveEdit} disabled={!editTagText.trim() || isSavingEdit}>
+                      {isSavingEdit ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalButtonTextWhite}>Zapisz</Text>}
                    </TouchableOpacity>
                </View>
            </View>
@@ -189,12 +202,12 @@ const TagListComponent: React.FC<TagListProps> = ({ tags, selectedTags, onSelect
       <Modal visible={isTagMenuVisible} transparent={true} animationType="fade" onRequestClose={closeTagMenu}>
            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeTagMenu}>
                <View style={styles.contextMenu} onStartShouldSetResponder={() => true}>
-                   <TouchableOpacity style={styles.contextMenuItem} onPress={startEdit}>
+                   <TouchableOpacity style={styles.contextMenuItem} onPress={startEdit} disabled={isDeletingTag}>
                        <Feather name="edit" size={18} color="#333" />
                        <Text style={styles.contextMenuItemText}>Edytuj</Text>
                    </TouchableOpacity>
-                   <TouchableOpacity style={[styles.contextMenuItem, styles.contextMenuItemDelete]} onPress={confirmDeleteTag}>
-                       <Feather name="trash-2" size={18} color="#ff4444" />
+                   <TouchableOpacity style={[styles.contextMenuItem, styles.contextMenuItemDelete]} onPress={confirmDeleteTag} disabled={isDeletingTag}>
+                       {isDeletingTag ? <ActivityIndicator size="small" color="#ff4444" style={styles.contextMenuIconSpacing}/> : <Feather name="trash-2" size={18} color="#ff4444" />}
                        <Text style={[styles.contextMenuItemText, styles.contextMenuItemTextDelete]}>Usuń</Text>
                    </TouchableOpacity>
                </View>
@@ -205,143 +218,38 @@ const TagListComponent: React.FC<TagListProps> = ({ tags, selectedTags, onSelect
   );
 };
 
-// HOC do obserwowania tagów
+// HOC bez zmian
 const enhance = withObservables([], () => ({
-  tags: Tag.observeAll(database) // Obserwuj wszystkie tagi (użytkownika i systemowe)
+  // TODO: Przekazać aktualne userId do observeAll
+  tags: Tag.observeAll(database, null) // Na razie null, trzeba podłączyć userId
 }));
 
 export const EnhancedTagList = enhance(TagListComponent);
 
-// --- Style ---
+// --- Style - dodano styl contextMenuIconSpacing ---
 const styles = StyleSheet.create({
-  tagsScroll: {
-    flexGrow: 0, // Zapobiega rozciąganiu ScrollView w pionie
-    flexShrink: 1, // Pozwala ScrollView się skurczyć
-  },
-  tagsContainer: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    alignItems: 'center', // Wyśrodkuj elementy w pionie
-  },
-  tagButton: {
-    paddingHorizontal: 14, // Więcej paddingu poziomego
-    paddingVertical: 7,  // Trochę więcej paddingu pionowego
-    borderRadius: 18,    // Bardziej zaokrąglone
-    backgroundColor: '#e9ecef', // Jaśniejszy szary
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: 'transparent', // Domyślnie przezroczysta ramka
-  },
-  tagButtonSelected: {
-    backgroundColor: '#5c7ba9',
-    borderColor: '#4a628a', // Ciemniejsza ramka dla wybranych
-  },
-  tagText: {
-    fontSize: 14,
-    color: '#495057', // Ciemniejszy szary tekst
-    fontWeight: '500',
-  },
-  tagTextSelected: {
-    color: '#fff',
-  },
-  addTagButtonPlaceholder: {
-    width: 36, // Dopasuj do wysokości tagButton z paddingiem
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-    borderStyle: 'dashed',
-  },
-   // Style dla modali
-   modalOverlay: {
-       flex: 1,
-       backgroundColor: 'rgba(0, 0, 0, 0.4)',
-       justifyContent: 'center',
-       alignItems: 'center',
-       padding: 20,
-   },
-   modalContent: {
-       backgroundColor: 'white',
-       borderRadius: 12,
-       padding: 20,
-       width: '100%',
-       maxWidth: 400,
-       elevation: 5,
-       shadowColor: '#000',
-       shadowOffset: { width: 0, height: 2 },
-       shadowOpacity: 0.1,
-       shadowRadius: 4,
-   },
-   modalTitle: {
-       fontSize: 18,
-       fontWeight: '600',
-       marginBottom: 16,
-       textAlign: 'center',
-       color: '#333',
-   },
-   modalInput: {
-       borderWidth: 1,
-       borderColor: '#ced4da',
-       borderRadius: 8,
-       padding: 12,
-       fontSize: 16,
-       marginBottom: 16,
-       backgroundColor: '#f8f9fa',
-   },
-   modalButtons: {
-       flexDirection: 'row',
-       justifyContent: 'flex-end', // Przyciski po prawej
-       gap: 10,
-   },
-   modalButton: {
-       paddingVertical: 10,
-       paddingHorizontal: 20,
-       borderRadius: 8,
-   },
-   modalButtonText: {
-       fontSize: 16,
-       fontWeight: '500',
-   },
-   cancelButton: {
-       backgroundColor: '#e9ecef',
-   },
-   saveButton: {
-       backgroundColor: '#5c7ba9',
-       color: '#fff'
-   },
-   disabledButton: {
-        backgroundColor: '#adb5bd',
-   },
-    // Style dla menu kontekstowego
-    contextMenu: {
-       backgroundColor: 'white',
-       borderRadius: 8,
-       paddingVertical: 8,
-       minWidth: 180, // Minimalna szerokość
-       elevation: 5,
-       shadowColor: '#000',
-       shadowOffset: { width: 0, height: 2 },
-       shadowOpacity: 0.15,
-       shadowRadius: 4,
-   },
-   contextMenuItem: {
-       flexDirection: 'row',
-       alignItems: 'center',
-       paddingVertical: 12,
-       paddingHorizontal: 16,
-   },
-   contextMenuItemDelete: {
-       // Styl dla opcji usuwania
-   },
-   contextMenuItemText: {
-       fontSize: 16,
-       marginLeft: 12,
-       color: '#333',
-   },
-   contextMenuItemTextDelete: {
-       color: '#ff4444',
-   },
+    tagsScroll: { flexGrow: 0, flexShrink: 1, },
+    tagsContainer: { paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center', },
+    tagButton: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, backgroundColor: '#e9ecef', marginRight: 8, borderWidth: 1, borderColor: 'transparent', },
+    tagButtonSelected: { backgroundColor: '#5c7ba9', borderColor: '#4a628a', },
+    tagText: { fontSize: 14, color: '#495057', fontWeight: '500', },
+    tagTextSelected: { color: '#fff', },
+    addTagButtonPlaceholder: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f8f9fa', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#dee2e6', borderStyle: 'dashed', },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', alignItems: 'center', padding: 20, },
+    modalContent: { backgroundColor: 'white', borderRadius: 12, padding: 20, width: '100%', maxWidth: 400, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, },
+    modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 16, textAlign: 'center', color: '#333', },
+    modalInput: { borderWidth: 1, borderColor: '#ced4da', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, backgroundColor: '#f8f9fa', },
+    modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, },
+    modalButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, justifyContent: 'center', alignItems: 'center', minWidth: 80 }, // Dodano minWidth
+    modalButtonText: { fontSize: 16, fontWeight: '500', },
+    modalButtonTextWhite: { fontSize: 16, fontWeight: '500', color: '#fff' },
+    cancelButton: { backgroundColor: '#e9ecef', },
+    saveButton: { backgroundColor: '#5c7ba9', },
+    disabledButton: { backgroundColor: '#adb5bd', opacity: 0.7 }, // Dodano opacity
+    contextMenu: { backgroundColor: 'white', borderRadius: 8, paddingVertical: 8, minWidth: 180, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, },
+    contextMenuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, },
+    contextMenuItemDelete: { },
+    contextMenuItemText: { fontSize: 16, marginLeft: 12, color: '#333', },
+    contextMenuItemTextDelete: { color: '#ff4444', },
+    contextMenuIconSpacing: { marginRight: 0 }, // Styl dla ActivityIndicator w miejscu ikony
 });

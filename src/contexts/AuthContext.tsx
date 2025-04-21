@@ -3,60 +3,50 @@ import React, { createContext, useState, useEffect, useContext, ReactNode, useCa
 import { View, Text, ActivityIndicator } from 'react-native';
 import authService from '../services/auth/authService';
 import authApi from '../services/api/authApi';
-import { showToast, ToastMessage } from '../components/Toast'; // Importuj również typ ToastMessage
-import { ApiError } from '../services/api/apiClient'; // Importuj ApiError
+import { showToast, ToastMessage } from '../components/Toast';
+// --- ZMIANA: Poprawny import ApiError ---
+import { ApiError } from '../services/api/apiClient';
+// ---------------------------------------
+import { router } from 'expo-router';
 
-// Mapowanie *specyficznych* komunikatów błędów na polski
+// Mapowanie błędów API na polski
 const specificApiErrorTranslations: Record<string, string> = {
   'No active account found with the given credentials': 'Nieprawidłowa nazwa użytkownika lub hasło.',
   'Unable to log in with provided credentials.': 'Nie można zalogować używając podanych danych.',
   'No user found with this email address.': 'Nie znaleziono użytkownika z tym adresem email.',
-  // --- Dodaj tutaj więcej specyficznych tłumaczeń dla błędów zwracanych przez Twoje API ---
-  // np. 'User with this email already exists.': 'Użytkownik z tym adresem email już istnieje.',
-  // np. 'Password must contain at least 8 characters.': 'Hasło musi zawierać co najmniej 8 znaków.',
+  'User with this username already exists.': 'Użytkownik o tej nazwie już istnieje.',
+  'User with this email already exists.': 'Użytkownik z tym adresem email już istnieje.',
+  // Dodaj więcej tłumaczeń specyficznych dla Twojego API
 };
 
 // Funkcja pomocnicza do tłumaczenia błędu API
 const translateApiError = (error: any): string => {
-  // Sprawdź, czy to nasz ApiError
   if (error instanceof ApiError) {
-    // 1. Spróbuj przetłumaczyć główną wiadomość błędu
     if (error.message && specificApiErrorTranslations[error.message]) {
       return specificApiErrorTranslations[error.message];
     }
-
-    // 2. Sprawdź, czy błąd zawiera dane z polami (typowe dla DRF)
     if (error.data && typeof error.data === 'object') {
       const fieldErrors: string[] = [];
-      // Iteruj po polach błędów (np. 'email', 'password', 'non_field_errors')
       for (const field in error.data) {
         const messages = error.data[field];
         if (Array.isArray(messages)) {
-          // Spróbuj przetłumaczyć każdą wiadomość dla pola
           messages.forEach(msg => {
-            const translated = specificApiErrorTranslations[msg];
-            fieldErrors.push(translated || msg); // Dodaj przetłumaczoną lub oryginalną
+            const translated = specificApiErrorTranslations[msg] || msg;
+            fieldErrors.push(translated);
           });
         } else if (typeof messages === 'string') {
-          // Jeśli wiadomość dla pola jest stringiem
-           const translated = specificApiErrorTranslations[messages];
-           fieldErrors.push(translated || messages);
+           const translated = specificApiErrorTranslations[messages] || messages;
+           fieldErrors.push(translated);
         }
       }
-      // Jeśli znaleziono błędy pól, połącz je
       if (fieldErrors.length > 0) {
-        // Usuń duplikaty, jeśli API zwraca ten sam błąd dla wielu pól
-        return [...new Set(fieldErrors)].join(' '); // Połącz spacją lub \n
+        return [...new Set(fieldErrors)].join(' ');
       }
     }
-
-    // 3. Jeśli nie znaleziono tłumaczenia ani błędów pól, zwróć oryginalną wiadomość (jeśli istnieje)
-    if (error.message) {
-      return error.message;
-    }
+    // Zwróć oryginalną wiadomość, jeśli istnieje i nie jest pusta
+    if (error.message) { return error.message; }
   }
-
-  // 4. Domyślny komunikat dla innych typów błędów
+  // Fallback dla innych typów błędów lub braku wiadomości w ApiError
   return 'Wystąpił nieoczekiwany błąd.';
 };
 
@@ -65,11 +55,15 @@ interface AuthContextType {
   userId: string | null;
   accessToken: string | null;
   isAuthenticated: boolean;
-  isAuthCheckLoading: boolean; // Tylko dla początkowego sprawdzenia
+  isLoggedIn: boolean;
+  isAuthCheckLoading: boolean;
+  sessionExpired: boolean;
   login: (loginValue: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (username: string, email: string, password: string, password2: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  resetSessionExpired: () => void;
+  // --- Usunięto błędne callApiAuthenticated z interfejsu ---
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,32 +72,61 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// --- POPRAWKA: Dodano `React.FC` i `return` ---
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+// ---------------------------------------------
   const [userId, setUserId] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isAuthCheckLoading, setIsAuthCheckLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  const handleSessionExpiredError = useCallback(() => {
+      if (sessionExpired) return;
+      console.log("[AuthContext] Obsługa błędu wygaśnięcia sesji.");
+      setAccessToken(null);
+      setSessionExpired(true);
+      showToast({
+          type: 'error',
+          text1: 'Sesja wygasła',
+          text2: 'Zaloguj się ponownie, aby kontynuować.',
+          visibilityTime: 6000,
+          position: 'bottom',
+      });
+      // Opcjonalna nawigacja
+      // router.replace('/login');
+  }, [sessionExpired]);
 
   useEffect(() => {
     const checkAuthState = async () => {
       console.log('[AuthContext] Sprawdzanie stanu autentykacji...');
       setIsAuthCheckLoading(true);
+      setSessionExpired(false);
       try {
         const storedToken = await authService.getAccessToken();
         const storedUserId = await authService.getActiveUserId();
+        const storedRefreshToken = await authService.getRefreshToken();
 
-        if (storedToken && storedUserId) {
+        if (storedUserId && !storedToken && !storedRefreshToken) {
+             console.log('[AuthContext] Wykryto userId bez tokenów - oznaczanie sesji jako wygasłej.');
+             setUserId(storedUserId);
+             setAccessToken(null);
+             setSessionExpired(true);
+        } else if (storedToken && storedUserId) {
           console.log('[AuthContext] Znaleziono dane uwierzytelniające.');
           setAccessToken(storedToken);
           setUserId(storedUserId);
+          setSessionExpired(false);
         } else {
           console.log('[AuthContext] Brak danych uwierzytelniających.');
           setAccessToken(null);
           setUserId(null);
+          setSessionExpired(false);
         }
       } catch (error) {
         console.error('[AuthContext] Błąd podczas sprawdzania stanu uwierzytelnienia:', error);
         setAccessToken(null);
         setUserId(null);
+        setSessionExpired(false);
       } finally {
         setIsAuthCheckLoading(false);
         console.log('[AuthContext] Sprawdzanie stanu autentykacji zakończone.');
@@ -116,21 +139,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authService.login(loginValue, password);
       setAccessToken(response.access);
-      setUserId(String(response.user_id)); // Konwersja na string
+      setUserId(String(response.user_id));
+      setSessionExpired(false);
       showToast({ type: 'success', text1: 'Zalogowano pomyślnie!' });
     } catch (error: any) {
       console.error('[AuthContext] Błąd logowania:', error);
-      const translatedMessage = translateApiError(error);
-      showToast({
-          type: 'error',
-          text1: 'Błąd logowania',
-          text2: translatedMessage,
-      });
-      setAccessToken(null);
-      setUserId(null);
-      throw error; // Rzuć błąd, aby komponent UI wiedział o niepowodzeniu
+      if (error instanceof ApiError && error.isRefreshError) {
+          handleSessionExpiredError();
+      } else {
+          const translatedMessage = translateApiError(error);
+          showToast({ type: 'error', text1: 'Błąd logowania', text2: translatedMessage });
+          setAccessToken(null);
+          setUserId(null);
+          setSessionExpired(false);
+      }
+      throw error;
     }
-  }, []);
+  }, [handleSessionExpiredError]);
 
   const logout = useCallback(async () => {
     console.log('[AuthContext] Rozpoczynanie procesu wylogowania w kontekście...');
@@ -138,21 +163,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await authService.logout();
       setAccessToken(null);
       setUserId(null);
+      setSessionExpired(false);
       console.log('[AuthContext] Wylogowano pomyślnie (stan kontekstu zresetowany).');
-      // Toast sukcesu jest teraz w authService/authApi
+      showToast({ type: 'info', text1: 'Wylogowano'});
+      router.replace('/login');
     } catch (error) {
       console.error('[AuthContext] Błąd podczas wywoływania authService.logout:', error);
       setAccessToken(null);
       setUserId(null);
+      setSessionExpired(false);
       showToast({ type: 'error', text1: 'Błąd', text2: 'Wystąpił błąd podczas wylogowywania.' });
+      router.replace('/login');
     }
   }, []);
 
+  const resetSessionExpired = useCallback(() => {
+      console.log('[AuthContext] Resetowanie flagi sessionExpired.');
+      setSessionExpired(false);
+  }, []);
+
+  // --- POPRAWKA: Usunięto async i T, poprawiono logikę catch ---
   const register = useCallback(async (username: string, email: string, password: string, password2: string) => {
     try {
-      if (password !== password2) throw new Error('Hasła nie są identyczne');
+      if (password !== password2) throw new Error('Hasła nie są identyczne.');
       await authApi.register({ username, email, password, password2 });
-      // Toast sukcesu dla rejestracji jest nadal tutaj
       showToast({
         type: 'success',
         text1: 'Rejestracja udana',
@@ -160,53 +194,67 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         visibilityTime: 5000,
       });
     } catch (error: any) {
-      console.error('[AuthContext] Błąd rejestracji:', error);
-       const translatedMessage = translateApiError(error); // Spróbuj przetłumaczyć błąd z API
-      showToast({
-          type: 'error',
-          text1: 'Błąd rejestracji',
-          text2: translatedMessage, // Pokaż przetłumaczony lub oryginalny błąd
-          visibilityTime: 5000,
-      });
-      throw error; // Rzuć błąd dalej, aby RegisterScreen wiedział o niepowodzeniu
+      // Sprawdź błąd sesji (chociaż mało prawdopodobne przy rejestracji)
+      if (error instanceof ApiError && error.isRefreshError) {
+          handleSessionExpiredError();
+      } else {
+          // Normalna obsługa błędu rejestracji
+          console.error('[AuthContext] Błąd rejestracji:', error);
+          const translatedMessage = translateApiError(error);
+          showToast({ type: 'error', text1: 'Błąd rejestracji', text2: translatedMessage });
+      }
+      // --- POPRAWKA: Przenieś throw na koniec catch ---
+      throw error; // Rzuć błąd dalej, aby komponent UI wiedział
+      // --------------------------------------------
     }
-  }, []);
+  }, [handleSessionExpiredError]);
 
+  // --- POPRAWKA: Usunięto async i T, poprawiono logikę catch ---
   const resetPassword = useCallback(async (email: string) => {
     try {
       await authApi.resetPassword({ email });
       showToast({ type: 'success', text1: 'Sprawdź email', text2: 'Link do resetowania hasła został wysłany.' });
     } catch (error: any) {
-      console.error('[AuthContext] Błąd resetowania hasła:', error);
-      // Użyj nowej funkcji tłumaczącej
-      const translatedMessage = translateApiError(error);
-      showToast({
-          type: 'error',
-          text1: 'Błąd resetu hasła',
-          text2: translatedMessage, // Wyświetl przetłumaczony komunikat
-      });
-      throw error; // Rzuć błąd dalej, aby ForgotPasswordScreen wiedział o niepowodzeniu
+       // Sprawdź błąd sesji (mało prawdopodobne przy resecie hasła)
+       if (error instanceof ApiError && error.isRefreshError) {
+           handleSessionExpiredError();
+       } else {
+           // Normalna obsługa błędu resetu
+           console.error('[AuthContext] Błąd resetowania hasła:', error);
+           const translatedMessage = translateApiError(error);
+           showToast({ type: 'error', text1: 'Błąd resetu hasła', text2: translatedMessage });
+       }
+       // --- POPRAWKA: Przenieś throw na koniec catch ---
+      throw error; // Rzuć błąd dalej
+      // --------------------------------------------
     }
-  }, []);
+  }, [handleSessionExpiredError]);
 
+  // --- Usunięto błędną funkcję callApiAuthenticated ---
 
   const authContextValue: AuthContextType = {
-    userId,
-    accessToken,
-    isAuthenticated: !!accessToken && !!userId,
-    isAuthCheckLoading, // Przekaż poprawny stan
-    login,
-    logout,
-    register,
-    resetPassword,
+    // --- POPRAWKA: Użyj jawnego przypisania `key: value` ---
+    userId: userId,
+    accessToken: accessToken,
+    isAuthenticated: !!accessToken && !!userId && !sessionExpired,
+    isLoggedIn: !!userId,
+    isAuthCheckLoading: isAuthCheckLoading,
+    sessionExpired: sessionExpired,
+    login: login,
+    logout: logout,
+    register: register,
+    resetPassword: resetPassword,
+    resetSessionExpired: resetSessionExpired,
+    // --------------------------------------------------
   };
 
+  // --- POPRAWKA: Dodano return ---
   return (
     <AuthContext.Provider value={authContextValue}>
-      {/* Główny loader aplikacji jest teraz w AppInitializer */}
       {children}
     </AuthContext.Provider>
   );
+  // -----------------------------
 };
 
 export const useAuth = (): AuthContextType => {
@@ -216,5 +264,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-
-// Usunięto komponent LoadingIndicator - jest teraz w App.tsx

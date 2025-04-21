@@ -69,10 +69,13 @@ export default function StackLayout() {
 
           // --- Dynamiczny Nagłówek ---
           headerLeft: () => {
-             // Pokaż strzałkę wstecz tylko jeśli można wrócić I nie jesteśmy na głównym ekranie (recipes)
-             if (navigation.canGoBack() && route.name !== 'recipes') {
+             // Pokaż strzałkę wstecz tylko jeśli NIE jesteśmy na ekranie recipes
+             if (route.name !== 'recipes') {
                return (
-                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButtonLeft}>
+                 <TouchableOpacity 
+                   onPress={() => router.push('/(tabs)/recipes')} 
+                   style={styles.headerButtonLeft}
+                 >
                    <MaterialIcons name="arrow-back-ios" size={20} color="#4a5568" />
                  </TouchableOpacity>
                );
