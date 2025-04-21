@@ -5,11 +5,14 @@ import type { LoginResponse, LoginRequest } from '../api/authApi';
 import database from '../../database';
 import { Q, Model } from '@nozbe/watermelondb';
 import { Alert } from 'react-native';
-// Usunięto import apiClient i ApiError - nie są już tu potrzebne
+// --- DODANE IMPORTY ---
+import { getSyncService, SyncStatus } from '../sync/syncService'; // Importuj getter i Status dla SyncService
+import NetInfo from '@react-native-community/netinfo'; // Do sprawdzenia sieci
+// --------------------
 
 const SYNCHRONIZABLE_TABLE_NAMES_FOR_ORPHAN_ASSIGNMENT = [
-    'recipes', 'recipe_tags_through', 'ingredients', 'shopping_items', // Zaktualizowana nazwa tabeli M2M
-    'client_user_settings', 'notifications', 'recipe_images' // Dodano recipe_images, usunięto user_profile? (profil zwykle nie jest tworzony offline)
+    'recipes', 'recipe_tags', 'ingredients', 'shopping_items', // Używamy poprawnej nazwy 'recipe_tags'
+    'client_user_settings', 'notifications', 'recipe_images_local' // Dodano recipe_images_local
 ];
 
 interface RecordWithUserId extends Model { userId: string | null; } // userId będzie stringiem
@@ -75,9 +78,17 @@ class AuthService {
                 let totalUpdated = 0;
                 for (const tableName of SYNCHRONIZABLE_TABLE_NAMES_FOR_ORPHAN_ASSIGNMENT) {
                     try {
+                        // Sprawdź czy tabela istnieje w schemacie przed zapytaniem
+                        const collectionExists = database.collections.get(tableName);
+                        if (!collectionExists) {
+                            console.warn(`[AuthService] Tabela '${tableName}' nie istnieje w schemacie, pomijanie przypisywania.`);
+                            continue;
+                        }
+
                         const collection = database.get<RecordWithUserId>(tableName);
                         // Znajdź rekordy, gdzie user_id jest null
                         const orphanedRecords = await collection.query(Q.where('user_id', null)).fetch();
+
                         if (orphanedRecords.length > 0) {
                             console.log(`[AuthService] Znaleziono ${orphanedRecords.length} osieroconych rekordów w ${tableName}`);
                             // Przygotuj operacje update w batch
@@ -104,11 +115,41 @@ class AuthService {
     }
 
     /**
-     * Wylogowuje użytkownika: wywołuje API logout i czyści dane lokalne.
+     * Wylogowuje użytkownika: próbuje wymusić sync, wywołuje API logout i czyści dane lokalne.
      */
     async logout(): Promise<void> {
         console.log('[AuthService] Rozpoczęcie wylogowania...');
         const refreshToken = await this.getRefreshToken(); // Pobierz token przed czyszczeniem
+
+        // --- DODANO: Wymuszenie synchronizacji PUSH przed wylogowaniem ---
+        try {
+            console.log('[AuthService] Próba wymuszenia synchronizacji przed wylogowaniem...');
+            const syncService = getSyncService(); // Pobierz instancję SyncService
+            const netState = await NetInfo.fetch(); // Sprawdź stan sieci
+
+            // Sprawdź, czy serwis jest aktywny (nie Idle) i czy jesteśmy online
+            const currentSyncStatus = syncService.getStatus();
+            const isServiceConsideredActive = currentSyncStatus !== SyncStatus.Idle; // Uproszczone sprawdzenie
+            const isOnline = netState.isConnected && netState.isInternetReachable;
+
+            if (isServiceConsideredActive && isOnline) {
+                 console.log('[AuthService] Wyzwalanie ręcznej synchronizacji...');
+                 // Wywołaj triggerManualSync i poczekaj na zakończenie cyklu
+                 // triggerManualSync wewnętrznie zarządza flagą isCurrentlySyncing
+                 await syncService.triggerManualSync();
+                 console.log('[AuthService] Zakończono próbę synchronizacji przed wylogowaniem.');
+                 // Nie potrzebujemy sprawdzać statusu tutaj, jeśli się nie powiodło,
+                 // błąd został złapany poniżej lub zalogowany przez SyncService.
+            } else {
+                 console.log(`[AuthService] Pomijanie synchronizacji przed wylogowaniem (Aktywny: ${isServiceConsideredActive}, Online: ${isOnline}).`);
+            }
+        } catch (syncError) {
+            // Logujemy błąd synchronizacji, ale *nie przerywamy* procesu wylogowania
+            console.error('[AuthService] Błąd podczas próby synchronizacji przed wylogowaniem (kontynuacja wylogowania):', syncError);
+        }
+        // --- KONIEC DODANEJ SEKCJI ---
+
+        // Kontynuuj normalny proces wylogowania
         try {
             // Najpierw wywołaj API logout, jeśli jest token
             if (refreshToken) {
@@ -143,13 +184,23 @@ class AuthService {
         }
     }
 
-    // Metody get... bez zmian
-    async getAccessToken(): Promise<string | null> { return AuthStorage.retrieveAccessToken(); }
-    async getActiveUserId(): Promise<string | null> { return AuthStorage.retrieveActiveUserId(); }
-    async getRefreshToken(): Promise<string | null> { return AuthStorage.retrieveRefreshToken(); }
-    async isAuthenticated(): Promise<boolean> { const t = await this.getAccessToken(); const u = await this.getActiveUserId(); return !!t && !!u; }
+    async getAccessToken(): Promise<string | null> {
+        return AuthStorage.retrieveAccessToken();
+    }
 
-    // Metoda refreshAccessToken została usunięta, logika przeniesiona do authApi.refreshToken
+    async getActiveUserId(): Promise<string | null> {
+        return AuthStorage.retrieveActiveUserId();
+    }
+
+    async getRefreshToken(): Promise<string | null> {
+        return AuthStorage.retrieveRefreshToken();
+    }
+
+    async isAuthenticated(): Promise<boolean> {
+        const token = await this.getAccessToken();
+        const userId = await this.getActiveUserId();
+        return !!token && !!userId;
+    }
 }
 
 const authService = new AuthService();

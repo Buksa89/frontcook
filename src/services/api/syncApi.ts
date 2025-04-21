@@ -1,5 +1,7 @@
+// src/services/api/syncApi.ts
 import apiClient from './apiClient'; // Importuj naszego klienta API
 import type { ApiError } from './apiClient'; // Importuj typ błędu
+import { DEBUG } from '../../config/env'; // Importuj DEBUG flag
 
 // Typy dla danych synchronizacji (powinny być spójne z backendem i WDB)
 // Można je przenieść do src/types/sync.ts później
@@ -38,6 +40,24 @@ export interface PushChangesArgs {
 const SYNC_ENDPOINT_PATH = '/api/sync/'; // Upewnij się, że ścieżka jest poprawna
 
 /**
+ * Oblicza podsumowanie zmian dla logowania.
+ */
+const summarizeChanges = (changes: SyncPayload): string => {
+    let summary = `Tables: ${Object.keys(changes).length}, Items: {`;
+    let totalCreated = 0;
+    let totalUpdated = 0;
+    let totalDeleted = 0;
+    for (const table in changes) {
+        totalCreated += changes[table]?.created?.length ?? 0;
+        totalUpdated += changes[table]?.updated?.length ?? 0;
+        totalDeleted += changes[table]?.deleted?.length ?? 0;
+    }
+    summary += ` C: ${totalCreated}, U: ${totalUpdated}, D: ${totalDeleted} }`;
+    return summary;
+};
+
+
+/**
  * Obiekt zawierający funkcje do synchronizacji WatermelonDB przez API.
  */
 const syncApi = {
@@ -67,7 +87,19 @@ const syncApi = {
         throw new Error('Nieprawidłowy format odpowiedzi serwera podczas Pull.');
       }
 
-      console.log(`[SyncAPI] Pull udany. Otrzymano timestamp: ${response.timestamp}`);
+      // --- DODANE LOGOWANIE ODPOWIEDZI ---
+      const changesSummary = summarizeChanges(response.changes);
+      console.log(`[SyncAPI Pull Response] Timestamp: ${response.timestamp}, Summary: ${changesSummary}`);
+
+      // Do szczegółowego debugowania (można odkomentować tymczasowo)
+      // if (DEBUG) { // Loguj pełną odpowiedź tylko w trybie DEBUG
+      //    console.log('[SyncAPI Pull Response DEBUG] Full changes:', JSON.stringify(response.changes, null, 2).substring(0, 1000) + '...'); // Loguj początek obiektu
+      // }
+      // --- KONIEC DODANEGO LOGOWANIA ---
+
+
+      // Usunięto logowanie "Pull udany", bo jest już w logu odpowiedzi
+      // console.log(`[SyncAPI] Pull udany. Otrzymano timestamp: ${response.timestamp}`);
       return response;
     } catch (error) {
       const apiError = error as ApiError;
@@ -88,10 +120,20 @@ const syncApi = {
         return; // Nie wysyłaj pustego żądania
     }
 
-    console.log(`[SyncAPI] Pushing changes (LPA: ${lastPulledAt})`);
+    // --- DODANE LOGOWANIE DANYCH WYJŚCIOWYCH (PODSUMOWANIE) ---
+    const changesSummary = summarizeChanges(changes);
+    console.log(`[SyncAPI] Pushing changes (LPA: ${lastPulledAt}), Summary: ${changesSummary}`);
+
+    // Do szczegółowego debugowania (można odkomentować tymczasowo)
+    // if (DEBUG) { // Loguj pełne dane tylko w trybie DEBUG
+    //    console.log('[SyncAPI Push DEBUG] Full changes:', JSON.stringify(changes, null, 2).substring(0, 1000) + '...'); // Loguj początek obiektu
+    // }
+    // --- KONIEC DODANEGO LOGOWANIA ---
+
     const params = new URLSearchParams({ last_pulled_at: lastPulledAt.toString() });
     const endpointWithParams = `${SYNC_ENDPOINT_PATH}?${params.toString()}`;
-    console.log(`[SyncAPI] Push Endpoint: ${endpointWithParams}`);
+    // Usunięto logowanie endpointu, bo jest mniej istotne niż dane
+    // console.log(`[SyncAPI] Push Endpoint: ${endpointWithParams}`);
 
     // Przygotuj ciało żądania z kluczem "changes"
     const requestBody = { changes: changes };

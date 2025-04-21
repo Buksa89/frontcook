@@ -1,11 +1,16 @@
+// src/services/sync/syncService.ts
 import { synchronize } from '@nozbe/watermelondb/sync';
 import type { Database } from '@nozbe/watermelondb';
 import SyncLogger from '@nozbe/watermelondb/sync/SyncLogger';
 import syncApi from '../api/syncApi'; // Importuj nasz obiekt API sync
 import { EventEmitter } from 'eventemitter3';
-import NetInfo from '@react-native-community/netinfo';
+// --- POPRAWIONY IMPORT NetInfo ---
+import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
+// ---------------------------------
 import database from '../../database'; // Importuj instancję bazy WDB
 import schema from '../../database/schema'; // Importuj schemat dla wersji
+import AuthStorage from '../auth/authStorage'; // Import do zarządzania LPA
+import { getCurrentUserId } from '../auth/authUserIdProvider'; // Do pobrania ID użytkownika
 
 // Stany synchronizacji
 export enum SyncStatus {
@@ -16,33 +21,39 @@ export enum SyncStatus {
   Success = 'success',
   Error = 'error',
   Offline = 'offline',
+  Stopped = 'stopped', // Dodano stan 'Stopped'
 }
 
 // Zdarzenia emitowane przez serwis
 interface SyncServiceEvents {
-  statusChanged: (status: SyncStatus, error?: Error | null) => void;
+  // --- POPRAWIONA SYGNATURA TYPU ---
+  statusChanged: (status: SyncStatus, error: Error | null) => void;
+  // ---------------------------------
   syncStarted: () => void;
-  syncFinished: (status: SyncStatus, error?: Error | null) => void;
+  syncFinished: (status: SyncStatus, error: Error | null) => void;
 }
 
 // Stałe konfiguracyjne
-const DEFAULT_SYNC_INTERVAL_SECONDS = 60; // Domyślny interwał 60 sekund
-const RETRY_DELAY_MS = 5000; // Opóźnienie przed ponowieniem po błędzie (5 sekund)
+const DEFAULT_SYNC_INTERVAL_SECONDS = 60;
+const RETRY_DELAY_MS = 5000;
 
 class SyncService {
   private database: Database;
   private currentStatus: SyncStatus = SyncStatus.Idle;
   private lastError: Error | null = null;
-  private syncLogger = new SyncLogger(15); // Zwiększono bufor logów
+  private syncLogger = new SyncLogger(15);
   private eventEmitter = new EventEmitter<SyncServiceEvents>();
   private migrationsVersion: number;
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private syncIntervalMs: number;
-  private isCurrentlySyncing: boolean = false; // Flaga zapobiegająca równoczesnym synchronize
-  private isStarted: boolean = false; // Czy serwis został uruchomiony przez start()
-  private syncPromise: Promise<void> | null = null; // Do śledzenia aktywnej operacji synchronize
-  private offlineRetryTimer: ReturnType<typeof setTimeout> | null = null; // Timer do ponowienia po powrocie online
-  private errorRetryTimer: ReturnType<typeof setTimeout> | null = null; // Timer do ponowienia po błędzie
+  private isCurrentlySyncing: boolean = false;
+  private isStarted: boolean = false;
+  private syncPromise: Promise<void> | null = null;
+  private offlineRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private errorRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  // --- DODANO: Do zarządzania listenerem NetInfo ---
+  private netInfoUnsubscribe: (() => void) | null = null;
+  // ---------------------------------------------
 
   constructor(
     db: Database,
@@ -50,13 +61,12 @@ class SyncService {
   ) {
     this.database = db;
     this.syncIntervalMs = syncIntervalSeconds * 1000;
-    this.migrationsVersion = schema.version; // Pobierz wersję ze schematu
+    this.migrationsVersion = schema.version;
     console.log(`[SyncService] Inicjalizacja z wersją schematu: ${this.migrationsVersion}, interwał: ${syncIntervalSeconds}s`);
   }
 
   // --- Metody Publiczne ---
 
-  /** Rozpoczyna cykliczne sprawdzanie i synchronizację. */
   public start(): void {
     if (this.isStarted) {
       console.log('[SyncService] Serwis jest już uruchomiony.');
@@ -64,24 +74,23 @@ class SyncService {
     }
     console.log(`[SyncService] Uruchamianie serwisu...`);
     this.isStarted = true;
-    this.clearTimers(); // Wyczyść timery na wszelki wypadek
-    this.setStatus(SyncStatus.Waiting); // Początkowy stan
+    this.clearTimers();
+    this.setStatus(SyncStatus.Waiting);
 
-    // Natychmiastowe sprawdzenie przy starcie
     this.checkAndSync().catch(err => {
       console.error("[SyncService] Nieobsłużony błąd podczas pierwszego checkAndSync:", err);
-      // Ustaw status błędu, jeśli pierwsza próba zawiedzie
-      this.setStatus(SyncStatus.Error, err);
+      if (this.isStarted) {
+        this.setStatus(SyncStatus.Error, err instanceof Error ? err : new Error(String(err)));
+        this.scheduleErrorRetry(); // Zaplanuj ponowienie po błędzie startowym
+      }
     });
 
-    // Ustawienie interwału
     this.intervalId = setInterval(() => {
       this.checkAndSync().catch(err => {
          console.error("[SyncService] Nieobsłużony błąd w cyklicznym checkAndSync:", err);
-         // Ustaw status błędu, jeśli cykliczna próba zawiedzie
-         // Nie nadpisuj jeśli jest już Offline
-         if (this.currentStatus !== SyncStatus.Offline) {
-             this.setStatus(SyncStatus.Error, err);
+         if (this.isStarted && this.currentStatus !== SyncStatus.Offline) {
+             this.setStatus(SyncStatus.Error, err instanceof Error ? err : new Error(String(err)));
+             this.scheduleErrorRetry(); // Zaplanuj ponowienie po błędzie cyklicznym
          }
       });
     }, this.syncIntervalMs);
@@ -89,7 +98,6 @@ class SyncService {
     console.log(`[SyncService] Serwis uruchomiony z interwałem ${this.syncIntervalMs / 1000}s.`);
   }
 
-  /** Zatrzymuje cykliczne sprawdzanie. */
   public stop(): void {
     if (!this.isStarted) {
       console.log('[SyncService] Serwis nie jest uruchomiony.');
@@ -97,122 +105,176 @@ class SyncService {
     }
     console.log('[SyncService] Zatrzymywanie serwisu...');
     this.isStarted = false;
-    this.clearTimers(); // Zatrzymaj interwał i timery ponowień
+    this.clearTimers(); // To teraz również anuluje listener NetInfo
 
-    // Jeśli był w trakcie, wróć do Idle lub zachowaj ostatni status błędu/sukcesu
-    if (this.currentStatus === SyncStatus.Syncing || this.currentStatus === SyncStatus.Checking || this.currentStatus === SyncStatus.Waiting) {
-      this.setStatus(SyncStatus.Idle);
+    if (this.currentStatus !== SyncStatus.Error && this.currentStatus !== SyncStatus.Success && this.currentStatus !== SyncStatus.Offline) {
+      this.setStatus(SyncStatus.Stopped);
     }
-    // Nie resetuj flagi isCurrentlySyncing tutaj, zresetuje się w finally performSyncCycle
     console.log('[SyncService] Serwis zatrzymany.');
   }
 
-  /** Ręcznie wyzwala pojedynczy cykl sprawdzenia i synchronizacji. */
   public async triggerManualSync(): Promise<void> {
-    if (this.currentStatus === SyncStatus.Syncing || this.currentStatus === SyncStatus.Checking) {
-      console.log('[SyncService] Manual sync requested, but already syncing/checking.');
-      // Można poczekać na zakończenie bieżącej operacji
-      await (this.syncPromise ?? Promise.resolve());
-      // Po zakończeniu, sprawdź status - jeśli nie był błędem/offline, można ponowić
-      if (this.currentStatus !== SyncStatus.Error && this.currentStatus !== SyncStatus.Offline) {
-           console.log('[SyncService] Previous sync finished, triggering manual sync now.');
-           await this.checkAndSync();
-      } else {
-          console.log('[SyncService] Previous sync finished with error/offline, manual trigger skipped.');
-      }
-      return;
+    if (!this.isStarted) {
+        console.warn('[SyncService] Ręczne wyzwolenie, ale serwis jest zatrzymany.');
+        return;
     }
+
+    if (this.currentStatus === SyncStatus.Syncing || this.currentStatus === SyncStatus.Checking) {
+      console.log('[SyncService] Manual sync requested, but already syncing/checking. Waiting...');
+      try {
+          await (this.syncPromise ?? Promise.resolve());
+      } catch { /* Ignoruj błąd poprzedniej synchronizacji */ }
+      if (this.currentStatus === SyncStatus.Syncing || this.currentStatus === SyncStatus.Checking) {
+          console.warn('[SyncService] Manual sync still blocked after waiting.');
+          return;
+      }
+      console.log('[SyncService] Previous sync finished, proceeding with manual trigger.');
+    }
+
     console.log('[SyncService] Ręczne wyzwolenie synchronizacji...');
-    // Wyczyść timery ponowień, bo użytkownik chce teraz
     this.clearRetryTimers();
     await this.checkAndSync();
   }
 
-  // Gettery i obsługa zdarzeń (bez zmian)
   public getStatus(): SyncStatus { return this.currentStatus; }
   public getLastError(): Error | null { return this.lastError; }
   public getFormattedLogs(): string { return this.syncLogger.formattedLogs; }
   public getRawLogs(): any[] { return this.syncLogger.logs; }
-  public on<E extends keyof SyncServiceEvents>(event: E, listener: SyncServiceEvents[E]): void { this.eventEmitter.on(event, listener); }
-  public off<E extends keyof SyncServiceEvents>(event: E, listener: SyncServiceEvents[E]): void { this.eventEmitter.off(event, listener); }
+
+  // --- POPRAWIONE TYPY on/off ---
+  public on<E extends keyof SyncServiceEvents>(event: E, listener: (...args: any[]) => void): void {
+    this.eventEmitter.on(event, listener as any); // Używamy 'as any' lub bardziej precyzyjnego typu jeśli to możliwe
+  }
+  public off<E extends keyof SyncServiceEvents>(event: E, listener: (...args: any[]) => void): void {
+    this.eventEmitter.off(event, listener as any);
+  }
+  // ----------------------------
 
   // --- Metody Prywatne ---
 
-  /** Sprawdza warunki i potencjalnie uruchamia cykl synchronizacji. */
   private async checkAndSync(): Promise<void> {
-    if (!this.isStarted) {
-        // console.log('[SyncService Check] Serwis zatrzymany, pomijanie sprawdzania.');
-        return;
-    }
-    if (this.isCurrentlySyncing) {
-      console.log('[SyncService Check] Poprzednia synchronizacja nadal trwa. Pomijam to sprawdzenie.');
-      return;
-    }
-    // Wyczyść timery ponowień, bo zaczynamy nowe sprawdzenie
+    if (!this.isStarted) { return; }
+    if (this.isCurrentlySyncing) { console.log('[SyncService Check] Poprzednia synchronizacja nadal trwa.'); return; }
     this.clearRetryTimers();
 
     this.setStatus(SyncStatus.Checking);
-    console.log('[SyncService Check] Sprawdzanie połączenia...');
+    console.log('[SyncService Check] Sprawdzanie...');
 
-    const netState = await NetInfo.fetch();
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      console.log('[SyncService Check] Brak zalogowanego użytkownika. Zatrzymywanie serwisu.');
+      this.setStatus(SyncStatus.Idle);
+      this.stop();
+      return;
+    }
+
+    // --- POPRAWKA: Obsługa NetInfoState ---
+    let netState: NetInfoState;
+    try {
+        netState = await NetInfo.fetch();
+    } catch (netError) {
+         console.error("[SyncService Check] Błąd pobierania stanu sieci:", netError);
+         this.setStatus(SyncStatus.Error, new Error("Nie można sprawdzić połączenia sieciowego."));
+         this.scheduleErrorRetry(); // Zaplanuj ponowienie po błędzie NetInfo
+         return;
+    }
+    // -----------------------------------
+
     if (!netState.isConnected || !netState.isInternetReachable) {
       console.log('[SyncService Check] Brak połączenia internetowego.');
       this.setStatus(SyncStatus.Offline);
-      // Zaplanuj ponowienie, gdy wróci online (jeśli jeszcze nie jest zaplanowane)
       this.scheduleOfflineRetry();
       return;
     }
 
-    console.log('[SyncService Check] Połączenie OK. Rozpoczynanie cyklu synchronizacji...');
-    this.syncPromise = this.performSyncCycle(); // Rozpocznij cykl i zapisz Promise
+    console.log('[SyncService Check] Warunki spełnione. Rozpoczynanie cyklu synchronizacji...');
+    this.syncPromise = this.performSyncCycle(userId);
     try {
-        await this.syncPromise; // Poczekaj na zakończenie cyklu
+        await this.syncPromise;
     } catch (error) {
-        // Błąd został już obsłużony i zalogowany w performSyncCycle
-        // Ustawiamy status Error, jeśli jeszcze nie został ustawiony
-        if (this.currentStatus !== SyncStatus.Error && this.currentStatus !== SyncStatus.Offline) {
-            this.setStatus(SyncStatus.Error, error instanceof Error ? error : new Error('Unknown sync error'));
+        // Błąd jest już obsłużony w performSyncCycle, który ustawia status Error
+        // Uproszczono warunek - jeśli serwis działa i status NIE jest Offline, planujemy ponowienie
+        if (this.isStarted && this.currentStatus !== SyncStatus.Offline) {
+             this.scheduleErrorRetry();
         }
     } finally {
-        this.syncPromise = null; // Wyczyść Promise po zakończeniu
-        // Ustaw stan Waiting, jeśli cykl zakończył się sukcesem i serwis nadal działa
+        this.syncPromise = null;
         if (this.isStarted && this.currentStatus === SyncStatus.Success) {
             this.setStatus(SyncStatus.Waiting);
         }
-        // Jeśli zakończył się błędem, status Error zostanie, chyba że się rozłączymy
-        // Jeśli zakończył się Offline, status Offline zostanie
     }
   }
 
-  /** Wykonuje pełny cykl synchronizacji (synchronize + obsługa błędów/ponowień). */
-  private async performSyncCycle(): Promise<void> {
-    if (this.isCurrentlySyncing) return; // Powtórne sprawdzenie na wszelki wypadek
+  private async performSyncCycle(userId: string): Promise<void> {
+    if (this.isCurrentlySyncing) return;
     this.isCurrentlySyncing = true;
     this.setStatus(SyncStatus.Syncing);
     this.eventEmitter.emit('syncStarted');
-    this.lastError = null; // Wyczyść ostatni błąd na początku cyklu
+    this.lastError = null;
 
-    const syncId = Math.random().toString(36).substring(2, 8); // Krótsze ID
+    const syncId = Math.random().toString(36).substring(2, 8);
     const currentLog = this.syncLogger.newLog();
-    console.log(`[SyncService Cycle ${syncId}] Rozpoczęcie synchronize...`);
+    console.log(`[SyncService Cycle ${syncId}] Rozpoczęcie dla User ID: ${userId}...`);
+
+    let userLPA: number | null = null;
+    try {
+        userLPA = await AuthStorage.retrieveLastPulledAt(userId);
+        console.log(`[SyncService Cycle ${syncId}] Odczytano User LPA (${userId}): ${userLPA ?? 'null'}`);
+    } catch (lpaError) {
+         console.error(`[SyncService Cycle ${syncId}] Błąd odczytu User LPA dla ${userId}:`, lpaError);
+         const error = new Error("Błąd odczytu stanu synchronizacji.");
+         this.setStatus(SyncStatus.Error, error);
+         this.isCurrentlySyncing = false;
+         this.eventEmitter.emit('syncFinished', this.currentStatus, this.lastError);
+         // Nie planujemy ponowienia tutaj, zrobi to checkAndSync
+         throw error; // Rzuć błąd, aby zatrzymać cykl
+    }
 
     try {
       await synchronize({
         database: this.database,
         pullChanges: async (args) => {
-          console.log(`[SyncService Cycle ${syncId}] Pull... (LPA: ${args.lastPulledAt})`);
-          const response = await syncApi.pullChanges(args);
-          console.log(`[SyncService Cycle ${syncId}] Pull zakończony. Timestamp: ${response.timestamp}`);
-          return response;
+          const wdbLPA = args.lastPulledAt;
+          const lpaToSend = userLPA;
+          console.log(`[SyncService Cycle ${syncId}] Pull... (WDB LPA: ${wdbLPA ?? 'null'}, User LPA: ${userLPA ?? 'null'}) -> Sending LPA: ${lpaToSend ?? 'null'}`);
+          if (userLPA === null && wdbLPA !== null) {
+              console.warn(`[SyncService Cycle ${syncId}] Niespójność LPA: User LPA jest null, ale WDB LPA to ${wdbLPA}. Używam null.`);
+          }
+          const response = await syncApi.pullChanges({ ...args, lastPulledAt: lpaToSend });
+          const newTimestamp = response.timestamp;
+          try {
+              await AuthStorage.storeLastPulledAt(userId, newTimestamp);
+          } catch (saveLpaError) {
+               console.error(`[SyncService Cycle ${syncId}] KRYTYCZNY BŁĄD zapisu nowego LPA (${newTimestamp}) dla ${userId} po udanym Pull:`, saveLpaError);
+               throw new Error(`Błąd zapisu nowego LPA po Pull: ${saveLpaError}`);
+          }
+          console.log(`[SyncService Cycle ${syncId}] Pull zakończony. Nowy Timestamp: ${newTimestamp} (zapisany dla ${userId})`);
+          return { changes: response.changes, timestamp: newTimestamp };
         },
         pushChanges: async (args) => {
-          console.log(`[SyncService Cycle ${syncId}] Push... (LPA: ${args.lastPulledAt})`);
-          await syncApi.pushChanges(args);
+          const wdbLPA = args.lastPulledAt;
+          let lpaForPush: number | null = null;
+          try {
+              lpaForPush = await AuthStorage.retrieveLastPulledAt(userId);
+              if (lpaForPush === null) {
+                  console.error(`[SyncService Cycle ${syncId}] BŁĄD KRYTYCZNY: LPA dla push jest null po udanym pullu dla ${userId}! Używam WDB LPA: ${wdbLPA}`);
+                  lpaForPush = wdbLPA;
+              }
+          } catch (lpaError) {
+               console.error(`[SyncService Cycle ${syncId}] Błąd odczytu LPA dla push (${userId}):`, lpaError);
+               lpaForPush = wdbLPA;
+          }
+          console.log(`[SyncService Cycle ${syncId}] Push... (WDB LPA: ${wdbLPA}, User LPA for Push: ${lpaForPush})`);
+          if (lpaForPush === null) {
+              // To nie powinno się zdarzyć, ale zabezpieczamy się
+              throw new Error("Nie można wykonać Push bez prawidłowego lastPulledAt.");
+          }
+          await syncApi.pushChanges({ changes: args.changes, lastPulledAt: lpaForPush });
           console.log(`[SyncService Cycle ${syncId}] Push zakończony.`);
         },
         migrationsEnabledAtVersion: this.migrationsVersion,
         log: currentLog,
-        // sendCreatedAsUpdated: true, // Rozważ włączenie, jeśli masz problemy z ID
+        // sendCreatedAsUpdated: true,
       });
 
       this.setStatus(SyncStatus.Success);
@@ -223,46 +285,50 @@ class SyncService {
       currentLog.error = error;
       this.lastError = error instanceof Error ? error : new Error(String(error));
       this.setStatus(SyncStatus.Error, this.lastError);
-
-      // Zaplanuj ponowienie po błędzie, jeśli serwis nadal działa
-      if (this.isStarted) {
-          this.scheduleErrorRetry();
-      }
-      // Rzuć błąd dalej, aby `checkAndSync` mógł go złapać
+      // Rzuć błąd dalej, aby checkAndSync mógł go złapać
       throw this.lastError;
 
     } finally {
-      this.isCurrentlySyncing = false; // Zawsze zdejmuj flagę na końcu
-      this.eventEmitter.emit('syncFinished', this.currentStatus, this.lastError ?? undefined);
+      this.isCurrentlySyncing = false;
+      // --- POPRAWKA: Przekaż null jako drugi argument jeśli nie ma błędu ---
+      this.eventEmitter.emit('syncFinished', this.currentStatus, this.lastError);
+      // -------------------------------------------------------------------
       console.log(`[SyncService Cycle ${syncId}] Zakończono synchronize (status: ${this.currentStatus}).`);
     }
   }
 
-  /** Ustawia nowy status i emituje zdarzenie. */
-  private setStatus(newStatus: SyncStatus, error: Error | null = undefined): void {
-    const resolvedError = error === undefined ? (newStatus === SyncStatus.Error ? this.lastError : null) : error;
+  private setStatus(newStatus: SyncStatus, error: Error | null = null): void { // Domyślna wartość null jest ok
+    const resolvedError = error; // Błąd jest przekazywany bezpośrednio
     if (this.currentStatus !== newStatus || this.lastError !== resolvedError) {
       this.currentStatus = newStatus;
       this.lastError = resolvedError;
       try {
-          this.eventEmitter.emit('statusChanged', newStatus, resolvedError ?? undefined);
+          // --- POPRAWKA: Przekaż resolvedError (który jest Error | null) ---
+          this.eventEmitter.emit('statusChanged', newStatus, resolvedError);
+          this.eventEmitter.emit('syncFinished', newStatus, resolvedError); // Emituj też tutaj dla spójności? Albo usuń jeden z nich. Zostawmy na razie oba.
+          // -------------------------------------------------------------
       } catch (emitError) {
-           console.error("[SyncService] Błąd podczas emitowania statusChanged:", emitError);
+           console.error("[SyncService] Błąd podczas emitowania zdarzenia:", emitError);
       }
       console.log(`[SyncService] Status zmieniony na: ${newStatus}${resolvedError ? ` (Błąd: ${resolvedError.message.substring(0,100)}...)` : ''}`);
     }
   }
 
-   /** Czyści wszystkie timery (interwał i ponowienia). */
    private clearTimers(): void {
        if (this.intervalId) {
            clearInterval(this.intervalId);
            this.intervalId = null;
        }
+       // --- DODANO: Anulowanie listenera NetInfo ---
+       if (this.netInfoUnsubscribe) {
+           this.netInfoUnsubscribe();
+           this.netInfoUnsubscribe = null;
+           console.log('[SyncService] Anulowano nasłuchiwanie NetInfo.');
+       }
+       // -----------------------------------------
        this.clearRetryTimers();
    }
 
-   /** Czyści tylko timery ponowień (offline i błąd). */
    private clearRetryTimers(): void {
        if (this.offlineRetryTimer) {
            clearTimeout(this.offlineRetryTimer);
@@ -274,44 +340,57 @@ class SyncService {
        }
    }
 
-  /** Planuje ponowną próbę synchronizacji po powrocie online. */
   private scheduleOfflineRetry(): void {
-    if (!this.isStarted || this.offlineRetryTimer) return; // Nie planuj, jeśli zatrzymany lub już zaplanowane
+    if (!this.isStarted || this.netInfoUnsubscribe) return; // Nie planuj, jeśli zatrzymany lub już nasłuchuje
 
     console.log('[SyncService] Planowanie nasłuchiwania na powrót online...');
-    // Użyj NetInfo do nasłuchiwania na zmianę stanu połączenia
-    const unsubscribe = NetInfo.addEventListener(state => {
+
+    // --- POPRAWKA: Użycie NetInfoState i poprawne zarządzanie unsubscribe ---
+    const listener = (state: NetInfoState) => {
       if (state.isConnected && state.isInternetReachable) {
         console.log('[SyncService] Wykryto powrót online. Próbuję synchronizacji...');
-        unsubscribe(); // Zatrzymaj nasłuchiwanie po pierwszej udanej próbie
-        this.offlineRetryTimer = null; // Wyczyść timer (choć technicznie to listener)
-        // Użyj setTimeout, aby dać chwilę na ustabilizowanie się połączenia
+        if (this.netInfoUnsubscribe) {
+          this.netInfoUnsubscribe(); // Zatrzymaj nasłuchiwanie
+          this.netInfoUnsubscribe = null;
+        }
+        this.offlineRetryTimer = null; // Wyczyść flagę timera
+        // Użyj setTimeout dla krótkiego opóźnienia
         this.offlineRetryTimer = setTimeout(() => {
-            this.checkAndSync().catch(err => console.error("[SyncService] Błąd podczas ponowienia po offline:", err));
-        }, 1000); // Krótkie opóźnienie
+            this.offlineRetryTimer = null;
+            // Sprawdź ponownie, czy serwis nadal działa przed próbą
+            if (this.isStarted) {
+                this.checkAndSync().catch(err => console.error("[SyncService] Błąd podczas ponowienia po offline:", err));
+            } else {
+                 console.log("[SyncService] Powrót online, ale serwis został zatrzymany. Pomijanie ponowienia.");
+            }
+        }, 1000);
       }
-    });
-    // Zapisz funkcję unsubscribe, aby móc ją usunąć w stop() lub clearTimers()
-    // Proste rozwiązanie: zapiszmy symboliczny timer, który wyczyścimy
-    this.offlineRetryTimer = setTimeout(() => { /* Placeholder */}, 3600000); // Długi czas, tylko dla flagi
-    // UWAGA: W rzeczywistości powinniśmy zarządzać referencją do unsubscribe()
+    };
+    // ---------------------------------------------------------------------
+
+    this.netInfoUnsubscribe = NetInfo.addEventListener(listener);
+    console.log('[SyncService] Nasłuchiwanie NetInfo aktywowane.');
+    // Nie potrzebujemy już placeholdera setTimeout
   }
 
-  /** Planuje ponowną próbę synchronizacji po błędzie. */
   private scheduleErrorRetry(): void {
-       if (!this.isStarted || this.errorRetryTimer) return; // Nie planuj, jeśli zatrzymany lub już zaplanowane
+       if (!this.isStarted || this.errorRetryTimer) return;
 
        console.log(`[SyncService] Planowanie ponowienia synchronizacji za ${RETRY_DELAY_MS / 1000}s po błędzie.`);
        this.errorRetryTimer = setTimeout(() => {
            console.log('[SyncService] Czas na ponowienie synchronizacji po błędzie...');
-           this.errorRetryTimer = null; // Wyczyść timer przed próbą
-           this.checkAndSync().catch(err => console.error("[SyncService] Błąd podczas ponowienia po błędzie:", err));
+           this.errorRetryTimer = null;
+           // Sprawdź ponownie, czy serwis nadal działa
+            if (this.isStarted) {
+               this.checkAndSync().catch(err => console.error("[SyncService] Błąd podczas ponowienia po błędzie:", err));
+           } else {
+               console.log("[SyncService] Czas na ponowienie, ale serwis został zatrzymany. Pomijanie.");
+           }
        }, RETRY_DELAY_MS);
    }
 }
 
 // --- Inicjalizacja Singletona ---
-// Sprawdź, czy baza danych jest dostępna przed utworzeniem instancji
 let syncServiceInstance: SyncService | null = null;
 
 export const initializeSyncService = (): SyncService => {
@@ -326,15 +405,12 @@ export const initializeSyncService = (): SyncService => {
   return syncServiceInstance;
 };
 
-// Eksportuj funkcję do pobierania instancji
 export const getSyncService = (): SyncService => {
   if (!syncServiceInstance) {
-    // Można rzucić błąd lub zainicjalizować 'leniwie'
     console.warn("[SyncService Get] Próba pobrania SyncService przed inicjalizacją. Inicjowanie...");
     return initializeSyncService();
   }
   return syncServiceInstance;
 };
 
-// Opcjonalnie, można wyeksportować samą klasę, jeśli potrzebna
 export { SyncService };

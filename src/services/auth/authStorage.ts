@@ -1,3 +1,4 @@
+// src/services/auth/authStorage.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { DEBUG } from '../../config/env'; // Import DEBUG z nowej lokalizacji
@@ -7,6 +8,19 @@ const STORAGE_KEYS = {
   ACCESS_TOKEN: '@auth/access_token',
   REFRESH_TOKEN: '@auth/refresh_token',
   ACTIVE_USER_ID: '@auth/active_user_id',
+  // --- NOWY KLUCZ (Prefiks) ---
+  LAST_PULLED_AT_PREFIX: '@sync/last_pulled_at_', // Prefiks, do którego dodamy userId
+};
+
+// Funkcja pomocnicza do tworzenia klucza LPA dla użytkownika
+const getLastPulledAtKey = (userId: string): string => {
+  if (!userId) {
+      console.error("[AuthStorage] Próba utworzenia klucza LPA bez userId.");
+      // Rzucenie błędu lub zwrócenie stałego klucza może być ryzykowne
+      // Lepiej zapobiegać wywołaniu bez userId
+      throw new Error("Nie można utworzyć klucza LPA bez userId.");
+  }
+  return `${STORAGE_KEYS.LAST_PULLED_AT_PREFIX}${userId}`;
 };
 
 const AuthStorage = {
@@ -115,6 +129,76 @@ const AuthStorage = {
       throw new Error('Nie można pobrać identyfikatora użytkownika.');
     }
   },
+
+  // --- NOWE METODY DLA LAST PULLED AT ---
+
+  /**
+   * Zapisuje ostatni timestamp synchronizacji dla danego użytkownika.
+   */
+  storeLastPulledAt: async (userId: string, timestamp: number): Promise<void> => {
+    if (!userId) {
+        console.warn('[AuthStorage] Próba zapisu LPA bez userId.');
+        return;
+    }
+    try {
+      const key = getLastPulledAtKey(userId);
+      await AsyncStorage.setItem(key, timestamp.toString());
+      console.log(`[AuthStorage] Zapisano LPA (${timestamp}) dla User ID: ${userId}`);
+    } catch (error) {
+      console.error(`[AuthStorage] Błąd zapisu LPA dla User ID ${userId}:`, error);
+      throw new Error('Nie można zapisać ostatniego czasu synchronizacji.');
+    }
+  },
+
+  /**
+   * Pobiera ostatni timestamp synchronizacji dla danego użytkownika.
+   */
+  retrieveLastPulledAt: async (userId: string): Promise<number | null> => {
+    if (!userId) {
+        console.warn('[AuthStorage] Próba pobrania LPA bez userId.');
+        return null;
+    }
+    try {
+      const key = getLastPulledAtKey(userId);
+      const timestampStr = await AsyncStorage.getItem(key);
+      if (timestampStr === null) {
+        console.log(`[AuthStorage] Brak zapisanego LPA dla User ID: ${userId}.`);
+        return null;
+      }
+      const timestamp = parseInt(timestampStr, 10);
+      if (isNaN(timestamp)) {
+        console.warn(`[AuthStorage] Nieprawidłowy format zapisanego LPA dla User ID ${userId}: "${timestampStr}". Zwracam null.`);
+        await AsyncStorage.removeItem(key); // Usuń nieprawidłową wartość
+        return null;
+      }
+      console.log(`[AuthStorage] Pobrano LPA (${timestamp}) dla User ID: ${userId}.`);
+      return timestamp;
+    } catch (error) {
+      console.error(`[AuthStorage] Błąd pobierania LPA dla User ID ${userId}:`, error);
+      throw new Error('Nie można pobrać ostatniego czasu synchronizacji.');
+    }
+  },
+
+  /**
+   * Czyści zapisany timestamp synchronizacji dla danego użytkownika.
+   * (Może być przydatne do debugowania lub resetowania stanu sync)
+   */
+  clearLastPulledAt: async (userId: string): Promise<void> => {
+    if (!userId) {
+        console.warn('[AuthStorage] Próba czyszczenia LPA bez userId.');
+        return;
+    }
+    try {
+      const key = getLastPulledAtKey(userId);
+      await AsyncStorage.removeItem(key);
+      console.log(`[AuthStorage] Wyczyszczono LPA dla User ID: ${userId}.`);
+    } catch (error) {
+      console.error(`[AuthStorage] Błąd czyszczenia LPA dla User ID ${userId}:`, error);
+      // Raczej nie rzucamy błędu, bo to operacja pomocnicza
+    }
+  },
+
+  // --- KONIEC NOWYCH METOD ---
 
   /**
    * Czyści access token z AsyncStorage.
