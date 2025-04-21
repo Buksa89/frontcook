@@ -1,65 +1,62 @@
-// app/(auth)/_layout.tsx
 import React from 'react';
-import { Stack } from 'expo-router/stack';
-import { Colors } from '../../src/config/theme'; // Importuj kolory dla spójności stylu
-import { Platform, StyleSheet } from 'react-native'; // Importuj Platform i StyleSheet
+import { Stack, useRouter } from 'expo-router';
+import { Colors } from '../../src/config/theme';
+import { Platform, StyleSheet, TouchableOpacity } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 export default function AuthLayout() {
-  // Layout będzie obowiązywał dla wszystkich ekranów w grupie (auth)
+  const router = useRouter();
+
+  const navigateToRecipes = () => {
+    router.replace('/(tabs)/recipes');
+  };
+
   return (
     <Stack
       screenOptions={{
-        headerShown: true, // Pokaż nagłówek
-        headerStyle: styles.headerStyle, // Użyj stylów zdefiniowanych poniżej
+        headerShown: true,
+        headerStyle: styles.headerStyle,
         headerTitleStyle: {
           fontSize: 18,
           fontWeight: '600',
-          color: Colors.textPrimary, // Kolor tekstu tytułu
+          color: Colors.textPrimary,
         },
-        headerTitleAlign: 'center', // Wyśrodkuj tytuł
-        headerTintColor: Colors.textSecondary, // Kolor strzałki wstecz
-        headerBackTitle: 'Wróć', // Tekst przycisku wstecz (iOS) lub null/false, aby ukryć
-        // headerBackTitleVisible: false, // Alternatywnie, aby ukryć tekst przycisku wstecz
+        headerTitleAlign: 'center',
+        headerTintColor: Colors.textSecondary, // Kolor tytułu i domyślnej strzałki (jeśli by była)
+        // ZMIANA: Usunięto headerBackTitleVisible i ustawiono headerBackTitle na pusty string
+        headerBackTitle: ' ', // Ustaw na spację lub pusty string, aby ukryć tekst obok domyślnej strzałki (iOS)
+        // --- KONIEC ZMIANY ---
+        headerLeft: () => (
+          <TouchableOpacity
+            onPress={navigateToRecipes}
+            style={styles.headerLeftButton}
+          >
+            <MaterialIcons name="arrow-back-ios" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        ),
       }}
     >
-      {/* Definicje ekranów w tej grupie nawigacji */}
-      <Stack.Screen
-        name="login" // Odpowiada plikowi login.tsx
-        options={{
-          title: 'Logowanie', // Tytuł wyświetlany w nagłówku
-        }}
-      />
-      <Stack.Screen
-        name="register" // Odpowiada plikowi register.tsx
-        options={{
-          title: 'Rejestracja', // Tytuł wyświetlany w nagłówku
-        }}
-      />
-      <Stack.Screen
-        name="forgot-password" // Odpowiada plikowi forgot-password.tsx
-        options={{
-          title: 'Resetuj Hasło', // Tytuł wyświetlany w nagłówku
-        }}
-      />
-      {/* Możesz dodać tutaj kolejne ekrany należące do przepływu autoryzacji */}
+      {/* Definicje ekranów bez zmian */}
+      <Stack.Screen name="login" options={{ title: 'Logowanie' }} />
+      <Stack.Screen name="register" options={{ title: 'Rejestracja' }} />
+      <Stack.Screen name="forgot-password" options={{ title: 'Resetuj Hasło' }}/>
     </Stack>
   );
 }
 
-// Definicja stylów dla nagłówka przy użyciu StyleSheet i Platform.select
 const styles = StyleSheet.create({
   headerStyle: {
-    backgroundColor: Colors.card, // Używamy koloru tła karty (zwykle biały)
-    borderBottomWidth: 1, // Delikatna linia na dole
-    borderBottomColor: Colors.border, // Używamy koloru ramki z motywu
-    // Warunkowe usunięcie cienia
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
     ...Platform.select({
-      ios: {
-        shadowOpacity: 0, // Usuń cień na iOS
-      },
-      android: {
-        elevation: 0, // Usuń cień na Androidzie
-      },
+      ios: { shadowOpacity: 0, },
+      android: { elevation: 0, },
     }),
   },
+  headerLeftButton: {
+    marginLeft: Platform.OS === 'ios' ? 15 : 0, // iOS potrzebuje marginesu, Android zwykle nie przy niestandardowym headerLeft
+    paddingVertical: 5,
+    paddingHorizontal: 10, // Daj trochę więcej miejsca na kliknięcie poziomo
+  }
 });

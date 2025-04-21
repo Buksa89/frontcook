@@ -98,7 +98,7 @@ export default function ForgotPasswordScreen() {
               title="Wyślij link resetujący"
               onPress={handleResetPassword}
               isLoading={isLoading}
-              disabled={isLoading || !email.trim()}
+              disabled={isLoading}
               variant="active"
               style={styles.submitButtonContainer}
             />
